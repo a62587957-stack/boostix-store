@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>صقر الديجيتال | متجر الشحن الفوري والبطاقات الرقمية</title>
+<title>Boostix Store | متجر الشحن الفوري والخدمات الرقمية</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -77,8 +77,8 @@
     <div class="brand">
       <div class="brand-logo">🎮</div>
       <div>
-        <h1>صقر الديجيتال للشحن الفوري</h1>
-        <p>شحن ألعاب وبطاقات رقمية على مدار الساعة</p>
+        <h1>Boostix Store - بوستكس ستور</h1>
+        <p>جميع خدمات الألعاب، التطبيقات، البطاقات والأرقام الرقمية 24/7</p>
       </div>
     </div>
 
@@ -109,7 +109,12 @@
   </div>
 
   <div id="sec-shop">
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:center;">
+      <input type="text" id="store-search" placeholder="🔍 ابحث في Boostix Store عن لعبة، تطبيق، بطاقة أو باقة (من بين +2200 باقة)..." oninput="onSearchInput(this.value)" style="flex:1; min-width:260px; padding:12px 16px; border-radius:12px; border:1.5px solid var(--cyan); background:#070b14; color:#fff; font-family:inherit; font-weight:800; font-size:14px;">
+      <button class="btn btn-rose" id="btn-back-cats" style="display:none; padding:12px 18px;" onclick="resetSubFilter()">⬅️ العودة للأقسام</button>
+    </div>
     <div class="filters" id="game-filters"></div>
+    <div id="sub-breadcrumb" style="margin-bottom:14px; font-size:14px; font-weight:900; color:#fde68a; display:none;"></div>
     <div class="grid" id="products-grid"></div>
   </div>
 
@@ -305,6 +310,144 @@
     });
   }
 
+  function renderIconHTML(iconVal, size=54) {
+    if (iconVal && (iconVal.startsWith("http://") || iconVal.startsWith("https://") || iconVal.startsWith("/"))) {
+      return `<img src="${iconVal}" alt="icon" loading="lazy" style="width:${size}px; height:${size}px; border-radius:12px; object-fit:cover; border:1.5px solid var(--cyan); background:#070b14;" onerror="this.outerHTML='<div class=\'p-ico\'>🎮</div>'">`;
+    }
+    return `<div class="p-ico" style="width:${size}px; height:${size}px;">${iconVal || '🎮'}</div>`;
+  }
+
+  let mainCatFilter = "الألعاب";
+  let subCatFilter = "";
+  let searchQuery = "";
+
+  function onSearchInput(val) {
+    searchQuery = (val || "").trim().toLowerCase();
+    renderStore();
+  }
+
+  function selectMainCat(catName) {
+    mainCatFilter = catName;
+    subCatFilter = "";
+    searchQuery = "";
+    const inp = document.getElementById("store-search");
+    if (inp) inp.value = "";
+    renderStore();
+  }
+
+  function selectSubCat(subName) {
+    subCatFilter = subName;
+    renderStore();
+    window.scrollTo({ top: 120, behavior: "smooth" });
+  }
+
+  function resetSubFilter() {
+    subCatFilter = "";
+    searchQuery = "";
+    const inp = document.getElementById("store-search");
+    if (inp) inp.value = "";
+    renderStore();
+  }
+
+  function splitGameField(g) {
+    const parts = (g || "الألعاب").split("|");
+    const main = (parts[0] || "الألعاب").trim();
+    const sub = (parts.slice(1).join("|") || main).trim();
+    return { main, sub };
+  }
+
+  function renderIconHTML(iconVal, size=54) {
+    if (iconVal && (iconVal.startsWith("http://") || iconVal.startsWith("https://") || iconVal.startsWith("/"))) {
+      return `<img src="${iconVal}" alt="icon" loading="lazy" style="width:${size}px; height:${size}px; border-radius:12px; object-fit:cover; border:1.5px solid var(--cyan); background:#070b14;" onerror="this.outerHTML='<div class=\'p-ico\'>🎮</div>'">`;
+    }
+    return `<div class="p-ico" style="width:${size}px; height:${size}px;">${iconVal || '🎮'}</div>`;
+  }
+
+  let mainCatFilter = "الألعاب";
+  let subCatFilter = "";
+  let searchQuery = "";
+
+  function onSearchInput(val) {
+    searchQuery = (val || "").trim().toLowerCase();
+    renderStore();
+  }
+
+  function selectMainCat(catName) {
+    mainCatFilter = catName;
+    subCatFilter = "";
+    searchQuery = "";
+    const inp = document.getElementById("store-search");
+    if (inp) inp.value = "";
+    renderStore();
+  }
+
+  function selectSubCat(subName) {
+    subCatFilter = subName;
+    renderStore();
+    window.scrollTo({ top: 120, behavior: "smooth" });
+  }
+
+  function resetSubFilter() {
+    subCatFilter = "";
+    searchQuery = "";
+    const inp = document.getElementById("store-search");
+    if (inp) inp.value = "";
+    renderStore();
+  }
+
+  function splitGameField(g) {
+    const parts = (g || "الألعاب").split("|");
+    const main = (parts[0] || "الألعاب").trim();
+    const sub = (parts.slice(1).join("|") || main).trim();
+    return { main, sub };
+  }
+
+  function renderIconHTML(iconVal, size=54) {
+    if (iconVal && (iconVal.startsWith("http://") || iconVal.startsWith("https://") || iconVal.startsWith("/"))) {
+      return `<img src="${iconVal}" alt="icon" loading="lazy" style="width:${size}px; height:${size}px; border-radius:12px; object-fit:cover; border:1.5px solid var(--cyan); background:#070b14;" onerror="this.outerHTML='<div class=\'p-ico\'>🎮</div>'">`;
+    }
+    return `<div class="p-ico" style="width:${size}px; height:${size}px;">${iconVal || '🎮'}</div>`;
+  }
+
+  let mainCatFilter = "الألعاب";
+  let subCatFilter = "";
+  let searchQuery = "";
+
+  function onSearchInput(val) {
+    searchQuery = (val || "").trim().toLowerCase();
+    renderStore();
+  }
+
+  function selectMainCat(catName) {
+    mainCatFilter = catName;
+    subCatFilter = "";
+    searchQuery = "";
+    const inp = document.getElementById("store-search");
+    if (inp) inp.value = "";
+    renderStore();
+  }
+
+  function selectSubCat(subName) {
+    subCatFilter = subName;
+    renderStore();
+    window.scrollTo({ top: 120, behavior: "smooth" });
+  }
+
+  function resetSubFilter() {
+    subCatFilter = "";
+    searchQuery = "";
+    const inp = document.getElementById("store-search");
+    if (inp) inp.value = "";
+    renderStore();
+  }
+
+  function splitGameField(g) {
+    const parts = (g || "الألعاب").split("|");
+    const main = (parts[0] || "الألعاب").trim();
+    const sub = (parts.slice(1).join("|") || main).trim();
+    return { main, sub };
+  }
+
   function openBuy(id) {
     if (!DATA.user) {
       signInWithGoogleOfficial();
@@ -313,9 +456,16 @@
     buyProdId = id;
     const p = DATA.products.find(x => x.id === id);
     if (!p) return;
+    const info = splitGameField(p.game);
     document.getElementById("bm-summary").innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div><div style="font-size:12px; color:var(--cyan);">${p.game}</div><div style="font-size:16px; font-weight:900;">${p.icon} ${p.pack}</div></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          ${renderIconHTML(p.icon, 48)}
+          <div>
+            <div style="font-size:12px; color:var(--cyan);">${info.main} - ${info.sub}</div>
+            <div style="font-size:15px; font-weight:900;">${p.pack}</div>
+          </div>
+        </div>
         <div style="font-size:19px; font-weight:900; color:#fde68a; direction:ltr;">${fmtUSD(p.price_usd)}</div>
       </div>
     `;
@@ -325,7 +475,7 @@
 
   async function confirmBuy() {
     const player_id = document.getElementById("bm-player-id").value.trim();
-    if (!player_id) return alert("يرجى إدخال رقم الـ ID الخاص بحسابك في اللعبة");
+    if (!player_id) return alert("يرجى إدخال رقم الـ ID أو الحساب المطلوب");
     const res = await fetch("/api/customer/purchase", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ACCESS_TOKEN },
@@ -388,30 +538,103 @@
       document.getElementById("logged-out-bar").style.display = "flex";
     }
 
-    const games = ["all", ...new Set(DATA.products.map(p => p.game))];
-    document.getElementById("game-filters").innerHTML = games.map(g => `
-      <button class="f-pill ${gameFilter === g ? 'active' : ''}" onclick="gameFilter='${g}';renderStore();">
-        ${g === 'all' ? '🔥 جميع الأقسام' : '🎮 ' + g}
-      </button>
-    `).join("");
+    const orderedMains = [
+      "الألعاب", "تطبيقات دردشة", "تواصل اجتماعي", "بطاقات شحن",
+      "قسم الأرقام", "توثيق حسابات", "عملات و أرصدة", "ذكاء اصطناعي Ai",
+      "شاشة VIP", "برامج تصميم", "Vpn مدفوع", "سحب رواتب"
+    ];
+    const existingMains = [...new Set(DATA.products.map(p => splitGameField(p.game).main))];
+    const mainCats = orderedMains.filter(m => existingMains.includes(m));
+    existingMains.forEach(m => { if (!mainCats.includes(m)) mainCats.push(m); });
 
-    const prods = DATA.products.filter(p => gameFilter === "all" || p.game === gameFilter);
-    document.getElementById("products-grid").innerHTML = prods.map(p => `
-      <div class="p-card">
-        <div>
-          <div class="p-ico">${p.icon}</div>
-          <div class="p-game">${p.game}</div>
-          <div class="p-name">${p.pack}</div>
-        </div>
-        <div>
-          <div class="p-price">
-            <span style="font-size:19px; font-weight:900; color:#fde68a; direction:ltr;">${fmtUSD(p.price_usd)}</span>
-            <span style="font-size:12px; color:var(--cyan); direction:ltr;">${fmtSYP(p.price_usd)}</span>
+    if (!mainCats.includes(mainCatFilter) && mainCats.length > 0) {
+      mainCatFilter = mainCats[0];
+    }
+
+    document.getElementById("game-filters").innerHTML = mainCats.map(m => {
+      const count = DATA.products.filter(p => splitGameField(p.game).main === m).length;
+      return `
+        <button class="f-pill ${(!searchQuery && mainCatFilter === m) ? 'active' : ''}" onclick='selectMainCat(${JSON.stringify(m)})'>
+          📂 ${m} <span style="font-size:11px; opacity:0.8;">(${count})</span>
+        </button>
+      `;
+    }).join("");
+
+    const backBtn = document.getElementById("btn-back-cats");
+    const bread = document.getElementById("sub-breadcrumb");
+    const grid = document.getElementById("products-grid");
+
+    // حالة البحث المباشر أو اختيار قسم فرعي محدد -> عرض الباقات
+    if (searchQuery || subCatFilter) {
+      backBtn.style.display = "inline-block";
+      bread.style.display = "block";
+      let filtered = [];
+      if (searchQuery) {
+        filtered = DATA.products.filter(p =>
+          (p.pack && p.pack.toLowerCase().includes(searchQuery)) ||
+          (p.game && p.game.toLowerCase().includes(searchQuery))
+        ).slice(0, 120);
+        bread.textContent = `🔍 نتائج البحث عن "${searchQuery}" (${filtered.length} باقة):`;
+      } else {
+        filtered = DATA.products.filter(p => {
+          const info = splitGameField(p.game);
+          return info.main === mainCatFilter && info.sub === subCatFilter;
+        });
+        bread.textContent = `📂 ${mainCatFilter} ⬅️ ${subCatFilter} (${filtered.length} باقة متوفرة):`;
+      }
+
+      grid.innerHTML = filtered.map(p => {
+        const info = splitGameField(p.game);
+        return `
+          <div class="p-card">
+            <div>
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+                ${renderIconHTML(p.icon, 54)}
+                <div>
+                  <div class="p-game">${info.sub}</div>
+                  <div class="p-name" style="margin:2px 0 0;">${p.pack}</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="p-price">
+                <span style="font-size:19px; font-weight:900; color:#fde68a; direction:ltr;">${fmtUSD(p.price_usd)}</span>
+                <span style="font-size:12px; color:var(--cyan); direction:ltr;">${fmtSYP(p.price_usd)}</span>
+              </div>
+              <button class="btn btn-cyan" style="width:100%;" onclick="openBuy(${p.id})">⚡ شراء فوري</button>
+            </div>
           </div>
-          <button class="btn btn-cyan" style="width:100%;" onclick="openBuy(${p.id})">⚡ شراء فوري</button>
+        `;
+      }).join("") || `<div class="panel" style="grid-column:1/-1; text-align:center;">لا توجد باقات مطابقة.</div>`;
+    } else {
+      // عرض الأقسام الفرعية داخل القسم الرئيسي المختار كبطاقات مصورة
+      backBtn.style.display = "none";
+      bread.style.display = "block";
+      const inMain = DATA.products.filter(p => splitGameField(p.game).main === mainCatFilter);
+      const subMap = new Map();
+      inMain.forEach(p => {
+        const sub = splitGameField(p.game).sub;
+        if (!subMap.has(sub)) {
+          subMap.set(sub, { name: sub, icon: p.icon, count: 0, minPrice: p.price_usd });
+        }
+        const entry = subMap.get(sub);
+        entry.count++;
+        if (p.price_usd < entry.minPrice) entry.minPrice = p.price_usd;
+      });
+      const subs = Array.from(subMap.values());
+      bread.textContent = `📂 أقسام ${mainCatFilter} (${subs.length} قسم فرعي - اضغط على القسم لعرض باقاته):`;
+
+      grid.innerHTML = subs.map(s => `
+        <div class="p-card" style="cursor:pointer; text-align:center; align-items:center;" onclick='selectSubCat(${JSON.stringify(s.name)})'>
+          <div style="margin-bottom:10px;">${renderIconHTML(s.icon, 74)}</div>
+          <div class="p-name" style="font-size:15px; margin-bottom:6px;">${s.name}</div>
+          <div style="font-size:12px; color:var(--cyan); font-weight:800; margin-bottom:12px;">
+            📦 ${s.count} باقة | تبدأ من ${fmtUSD(s.minPrice)}
+          </div>
+          <button class="btn btn-cyan" style="width:100%;">عرض الباقات ⬅️</button>
         </div>
-      </div>
-    `).join("");
+      `).join("");
+    }
 
     updatePayBox();
 

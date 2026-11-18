@@ -49,6 +49,34 @@ def sb_request(method, path, body=None, prefer_rep=False, custom_token=None):
     except Exception as e:
         return {"error": str(e)}
 
+
+def fetch_all_active_products():
+    all_p = []
+    for offset in (0, 1000, 2000):
+        chunk = sb_request("GET", f"/rest/v1/products?active=eq.true&select=id,game,pack,price_usd,icon&order=id.asc&limit=1000&offset={offset}")
+        if isinstance(chunk, list):
+            all_p.extend(chunk)
+            if len(chunk) < 1000:
+                break
+        else:
+            break
+    return all_p
+
+def load_catalog_tree():
+    cat_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "boostix_store_catalog.json")
+    if os.path.exists(cat_path):
+        try:
+            with open(cat_path, "r", encoding="utf-8") as f:
+                c = json.load(f)
+            return {
+                "main_categories": c.get("main_categories", []),
+                "sub_categories": c.get("sub_categories", []),
+                "level3_categories": c.get("level3_categories", [])
+            }
+        except Exception:
+            pass
+    return {"main_categories": [], "sub_categories": [], "level3_categories": []}
+
 def verify_user_session(token):
     if not token:
         return None
@@ -108,7 +136,8 @@ class CloudHandler(BaseHTTPRequestHandler):
 
         if p == "/api/customer/bootstrap":
             u = self._auth_user()
-            prods = sb_request("GET", "/rest/v1/products?active=eq.true&select=id,game,pack,price_usd,icon&order=id.asc")
+            prods = fetch_all_active_products()
+            cat_tree = load_catalog_tree()
             if not isinstance(prods, list): prods = []
             my_ords, my_deps, u_dict = [], [], None
             if u:
@@ -136,6 +165,7 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "supabaseAnonKey": SUPABASE_PUB,
                 "user": u_dict,
                 "products": prods,
+                "catalogTree": cat_tree,
                 "myOrders": my_ords,
                 "myDeposits": my_deps,
                 "payInfo": {
@@ -161,7 +191,8 @@ class CloudHandler(BaseHTTPRequestHandler):
             ords = sb_request("GET", "/rest/v1/orders?select=*&order=id.desc")
             if not isinstance(ords, list): ords = []
             for o in ords: o["date"] = fmt_date(o.get("created_at"))
-            self._json({"ok": True, "users": users, "products": prods, "deposits": deps, "orders": ords})
+            self._json({"ok": True, "users": users, "products": prods,
+                "catalogTree": cat_tree, "deposits": deps, "orders": ords})
             return
 
     def do_POST(self):
