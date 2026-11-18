@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>منصة صقر الديجيتال | نظام السيرفر الحقيقي وقواعد بيانات SQL</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-main: #070b14;
+    --bg-card: #111827;
+    --bg-elevated: #1e293b;
+    --border-col: #334155;
+    --cyan: #06b6d4;
+    --purple: #8b5cf6;
+    --gold: #f59e0b;
+    --gold-light: #fde68a;
+    --green: #10b981;
+    --rose: #f43f5e;
+    --text-white: #f8fafc;
+    --text-muted: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg-main); color: var(--text-white); font-family: 'Cairo', Tahoma, sans-serif; padding-bottom: 70px; }
+
+  .top-header {
+    background: linear-gradient(135deg, #070b14 0%, #1e1b4b 55%, #0f172a 100%);
+    border-bottom: 3px solid var(--cyan); padding: 14px 22px;
+    box-shadow: 0 10px 30px rgba(6, 182, 212, 0.2); position: sticky; top: 0; z-index: 800;
+  }
+  .header-wrap {
+    max-width: 1320px; margin: 0 auto; padding-left: 52px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;
+  }
+  .brand-box { display: flex; align-items: center; gap: 12px; }
+  .brand-icon {
+    width: 52px; height: 52px; border-radius: 14px;
+    background: linear-gradient(135deg, var(--purple), var(--cyan));
+    border: 2px solid var(--gold-light); display: flex; align-items: center; justify-content: center;
+    font-size: 26px; box-shadow: 0 0 18px rgba(139, 92, 246, 0.45);
+  }
+  .brand-txt h1 { font-size: 20px; font-weight: 900; color: #fff; }
+  .brand-txt p { font-size: 12px; color: #34d399; font-weight: 800; }
+
+  .dots-top-left {
+    position: fixed; top: 16px; left: 16px; z-index: 950;
+    background: rgba(17, 24, 39, 0.9); color: var(--gold-light);
+    border: 2px solid var(--cyan); width: 40px; height: 40px;
+    border-radius: 10px; font-size: 24px; font-weight: 900; line-height: 1;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+
+  .user-wallet-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .wallet-pill {
+    background: rgba(16, 185, 129, 0.15); border: 1.5px solid var(--green);
+    padding: 6px 14px; border-radius: 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .wallet-pill .wp-lbl { font-size: 12px; color: #a7f3d0; font-weight: 800; }
+  .wallet-pill .wp-val { font-size: 17px; font-weight: 900; color: #34d399; direction: ltr; }
+
+  .user-badge {
+    background: var(--bg-elevated); border: 1.5px solid var(--border-col);
+    padding: 6px 12px; border-radius: 12px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800;
+  }
+  .role-tag { padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 900; }
+  .role-customer { background: var(--cyan); color: #000; }
+  .role-admin { background: var(--gold); color: #000; }
+
+  .google-login-btn {
+    background: #ffffff; color: #0f172a; border: 2px solid var(--gold);
+    padding: 8px 16px; border-radius: 10px; font-family: inherit; font-weight: 900; font-size: 13px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+  }
+
+  .container { max-width: 1320px; margin: 18px auto; padding: 0 16px; }
+
+  .portal-switcher {
+    background: var(--bg-card); border: 2px solid var(--border-col); border-radius: 14px;
+    padding: 10px 16px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+  }
+  .ps-tabs { display: flex; gap: 10px; flex-wrap: wrap; }
+  .ps-btn {
+    padding: 9px 18px; border-radius: 10px; border: 1.5px solid var(--border-col);
+    background: var(--bg-main); color: var(--text-muted); font-family: inherit; font-weight: 900; font-size: 14px; cursor: pointer;
+  }
+  .ps-btn.active { background: linear-gradient(90deg, var(--cyan), #2563eb); color: #fff; border-color: #fff; }
+  .ps-btn.admin-active { background: linear-gradient(90deg, var(--gold), #ea580c); color: #000; border-color: #fff; }
+
+  .nav-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .nav-card {
+    background: var(--bg-card); border: 2px solid var(--border-col); border-radius: 14px;
+    padding: 14px 16px; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center;
+  }
+  .nav-card.active { background: linear-gradient(135deg, #1e1b4b, #0f766e); border-color: var(--gold); }
+  .nc-title { font-size: 15px; font-weight: 900; color: #fff; }
+  .nc-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; font-weight: 700; }
+  .nav-card.active .nc-sub { color: var(--gold-light); }
+  .nc-badge { background: var(--cyan); color: #000; padding: 3px 10px; border-radius: 20px; font-weight: 900; font-size: 12px; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .kpi-card { background: var(--bg-card); border-radius: 14px; padding: 16px; border-right: 5px solid var(--cyan); border-top: 1px solid var(--border-col); }
+  .kpi-card.green { border-right-color: var(--green); background: linear-gradient(180deg, #111827, #064e3b); }
+  .kpi-card.gold { border-right-color: var(--gold); }
+  .kpi-card.purple { border-right-color: var(--purple); }
+  .kpi-lbl { font-size: 13px; color: var(--text-muted); font-weight: 800; margin-bottom: 6px; }
+  .kpi-val { font-size: 24px; font-weight: 900; color: #fff; direction: ltr; text-align: right; }
+  .kpi-sub { font-size: 12px; color: var(--gold-light); margin-top: 4px; font-weight: 700; }
+
+  .game-filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .gf-btn {
+    background: var(--bg-card); color: var(--text-muted); border: 1.5px solid var(--border-col);
+    padding: 7px 16px; border-radius: 20px; font-family: inherit; font-weight: 800; font-size: 13px; cursor: pointer;
+  }
+  .gf-btn.active { background: var(--cyan); color: #000; border-color: #fff; font-weight: 900; }
+
+  .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: 16px; }
+  .prod-item {
+    background: linear-gradient(180deg, #161f33 0%, #0f172a 100%);
+    border: 2px solid #1e293b; border-radius: 16px; padding: 18px;
+    display: flex; flex-direction: column; justify-content: space-between; position: relative;
+  }
+  .prod-sku-tag {
+    position: absolute; top: 12px; left: 12px; background: rgba(139, 92, 246, 0.2);
+    color: #c4b5fd; border: 1px solid var(--purple); padding: 2px 8px; border-radius: 8px; font-size: 10px; font-family: monospace;
+  }
+  .prod-ico {
+    width: 54px; height: 54px; border-radius: 14px; background: rgba(6, 182, 212, 0.12);
+    border: 1.5px solid var(--cyan); display: flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 10px;
+  }
+  .prod-game-lbl { font-size: 12px; color: var(--cyan); font-weight: 800; }
+  .prod-pack-name { font-size: 17px; font-weight: 900; color: #fff; margin: 4px 0 12px; }
+  .prod-price-bar {
+    background: rgba(0,0,0,0.4); border: 1px solid var(--border-col); border-radius: 10px;
+    padding: 9px 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;
+  }
+
+  .box-panel { background: var(--bg-card); border: 2px solid #1e293b; border-radius: 16px; padding: 20px; margin-bottom: 20px; }
+  .box-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding-bottom: 14px; margin-bottom: 16px; border-bottom: 1.5px solid #1e293b; }
+  .table-scroll { overflow-x: auto; }
+  table.data-table { width: 100%; border-collapse: collapse; min-width: 860px; }
+  table.data-table th { background: #1e1b4b; color: var(--gold-light); font-size: 13px; font-weight: 900; padding: 11px 10px; border: 1px solid #312e81; text-align: center; }
+  table.data-table td { padding: 10px; border: 1px solid #1e293b; text-align: center; font-size: 13px; font-weight: 700; color: #e2e8f0; }
+
+  .st-pill { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 900; display: inline-block; }
+  .st-ok { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid var(--green); }
+  .st-wait { background: rgba(245, 158, 11, 0.2); color: var(--gold-light); border: 1px solid var(--gold); }
+  .st-err { background: rgba(244, 63, 94, 0.2); color: #fda4af; border: 1px solid var(--rose); }
+
+  .btn { font-family: inherit; font-weight: 900; border: none; padding: 9px 15px; border-radius: 9px; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .btn-cyan { background: linear-gradient(90deg, var(--cyan), #2563eb); color: #fff; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-gold { background: var(--gold); color: #000; }
+  .btn-purple { background: var(--purple); color: #fff; }
+  .btn-rose { background: var(--rose); color: #fff; }
+  .btn-gray { background: #334155; color: #fff; }
+
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.82); z-index: 900; align-items: center; justify-content: center; padding: 16px; }
+  .modal.open { display: flex; }
+  .modal-box { background: #111827; width: 100%; max-width: 600px; border-radius: 18px; border: 2.5px solid var(--cyan); overflow: hidden; max-height: 92vh; display: flex; flex-direction: column; color: #fff; }
+  .modal-header { background: linear-gradient(90deg, #1e1b4b, #0f766e); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--cyan); }
+  .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+  .modal-footer { padding: 14px 20px; background: #070b14; border-top: 1px solid #1e293b; display: flex; justify-content: space-between; gap: 10px; }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .f-inp label { display: block; font-size: 12px; font-weight: 800; color: var(--cyan); margin-bottom: 5px; }
+  .f-inp input, .f-inp select { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border-col); border-radius: 9px; background: #070b14; color: #fff; font-family: inherit; font-size: 14px; font-weight: 800; }
+</style>
+</head>
+<body>
+
+<button class="dots-top-left" onclick="document.getElementById('dev-info-modal').classList.add('open')">⋮</button>
+
+<header class="top-header">
+  <div class="header-wrap">
+    <div class="brand-box">
+      <div class="brand-icon">🛡️</div>
+      <div class="brand-txt">
+        <h1>منصة صقر الديجيتال (سيرفر باك إند حقيقي + SQL Database)</h1>
+        <p id="server-conn-status">🟢 متصل بالسيرفر الفعلي (Python Backend + SQLite/PostgreSQL Engine)</p>
+      </div>
+    </div>
+
+    <div class="user-wallet-strip">
+      <div class="wallet-pill">
+        <span class="wp-lbl">💳 رصيد المحفظة بالسيرفر:</span>
+        <span class="wp-val" id="hdr-wallet-balance">$0.00</span>
+        <button class="btn btn-green" style="padding:4px 10px; font-size:11px;" onclick="goToDepositTab()">+ إيداع</button>
+      </div>
+
+      <div class="user-badge">
+        <span id="hdr-user-name">...</span>
+        <span class="role-tag role-customer" id="hdr-user-role">زبون</span>
+      </div>
+
+      <button class="google-login-btn" onclick="openGoogleAuthModal()">
+        <span>🌐</span> تسجيل دخول Google / تبديل الحساب
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="portal-switcher">
+    <div class="ps-tabs">
+      <button class="ps-btn active" id="pbtn-customer" onclick="switchPortal('customer')">
+        🛒 واجهة الزبائن (الشراء الفوري وشحن المحفظة)
+      </button>
+      <button class="ps-btn" id="pbtn-admin" onclick="switchPortal('admin')">
+        👑 لوحة الإدارة (الإيداعات • الطلبات • المنتجات • الربط البرمجي API • الإحصائيات)
+      </button>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:10px; font-size:13px; font-weight:800;">
+      <span>💵 سعر الصرف بالسيرفر (ل.س):</span>
+      <input type="number" id="hdr-rate-inp" value="15000" onchange="saveRateToServer(this.value)" style="width:95px; padding:5px 8px; background:#070b14; color:var(--gold-light); border:1.5px solid var(--cyan); border-radius:8px; font-weight:900; text-align:center;">
+    </div>
+  </div>
+
+  <!-- ==================== بوابة الزبائن ==================== -->
+  <div id="portal-customer-view">
+    <div class="nav-tabs">
+      <div class="nav-card active" id="ctab-shop" onclick="switchCustomerTab('shop')">
+        <div>
+          <div class="nc-title">🎮 1. تصفح الألعاب والشراء الفوري</div>
+          <div class="nc-sub">خصم ذري من السيرفر وإرسال فوري لـ API المورد</div>
+        </div>
+        <span class="nc-badge" id="c-badge-prods">0</span>
+      </div>
+
+      <div class="nav-card" id="ctab-wallet" onclick="switchCustomerTab('wallet')">
+        <div>
+          <div class="nc-title">💳 2. شحن المحفظة (إيداع رصيد)</div>
+          <div class="nc-sub">شام كاش • سيريتل كاش • USDT</div>
+        </div>
+        <span class="nc-badge" style="background:var(--green); color:#fff;">إيداع</span>
+      </div>
+
+      <div class="nav-card" id="ctab-myorders" onclick="switchCustomerTab('myorders')">
+        <div>
+          <div class="nc-title">📦 3. طلباتي وسجل محفظتي</div>
+          <div class="nc-sub">حالة الشحن الفعلي من سيرفر المورد</div>
+        </div>
+        <span class="nc-badge" id="c-badge-myorders" style="background:var(--gold);">0</span>
+      </div>
+    </div>
+
+    <div id="csec-shop">
+      <div class="game-filter-bar" id="customer-game-filters"></div>
+      <div class="products-grid" id="customer-products-grid"></div>
+    </div>
+
+    <div id="csec-wallet" style="display:none;">
+      <div class="box-panel" style="max-width:860px; margin:0 auto;">
+        <div class="box-head">
+          <div>
+            <h2 style="color:var(--gold-light); font-size:19px;">💳 شحن رصيد المحفظة (إيداع موثق بالسيرفر)</h2>
+            <p style="font-size:13px; color:var(--text-muted);">حوّل المبلغ إلى الحساب أدناه ثم أدخل المبلغ ورقم العملية الفعلي في الإشعار</p>
+          </div>
+          <div style="text-align:left;">
+            <span style="font-size:12px; color:var(--text-muted);">رصيدك الفعلي في قاعدة البيانات:</span>
+            <div style="font-size:22px; font-weight:900; color:#34d399; direction:ltr;" id="wallet-page-bal">$0.00</div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="f-inp">
+            <label>1️⃣ وسيلة الدفع:</label>
+            <select id="dep-method" onchange="renderPaymentAccountBox()">
+              <option value="شام كاش (Sham Cash)">📱 شام كاش (Sham Cash)</option>
+              <option value="سيريتل كاش (Syriatel Cash)">📲 سيريتل كاش (Syriatel Cash)</option>
+              <option value="USDT (TRC20 / Binance)">💎 عملة رقمية USDT</option>
+            </select>
+          </div>
+          <div class="f-inp">
+            <label>2️⃣ المبلغ المحول بالدولار ($):</label>
+            <input type="number" step="0.5" id="dep-amount" placeholder="مثال: 20" oninput="calcDepositSYPPreview()">
+          </div>
+        </div>
+
+        <div id="dep-account-display" style="background:#070b14; border:2px dashed var(--cyan); border-radius:12px; padding:14px 18px; margin-bottom:14px;"></div>
+
+        <div class="form-row">
+          <div class="f-inp">
+            <label>3️⃣ رقم عملية التحويل الفعلي (Transaction ID):</label>
+            <input type="text" id="dep-tx-id" placeholder="أدخل رقم العملية من إشعار التحويل..." dir="ltr" style="border-color:var(--gold);">
+          </div>
+          <div class="f-inp">
+            <label>🔄 المعادل بالليرة السورية:</label>
+            <input type="text" id="dep-syp-preview" readonly value="0 ل.س" style="background:#1e293b; color:var(--gold-light);">
+          </div>
+        </div>
+
+        <button class="btn btn-green" style="width:100%; padding:13px; font-size:15px;" onclick="submitDepositToServer()">
+          📤 إرسال طلب الإيداع إلى قاعدة بيانات السيرفر
+        </button>
+      </div>
+    </div>
+
+    <div id="csec-myorders" style="display:none;">
+      <div class="box-panel">
+        <div class="box-head">
+          <h3 style="color:var(--cyan);">📦 طلباتي وحالة التنفيذ من سيرفر المورد</h3>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>رقم الطلب</th>
+                <th>التاريخ</th>
+                <th>اللعبة والباقة</th>
+                <th>رقم اللاعب (Player ID)</th>
+                <th>المبلغ المخصوم</th>
+                <th>حالة التنفيذ</th>
+                <th>رد سيرفر المورد</th>
+              </tr>
+            </thead>
+            <tbody id="customer-orders-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="box-panel">
+        <div class="box-head">
+          <h3 style="color:var(--gold-light);">📜 سجل طلبات شحن محفظتي (Deposits)</h3>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>رقم الإيداع</th>
+                <th>التاريخ</th>
+                <th>وسيلة الدفع</th>
+                <th>المبلغ ($)</th>
+                <th>رقم العملية (TxID)</th>
+                <th>الحالة في السيرفر</th>
+              </tr>
+            </thead>
+            <tbody id="customer-deposits-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== لوحة الإدارة (Admin Panel) ==================== -->
+  <div id="portal-admin-view" style="display:none;">
+    <div class="nav-tabs">
+      <div class="nav-card active" id="atab-deposits" onclick="switchAdminTab('deposits')">
+        <div>
+          <div class="nc-title">💳 1. سجلات الشحن والإيداعات</div>
+          <div class="nc-sub">قبول/رفض عمليات شام كاش وتغذية المحافظ</div>
+        </div>
+        <span class="nc-badge" id="a-badge-deps" style="background:var(--gold);">0</span>
+      </div>
+
+      <div class="nav-card" id="atab-orders" onclick="switchAdminTab('orders')">
+        <div>
+          <div class="nc-title">📦 2. الطلبات (المقبولة والمرفوضة)</div>
+          <div class="nc-sub">مراقبة حصة المورد وربح المدير الصافي</div>
+        </div>
+        <span class="nc-badge" id="a-badge-ords">0</span>
+      </div>
+
+      <div class="nav-card" id="atab-products" onclick="switchAdminTab('products')">
+        <div>
+          <div class="nc-title">🎮 3. إدارة المنتجات والربط API</div>
+          <div class="nc-sub">الباقات • الأسعار • إعدادات API المورد الفعلي</div>
+        </div>
+        <span class="nc-badge" id="a-badge-prods" style="background:var(--purple); color:#fff;">0</span>
+      </div>
+
+      <div class="nav-card" id="atab-stats" onclick="switchAdminTab('stats')">
+        <div>
+          <div class="nc-title">📊 4. الإحصائيات والمستخدمين</div>
+          <div class="nc-sub">الأرباح • الإيداعات • جدول Users الفعلي</div>
+        </div>
+        <span class="nc-badge" style="background:var(--green); color:#fff;">SQL</span>
+      </div>
+    </div>
+
+    <!-- 1. الإيداعات -->
+    <div id="asec-deposits">
+      <div class="box-panel">
+        <div class="box-head">
+          <div>
+            <h3 style="color:var(--gold-light);">💳 جدول طلبات الإيداع في قاعدة البيانات (Deposits Table)</h3>
+            <p style="font-size:12px; color:var(--text-muted);">عند الضغط على (قبول)، يقوم السيرفر بإضافة المبلغ لرصيد المستخدم داخل قاعدة البيانات</p>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>رقم الإيداع</th>
+                <th>التاريخ</th>
+                <th>اسم المستخدم</th>
+                <th>معرف المستخدم (ID)</th>
+                <th>وسيلة الدفع</th>
+                <th>رقم العملية (TxID)</th>
+                <th>المبلغ المودع</th>
+                <th>الحالة</th>
+                <th>قرار المدير بالسيرفر</th>
+              </tr>
+            </thead>
+            <tbody id="admin-deposits-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. الطلبات -->
+    <div id="asec-orders" style="display:none;">
+      <div class="box-panel">
+        <div class="box-head">
+          <h3 style="color:var(--cyan);">📦 جدول الطلبات وتقسيم الأموال بين المورد والمدير (Orders Table)</h3>
+          <select id="adm-order-filter" onchange="renderUI()" style="padding:7px 12px; border-radius:8px; background:#070b14; color:#fff; border:1.5px solid var(--cyan); font-family:inherit; font-weight:800;">
+            <option value="all">📋 كل الطلبات</option>
+            <option value="مكتمل">✅ الطلبات المقبولة والمكتملة</option>
+            <option value="قيد التنفيذ">⏳ الطلبات قيد التنفيذ</option>
+            <option value="مرفوض من المورد">❌ الطلبات المرفوضة من المورد</option>
+          </select>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>رقم الطلب</th>
+                <th>المشتري (User)</th>
+                <th>اللعبة والباقة (SKU)</th>
+                <th>Player ID</th>
+                <th>السعر المخصوم</th>
+                <th>حصة المورد</th>
+                <th>الكمالة للمدير (ربحك)</th>
+                <th>الحالة</th>
+                <th>تحكم / إرسال للمورد</th>
+              </tr>
+            </thead>
+            <tbody id="admin-orders-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. المنتجات + إعدادات API المورد الحقيقي -->
+    <div id="asec-products" style="display:none;">
+      <div class="box-panel">
+        <div class="box-head">
+          <h3 style="color:var(--gold-light);">🔗 إعدادات الربط البرمجي الحقيقي مع المورد (Supplier REST API) وحسابات الإيداع</h3>
+        </div>
+        <div class="form-row">
+          <div class="f-inp">
+            <label>🌐 رابط سيرفر المورد الفعلي (Supplier API Endpoint URL):</label>
+            <input type="text" id="cfg-api-url" dir="ltr">
+          </div>
+          <div class="f-inp">
+            <label>🔑 مفتاح الـ API السري للمورد (Supplier API Key - يُحفظ بالسيرفر فقط):</label>
+            <input type="text" id="cfg-api-key" dir="ltr">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="f-inp">
+            <label>⚙️ وضع الاتصال بالمورد:</label>
+            <select id="cfg-sup-mode">
+              <option value="auto_simulate">⚡ فحص آلي وتنفيذ فوري (مناسب للتجربة أو المورد اليدوي)</option>
+              <option value="real_http">🌐 اتصال HTTP POST حي ومباشر بسيرفر المورد (Real Production API)</option>
+            </select>
+          </div>
+          <div class="f-inp">
+            <label>📞 رقم واتساب المورد وأرقام شام كاش:</label>
+            <input type="text" id="cfg-sham-acc">
+          </div>
+        </div>
+        <button class="btn btn-green" onclick="saveServerSettings()">💾 حفظ إعدادات السيرفر والـ API في قاعدة البيانات</button>
+      </div>
+
+      <div class="box-panel">
+        <div class="box-head">
+          <h3 style="color:var(--cyan);">🎮 جدول المنتجات والأيقونات والأسعار (Products Table)</h3>
+          <button class="btn btn-gold" onclick="openProductModal(null)">+ إضافة باقة جديدة للسيرفر</button>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>الأيقونة</th>
+                <th>اللعبة</th>
+                <th>اسم الباقة</th>
+                <th>رمز الوكيل (SKU)</th>
+                <th>تكلفة المورد ($)</th>
+                <th>سعر البيع ($)</th>
+                <th>ربح المدير الصافي</th>
+                <th>تعديل / حذف</th>
+              </tr>
+            </thead>
+            <tbody id="admin-products-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. الإحصائيات وجدول المستخدمين -->
+    <div id="asec-stats" style="display:none;">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-lbl">📦 مجموع الطلبات بالسيرفر</div>
+          <div class="kpi-val" id="stat-total-orders">0</div>
+          <div class="kpi-sub" id="stat-orders-sub">...</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-lbl">🏆 صافي أرباح المدير الفعلية</div>
+          <div class="kpi-val" id="stat-total-profit" style="color:#34d399;">$0.00</div>
+          <div class="kpi-sub" id="stat-total-profit-syp">0 ل.س</div>
+        </div>
+        <div class="kpi-card gold">
+          <div class="kpi-lbl">💳 مجموع الإيداعات المقبولة</div>
+          <div class="kpi-val" id="stat-total-deposits">$0.00</div>
+          <div class="kpi-sub" id="stat-total-deposits-syp">0 ل.س</div>
+        </div>
+        <div class="kpi-card purple">
+          <div class="kpi-lbl">👥 عدد المستخدمين (Users Table)</div>
+          <div class="kpi-val" id="stat-total-users">0</div>
+          <div class="kpi-sub" id="stat-users-wallets">...</div>
+        </div>
+      </div>
+
+      <div class="box-panel">
+        <div class="box-head">
+          <h3 style="color:var(--cyan);">👥 جدول المستخدمين الفعلي في قاعدة البيانات (Users SQL Table)</h3>
+          <button class="btn btn-green" onclick="openGoogleAuthModal()">+ تسجيل مستخدم جديد</button>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>معرف المستخدم (ID)</th>
+                <th>الاسم</th>
+                <th>البريد الإلكتروني (Google)</th>
+                <th>الرصيد الفعلي بالمحفظة</th>
+                <th>الصلاحية</th>
+                <th>إجراءات المدير بالسيرفر</th>
+              </tr>
+            </thead>
+            <tbody id="admin-users-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- نافذة الشراء -->
+<div class="modal" id="checkout-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>⚡ تأكيد الشراء الفوري من محفظة السيرفر</h3>
+      <button class="btn btn-rose" onclick="closeModal('checkout-modal')">✖</button>
+    </div>
+    <div class="modal-body">
+      <div id="chk-pack-info" style="background:#1e1b4b; border:1.5px solid var(--gold); border-radius:12px; padding:12px 16px; margin-bottom:14px;"></div>
+      <div class="f-inp" style="margin-bottom:14px;">
+        <label style="font-size:14px; color:var(--gold-light);">🎮 أدخل رقم الـ ID الخاص بحسابك في اللعبة (Player ID):</label>
+        <input type="text" id="chk-player-id" placeholder="مثال: 5123456789" dir="ltr" style="font-size:17px; border-color:var(--cyan); text-align:center;">
+      </div>
+      <div id="chk-split-box" style="background:#070b14; border:1.5px dashed var(--gold); border-radius:12px; padding:12px; font-size:12px; line-height:1.8;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-green" style="width:100%; padding:12px; font-size:15px;" onclick="confirmServerPurchase()">
+        ✅ خصم من المحفظة وإرسال الطلب لسيرفر المورد الآن
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- نافذة تسجيل الدخول بجوجل -->
+<div class="modal" id="google-auth-modal">
+  <div class="modal-box" style="max-width:520px;">
+    <div class="modal-header">
+      <h3>🌐 تسجيل الدخول عبر Google (إنشاء حساب حقيقي برصيد $0.00)</h3>
+      <button class="btn btn-rose" onclick="closeModal('google-auth-modal')">✖</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#070b14; border:1.5px solid var(--border-col); border-radius:12px; padding:14px; margin-bottom:16px;">
+        <div class="form-row">
+          <div class="f-inp">
+            <label>👤 الاسم الكامل:</label>
+            <input type="text" id="g-new-name" placeholder="مثال: محمد الحلبي">
+          </div>
+          <div class="f-inp">
+            <label>📧 بريد Google الإلكتروني:</label>
+            <input type="email" id="g-new-email" placeholder="user@gmail.com" dir="ltr">
+          </div>
+        </div>
+        <div class="f-inp" style="margin-bottom:10px;">
+          <label>🔑 الصلاحية:</label>
+          <select id="g-new-role">
+            <option value="زبون">👤 زبون (رصيد ابتدائي $0.00)</option>
+            <option value="مدير">👑 مدير النظام</option>
+          </select>
+        </div>
+        <button class="btn btn-cyan" style="width:100%;" onclick="registerGoogleUserOnServer()">🌐 تسجيل في قاعدة بيانات السيرفر ($0.00)</button>
+      </div>
+      <h4 style="color:var(--cyan); margin-bottom:8px; font-size:14px;">🔄 الحسابات المسجلة في قاعدة بيانات السيرفر:</h4>
+      <div id="existing-users-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- نافذة إضافة/تعديل باقة -->
+<div class="modal" id="product-modal">
+  <div class="modal-box" style="max-width:540px;">
+    <div class="modal-header">
+      <h3 id="pm-title">➕ إضافة / تعديل باقة بالسيرفر</h3>
+      <button class="btn btn-rose" onclick="closeModal('product-modal')">✖</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="f-inp"><label>🎮 اسم اللعبة:</label><input type="text" id="pm-game"></div>
+        <div class="f-inp"><label>📦 اسم الباقة:</label><input type="text" id="pm-pack"></div>
+      </div>
+      <div class="form-row">
+        <div class="f-inp"><label>📤 تكلفة المورد ($):</label><input type="number" step="0.05" id="pm-cost"></div>
+        <div class="f-inp"><label>💰 سعر البيع للزبون ($):</label><input type="number" step="0.05" id="pm-price"></div>
+      </div>
+      <div class="form-row">
+        <div class="f-inp"><label>🔢 رمز المنتج عند الوكيل (SKU):</label><input type="text" id="pm-sku" dir="ltr"></div>
+        <div class="f-inp"><label>🎨 الأيقونة:</label><input type="text" id="pm-icon" value="🎮"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-green" onclick="saveProductToServer()">💾 حفظ في جدول Products بالسيرفر</button>
+    </div>
+  </div>
+</div>
+
+<!-- نافذة المطور هاشم الظاهر -->
+<div class="modal" id="dev-info-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:380px; text-align:center; background:linear-gradient(145deg, #070b14, #1e1b4b); color:#fff; border:3px solid var(--gold);">
+    <div class="modal-header">
+      <h3>👨‍💻 معلومات مطور المنظومة</h3>
+      <button class="btn btn-rose" onclick="document.getElementById('dev-info-modal').classList.remove('open')">✖</button>
+    </div>
+    <div class="modal-body" style="padding:24px 20px;">
+      <div style="font-size:22px; font-weight:900; color:var(--gold-light); margin-bottom:6px;">المطور: هاشم الظاهر</div>
+      <div style="background:rgba(0,0,0,0.4); border:2px solid var(--gold); padding:10px; border-radius:10px; font-size:19px; font-weight:900; color:#fff; margin-bottom:16px; direction:ltr;">📞 0931735665</div>
+      <a href="https://wa.me/963931735665" target="_blank" style="background:#16a34a; color:#fff; text-decoration:none; padding:12px; border-radius:10px; font-weight:900; display:block;">💬 تواصل عبر واتساب</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = "http://127.0.0.1:8090";
+  let STATE = {
+    currentUser: { id: "USR-102", name: "زبون", balance: 0, role: "زبون" },
+    users: [],
+    products: [],
+    deposits: [],
+    orders: [],
+    settings: { rate_syp: "15000" },
+    portal: "customer",
+    customerTab: "shop",
+    adminTab: "deposits",
+    gameFilter: "all"
+  };
+  let activeSessionUserId = localStorage.getItem("saker_session_uid") || "USR-102";
+  let selectedProdId = null;
+  let editingProdId = null;
+
+  async function apiGetState() {
+    try {
+      const res = await fetch(`${API_BASE}/api/state?user_id=${encodeURIComponent(activeSessionUserId)}`);
+      const data = await res.json();
+      if (data.ok) {
+        STATE.currentUser = data.currentUser;
+        activeSessionUserId = data.currentUser.id;
+        STATE.users = data.users;
+        STATE.products = data.products;
+        STATE.deposits = data.deposits;
+        STATE.orders = data.orders;
+        STATE.settings = data.settings;
+        document.getElementById("server-conn-status").innerHTML = "🟢 متصل بالسيرفر الحقيقي (SQL Database نشطة ومؤمّنة 100%)";
+        renderUI();
+      }
+    } catch (e) {
+      document.getElementById("server-conn-status").innerHTML = "🔴 تعذر الاتصال بالسيرفر المحلي (تأكد من تشغيل backend/server.py)";
+    }
+  }
+
+  async function apiPost(path, payload) {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    return await res.json();
+  }
+
+  function fmtUSD(v) { return "$" + (Number(v) || 0).toFixed(2); }
+  function fmtSYP(v) {
+    const rate = parseFloat(STATE.settings.rate_syp) || 15000;
+    return Math.round((Number(v) || 0) * rate).toLocaleString("en-US") + " ل.س";
+  }
+
+  function switchPortal(p) { STATE.portal = p; renderUI(); }
+  function switchCustomerTab(t) { STATE.customerTab = t; renderUI(); }
+  function switchAdminTab(t) { STATE.adminTab = t; renderUI(); }
+  function goToDepositTab() { STATE.portal = "customer"; STATE.customerTab = "wallet"; renderUI(); }
+  function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+
+  async function saveRateToServer(val) {
+    await apiPost("/api/settings/save", { rate_syp: val });
+    await apiGetState();
+  }
+
+  // تسجيل الدخول بجوجل على السيرفر
+  function openGoogleAuthModal() {
+    const box = document.getElementById("existing-users-list");
+    box.innerHTML = STATE.users.map(u => `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:#070b14; border:1px solid #334155; padding:10px 12px; border-radius:10px; margin-bottom:8px;">
+        <div>
+          <div style="font-weight:900; color:#fff;">👤 ${u.name} <span class="role-tag ${u.role==='مدير'?'role-admin':'role-customer'}">${u.role}</span></div>
+          <div style="font-size:11px; color:var(--text-muted);" dir="ltr">${u.email} | ID: ${u.id}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <b style="color:#34d399; direction:ltr;">${fmtUSD(u.balance)}</b>
+          <button class="btn btn-gold" style="padding:5px 10px; font-size:12px;" onclick="switchSessionUser('${u.id}', '${u.role}')">دخول</button>
+        </div>
+      </div>
+    `).join("");
+    document.getElementById("google-auth-modal").classList.add("open");
+  }
+
+  async function registerGoogleUserOnServer() {
+    const name = document.getElementById("g-new-name").value.trim();
+    const email = document.getElementById("g-new-email").value.trim();
+    const role = document.getElementById("g-new-role").value;
+    const res = await apiPost("/api/auth/google", { name, email, role });
+    if (!res.ok) return alert(res.msg);
+    activeSessionUserId = res.user_id;
+    localStorage.setItem("saker_session_uid", activeSessionUserId);
+    STATE.portal = role === "مدير" ? "admin" : "customer";
+    closeModal("google-auth-modal");
+    await apiGetState();
+  }
+
+  async function switchSessionUser(uid, role) {
+    activeSessionUserId = uid;
+    localStorage.setItem("saker_session_uid", uid);
+    STATE.portal = role === "مدير" ? "admin" : "customer";
+    closeModal("google-auth-modal");
+    await apiGetState();
+  }
+
+  // الشراء الفعلي عبر السيرفر
+  function openCheckoutModal(prodId) {
+    selectedProdId = prodId;
+    const p = STATE.products.find(x => x.id === prodId);
+    if (!p) return;
+    const profit = Math.max(0, p.price_usd - p.supplier_cost_usd);
+    document.getElementById("chk-pack-info").innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-size:12px; color:var(--cyan);">${p.game} (SKU: ${p.sku})</div>
+          <div style="font-size:17px; font-weight:900;">${p.icon} ${p.pack}</div>
+        </div>
+        <div style="text-align:left;">
+          <div style="font-size:20px; font-weight:900; color:var(--gold-light); direction:ltr;">${fmtUSD(p.price_usd)}</div>
+          <div style="font-size:11px; color:#34d399;">رصيدك بالسيرفر: ${fmtUSD(STATE.currentUser.balance)}</div>
+        </div>
+      </div>
+    `;
+    document.getElementById("chk-split-box").innerHTML = `
+      <div>• السعر المخصوم من محفظتك بالسيرفر: <b>${fmtUSD(p.price_usd)}</b></div>
+      <div>• يُرسل لسيرفر المورد (API): <b>${fmtUSD(p.supplier_cost_usd)}</b> مع الـ Player ID ورمز <b>${p.sku}</b></div>
+      <div>• يتحول لمحفظة المدير بالسيرفر (صافي الربح): <b>+${fmtUSD(profit)}</b></div>
+    `;
+    document.getElementById("chk-player-id").value = "";
+    document.getElementById("checkout-modal").classList.add("open");
+  }
+
+  async function confirmServerPurchase() {
+    const playerId = document.getElementById("chk-player-id").value.trim();
+    const res = await apiPost("/api/orders/purchase", {
+      user_id: STATE.currentUser.id,
+      product_id: selectedProdId,
+      player_id: playerId
+    });
+    if (!res.ok) {
+      alert("⚠️ " + res.msg);
+      if (res.insufficient) { closeModal("checkout-modal"); goToDepositTab(); }
+      return;
+    }
+    closeModal("checkout-modal");
+    STATE.customerTab = "myorders";
+    await apiGetState();
+    alert(`✅ تم تنفيذ الطلب عبر السيرفر (${res.order_id})\nالحالة: ${res.status}\n${res.note}`);
+  }
+
+  // إيداع المحفظة بالسيرفر
+  function renderPaymentAccountBox() {
+    const m = document.getElementById("dep-method").value;
+    let txt = STATE.settings.sham_account || "";
+    if (m.includes("سيريتل")) txt = STATE.settings.syriatel_account || "";
+    if (m.includes("USDT")) txt = STATE.settings.usdt_account || "";
+    document.getElementById("dep-account-display").innerHTML = `
+      <div style="font-size:12px; color:var(--cyan); font-weight:800;">📌 حوّل المبلغ إلى حسابنا المعتمد:</div>
+      <div style="font-size:16px; font-weight:900; color:var(--gold-light); margin-top:4px;">${txt}</div>
+    `;
+  }
+
+  function calcDepositSYPPreview() {
+    const amt = parseFloat(document.getElementById("dep-amount").value) || 0;
+    document.getElementById("dep-syp-preview").value = fmtSYP(amt);
+  }
+
+  async function submitDepositToServer() {
+    const method = document.getElementById("dep-method").value;
+    const amount_usd = parseFloat(document.getElementById("dep-amount").value) || 0;
+    const tx_id = document.getElementById("dep-tx-id").value.trim();
+    const res = await apiPost("/api/deposits/create", {
+      user_id: STATE.currentUser.id,
+      amount_usd,
+      method,
+      tx_id
+    });
+    if (!res.ok) return alert("⚠️ " + res.msg);
+    document.getElementById("dep-amount").value = "";
+    document.getElementById("dep-tx-id").value = "";
+    STATE.customerTab = "myorders";
+    await apiGetState();
+    alert("✅ " + res.msg);
+  }
+
+  async function decideDepositOnServer(depId, decision) {
+    const res = await apiPost("/api/deposits/decide", { dep_id: depId, decision });
+    if (!res.ok) return alert(res.msg);
+    await apiGetState();
+  }
+
+  async function updateOrderStatusOnServer(ordId, status) {
+    await apiPost("/api/orders/status", { order_id: ordId, status });
+    await apiGetState();
+  }
+
+  function openProductModal(id) {
+    editingProdId = id;
+    if (!id) {
+      document.getElementById("pm-game").value = "";
+      document.getElementById("pm-pack").value = "";
+      document.getElementById("pm-cost").value = "";
+      document.getElementById("pm-price").value = "";
+      document.getElementById("pm-sku").value = "";
+      document.getElementById("pm-icon").value = "🎮";
+    } else {
+      const p = STATE.products.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById("pm-game").value = p.game;
+      document.getElementById("pm-pack").value = p.pack;
+      document.getElementById("pm-cost").value = p.supplier_cost_usd;
+      document.getElementById("pm-price").value = p.price_usd;
+      document.getElementById("pm-sku").value = p.sku;
+      document.getElementById("pm-icon").value = p.icon;
+    }
+    document.getElementById("product-modal").classList.add("open");
+  }
+
+  async function saveProductToServer() {
+    await apiPost("/api/products/save", {
+      id: editingProdId,
+      game: document.getElementById("pm-game").value,
+      pack: document.getElementById("pm-pack").value,
+      supplier_cost_usd: document.getElementById("pm-cost").value,
+      price_usd: document.getElementById("pm-price").value,
+      sku: document.getElementById("pm-sku").value,
+      icon: document.getElementById("pm-icon").value
+    });
+    closeModal("product-modal");
+    await apiGetState();
+  }
+
+  async function deleteProductFromServer(id) {
+    if (!confirm("حذف هذه الباقة نهائياً من قاعدة بيانات السيرفر؟")) return;
+    await apiPost("/api/products/delete", { id });
+    await apiGetState();
+  }
+
+  async function saveServerSettings() {
+    await apiPost("/api/settings/save", {
+      supplier_api_url: document.getElementById("cfg-api-url").value,
+      supplier_api_key: document.getElementById("cfg-api-key").value,
+      supplier_mode: document.getElementById("cfg-sup-mode").value,
+      sham_account: document.getElementById("cfg-sham-acc").value
+    });
+    await apiGetState();
+    alert("✅ تم حفظ إعدادات الـ API للسيرفر بنجاح!");
+  }
+
+  async function adjustUserBalanceServer(uid, currBal) {
+    const val = prompt("أدخل الرصيد الفعلي الجديد بالدولار في قاعدة البيانات:", currBal);
+    if (val === null) return;
+    await apiPost("/api/users/update", { user_id: uid, balance: parseFloat(val) || 0 });
+    await apiGetState();
+  }
+
+  async function toggleUserRoleServer(uid, currRole) {
+    const nextRole = currRole === "مدير" ? "زبون" : "مدير";
+    await apiPost("/api/users/update", { user_id: uid, role: nextRole });
+    await apiGetState();
+  }
+
+  function renderUI() {
+    const u = STATE.currentUser;
+    document.getElementById("hdr-wallet-balance").textContent = fmtUSD(u.balance);
+    document.getElementById("wallet-page-bal").textContent = fmtUSD(u.balance);
+    document.getElementById("hdr-user-name").textContent = `👤 ${u.name} (${u.id})`;
+    const roleEl = document.getElementById("hdr-user-role");
+    roleEl.textContent = u.role;
+    roleEl.className = "role-tag " + (u.role === "مدير" ? "role-admin" : "role-customer");
+    document.getElementById("hdr-rate-inp").value = STATE.settings.rate_syp || 15000;
+
+    document.getElementById("pbtn-customer").className = "ps-btn " + (STATE.portal === "customer" ? "active" : "");
+    document.getElementById("pbtn-admin").className = "ps-btn " + (STATE.portal === "admin" ? "admin-active" : "");
+    document.getElementById("portal-customer-view").style.display = STATE.portal === "customer" ? "block" : "none";
+    document.getElementById("portal-admin-view").style.display = STATE.portal === "admin" ? "block" : "none";
+
+    ["shop", "wallet", "myorders"].forEach(t => {
+      document.getElementById("ctab-" + t).classList.toggle("active", STATE.customerTab === t);
+      document.getElementById("csec-" + t).style.display = STATE.customerTab === t ? "block" : "none";
+    });
+    ["deposits", "orders", "products", "stats"].forEach(t => {
+      document.getElementById("atab-" + t).classList.toggle("active", STATE.adminTab === t);
+      document.getElementById("asec-" + t).style.display = STATE.adminTab === t ? "block" : "none";
+    });
+
+    // 1. متجر الزبون
+    const games = ["all", ...new Set(STATE.products.map(p => p.game))];
+    document.getElementById("customer-game-filters").innerHTML = games.map(g => `
+      <button class="gf-btn ${STATE.gameFilter === g ? 'active' : ''}" onclick="STATE.gameFilter='${g}';renderUI();">
+        ${g === 'all' ? '🔥 جميع الألعاب' : '🎮 ' + g}
+      </button>
+    `).join("");
+
+    const prods = STATE.products.filter(p => STATE.gameFilter === "all" || p.game === STATE.gameFilter);
+    document.getElementById("customer-products-grid").innerHTML = prods.map(p => `
+      <div class="prod-item">
+        <div>
+          <span class="prod-sku-tag">${p.sku}</span>
+          <div class="prod-ico">${p.icon}</div>
+          <div class="prod-game-lbl">${p.game}</div>
+          <div class="prod-pack-name">${p.pack}</div>
+        </div>
+        <div>
+          <div class="prod-price-bar">
+            <span style="font-size:20px; font-weight:900; color:var(--gold-light); direction:ltr;">${fmtUSD(p.price_usd)}</span>
+            <span style="font-size:12px; color:var(--cyan); direction:ltr;">${fmtSYP(p.price_usd)}</span>
+          </div>
+          <button class="btn btn-cyan" style="width:100%;" onclick="openCheckoutModal(${p.id})">⚡ شراء فوري</button>
+        </div>
+      </div>
+    `).join("");
+
+    renderPaymentAccountBox();
+
+    // طلبات الزبون
+    const myOrds = STATE.orders.filter(o => o.user_id === u.id);
+    const myDeps = STATE.deposits.filter(d => d.user_id === u.id);
+    document.getElementById("c-badge-prods").textContent = STATE.products.length;
+    document.getElementById("c-badge-myorders").textContent = myOrds.length;
+
+    document.getElementById("customer-orders-tbody").innerHTML = myOrds.map(o => `
+      <tr>
+        <td><b>${o.id}</b></td>
+        <td>${o.date}</td>
+        <td style="color:var(--gold-light); font-weight:900;">${o.game} — ${o.pack_name}</td>
+        <td><code style="color:var(--cyan);">${o.player_id}</code></td>
+        <td style="color:#34d399; font-weight:900;">${fmtUSD(o.price_usd)}</td>
+        <td><span class="st-pill ${o.status==='مكتمل'?'st-ok':(o.status.includes('مرفوض')?'st-err':'st-wait')}">${o.status}</span></td>
+        <td style="font-size:12px; color:var(--text-muted);">${o.supplier_note || ''}</td>
+      </tr>
+    `).join("") || `<tr><td colspan="7" style="padding:18px;">لا توجد طلبات بعد.</td></tr>`;
+
+    document.getElementById("customer-deposits-tbody").innerHTML = myDeps.map(d => `
+      <tr>
+        <td><b>${d.id}</b></td>
+        <td>${d.date}</td>
+        <td>${d.method}</td>
+        <td style="color:var(--gold-light); font-weight:900;">+${fmtUSD(d.amount_usd)}</td>
+        <td><code style="color:var(--cyan);">${d.tx_id}</code></td>
+        <td><span class="st-pill ${d.status==='مقبول'?'st-ok':(d.status==='معلق'?'st-wait':'st-err')}">${d.status}</span></td>
+      </tr>
+    `).join("") || `<tr><td colspan="6" style="padding:18px;">لا توجد عمليات إيداع.</td></tr>`;
+
+    // لوحة المدير: الإيداعات
+    const pendDeps = STATE.deposits.filter(d => d.status === "معلق");
+    document.getElementById("a-badge-deps").textContent = pendDeps.length;
+    document.getElementById("admin-deposits-tbody").innerHTML = STATE.deposits.map(d => `
+      <tr>
+        <td><b>${d.id}</b></td>
+        <td>${d.date}</td>
+        <td>👤 ${d.user_name}</td>
+        <td><code style="color:var(--gold-light);">${d.user_id}</code></td>
+        <td>${d.method}</td>
+        <td><code style="color:var(--cyan); font-weight:900;">${d.tx_id}</code></td>
+        <td style="color:#34d399; font-weight:900;">${fmtUSD(d.amount_usd)}<br><small>${fmtSYP(d.amount_usd)}</small></td>
+        <td><span class="st-pill ${d.status==='مقبول'?'st-ok':(d.status==='معلق'?'st-wait':'st-err')}">${d.status}</span></td>
+        <td>
+          ${d.status === 'معلق' ? `
+            <button class="btn btn-green" style="padding:4px 9px; font-size:11px;" onclick="decideDepositOnServer('${d.id}', 'مقبول')">✅ قبول وشحن</button>
+            <button class="btn btn-rose" style="padding:4px 9px; font-size:11px;" onclick="decideDepositOnServer('${d.id}', 'مرفوض')">❌ رفض</button>
+          ` : 'تمت المعالجة'}
+        </td>
+      </tr>
+    `).join("") || `<tr><td colspan="9" style="padding:18px;">لا توجد طلبات إيداع حالياً.</td></tr>`;
+
+    // لوحة المدير: الطلبات
+    document.getElementById("a-badge-ords").textContent = STATE.orders.length;
+    const ordFilter = document.getElementById("adm-order-filter").value;
+    const filtOrds = STATE.orders.filter(o => ordFilter === "all" || o.status === ordFilter);
+    document.getElementById("admin-orders-tbody").innerHTML = filtOrds.map(o => `
+      <tr>
+        <td><b>${o.id}</b><br><small>${o.date}</small></td>
+        <td>👤 ${o.user_name}<br><small style="color:var(--gold-light);">${o.user_id}</small></td>
+        <td>${o.game} - ${o.pack_name}<br><code style="color:var(--purple);">${o.sku}</code></td>
+        <td><code style="color:var(--cyan);">${o.player_id}</code></td>
+        <td>${fmtUSD(o.price_usd)}</td>
+        <td>${fmtUSD(o.supplier_cost_usd)}</td>
+        <td style="color:#34d399; font-weight:900;">+${fmtUSD(o.admin_profit_usd)}</td>
+        <td><span class="st-pill ${o.status==='مكتمل'?'st-ok':(o.status.includes('مرفوض')?'st-err':'st-wait')}">${o.status}</span></td>
+        <td>
+          <button class="btn btn-green" style="padding:4px 8px; font-size:11px;" onclick="updateOrderStatusOnServer('${o.id}', 'مكتمل')">✅ مكتمل</button>
+          <button class="btn btn-rose" style="padding:4px 8px; font-size:11px;" onclick="updateOrderStatusOnServer('${o.id}', 'مرفوض من المورد')">❌ رفض واسترداد</button>
+        </td>
+      </tr>
+    `).join("") || `<tr><td colspan="9" style="padding:18px;">لا توجد طلبات.</td></tr>`;
+
+    // لوحة المدير: المنتجات وإعدادات الـ API
+    document.getElementById("a-badge-prods").textContent = STATE.products.length;
+    document.getElementById("cfg-api-url").value = STATE.settings.supplier_api_url || "";
+    document.getElementById("cfg-api-key").value = STATE.settings.supplier_api_key || "";
+    document.getElementById("cfg-sup-mode").value = STATE.settings.supplier_mode || "auto_simulate";
+    document.getElementById("cfg-sham-acc").value = STATE.settings.sham_account || "";
+
+    document.getElementById("admin-products-tbody").innerHTML = STATE.products.map((p, idx) => `
+      <tr>
+        <td>${idx + 1}</td>
+        <td style="font-size:20px;">${p.icon}</td>
+        <td style="color:var(--cyan); font-weight:900;">${p.game}</td>
+        <td style="font-weight:900;">${p.pack}</td>
+        <td><code style="color:var(--purple);">${p.sku}</code></td>
+        <td>${fmtUSD(p.supplier_cost_usd)}</td>
+        <td style="color:var(--gold-light); font-weight:900;">${fmtUSD(p.price_usd)}</td>
+        <td style="color:#34d399; font-weight:900;">+${fmtUSD(p.price_usd - p.supplier_cost_usd)}</td>
+        <td>
+          <button class="btn btn-gold" style="padding:4px 8px; font-size:11px;" onclick="openProductModal(${p.id})">✏️</button>
+          <button class="btn btn-rose" style="padding:4px 8px; font-size:11px;" onclick="deleteProductFromServer(${p.id})">🗑️</button>
+        </td>
+      </tr>
+    `).join("");
+
+    // لوحة المدير: الإحصائيات والمستخدمين
+    const doneOrds = STATE.orders.filter(o => o.status === "مكتمل");
+    const rejOrds  = STATE.orders.filter(o => o.status.includes("مرفوض"));
+    const totProfit = doneOrds.reduce((s, o) => s + Number(o.admin_profit_usd), 0);
+    const totDeps   = STATE.deposits.filter(d => d.status === "مقبول").reduce((s, d) => s + Number(d.amount_usd), 0);
+    const totWalls  = STATE.users.reduce((s, x) => s + Number(x.balance), 0);
+
+    document.getElementById("stat-total-orders").textContent = `${STATE.orders.length} طلب`;
+    document.getElementById("stat-orders-sub").textContent = `مكتمل: ${doneOrds.length} | مرفوض: ${rejOrds.length}`;
+    document.getElementById("stat-total-profit").textContent = "+" + fmtUSD(totProfit);
+    document.getElementById("stat-total-profit-syp").textContent = fmtSYP(totProfit);
+    document.getElementById("stat-total-deposits").textContent = fmtUSD(totDeps);
+    document.getElementById("stat-total-deposits-syp").textContent = fmtSYP(totDeps);
+    document.getElementById("stat-total-users").textContent = `${STATE.users.length} مستخدم`;
+    document.getElementById("stat-users-wallets").textContent = `إجمالي أرصدة المحافظ: ${fmtUSD(totWalls)}`;
+
+    document.getElementById("admin-users-tbody").innerHTML = STATE.users.map(usr => `
+      <tr>
+        <td><code style="color:var(--gold-light);">${usr.id}</code></td>
+        <td style="font-weight:900;">👤 ${usr.name}</td>
+        <td dir="ltr" style="color:var(--cyan);">${usr.email}</td>
+        <td style="color:#34d399; font-weight:900; direction:ltr;">${fmtUSD(usr.balance)}</td>
+        <td><span class="role-tag ${usr.role==='مدير'?'role-admin':'role-customer'}">${usr.role}</span></td>
+        <td>
+          <button class="btn btn-green" style="padding:4px 8px; font-size:11px;" onclick="adjustUserBalanceServer('${usr.id}', ${usr.balance})">💲 تعديل الرصيد</button>
+          <button class="btn btn-purple" style="padding:4px 8px; font-size:11px;" onclick="toggleUserRoleServer('${usr.id}', '${usr.role}')">🔑 تبديل الصلاحية</button>
+          <button class="btn btn-gold" style="padding:4px 8px; font-size:11px;" onclick="switchSessionUser('${usr.id}', '${usr.role}')">🔄 دخول به</button>
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  apiGetState();
+</script>
+</body>
+</html>

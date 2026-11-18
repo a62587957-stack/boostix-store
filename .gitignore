@@ -1,0 +1,4 @@
+backend/.env
+backend/server.log
+backend/*.db
+__pycache__/

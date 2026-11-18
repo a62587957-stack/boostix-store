@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بوابة الإدارة السرية | صقر الديجيتال</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #070b14; --card: #111827; --border: #1e293b; --gold: #f59e0b; --cyan: #06b6d4; --green: #10b981; --rose: #f43f5e; --text: #f8fafc; --muted: #94a3b8; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Cairo', sans-serif; padding-bottom: 60px; }
+  .adm-header { background: #1e1b4b; border-bottom: 3px solid var(--gold); padding: 14px 22px; display: flex; justify-content: space-between; align-items: center; }
+  .container { max-width: 1280px; margin: 20px auto; padding: 0 16px; }
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .t-btn { background: var(--card); border: 2px solid var(--border); color: #fff; padding: 13px; border-radius: 12px; font-family: inherit; font-weight: 900; cursor: pointer; }
+  .t-btn.active { border-color: var(--gold); background: linear-gradient(135deg, #1e1b4b, #064e3b); }
+  .panel { background: var(--card); border: 1.5px solid var(--border); border-radius: 15px; padding: 20px; margin-bottom: 20px; }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .kpi { background: var(--card); border-right: 4px solid var(--gold); padding: 15px; border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; min-width: 800px; }
+  th { background: #1e1b4b; color: #fde68a; padding: 10px; font-size: 13px; border: 1px solid #312e81; }
+  td { padding: 10px; border: 1px solid var(--border); text-align: center; font-size: 13px; font-weight: 700; }
+  .btn { font-family: inherit; font-weight: 900; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-rose { background: var(--rose); color: #fff; }
+  .btn-gold { background: var(--gold); color: #000; }
+  .inp-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  input, select { width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #334155; background: #070b14; color: #fff; font-family: inherit; font-weight: 800; }
+</style>
+</head>
+<body>
+
+<!-- شاشة قفل المدير -->
+<div id="admin-lock" style="position:fixed; inset:0; background:#070b14; z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px;">
+  <div style="background:#111827; border:2px solid var(--gold); padding:28px; border-radius:16px; width:100%; max-width:400px; text-align:center;">
+    <h2 style="color:#fde68a; margin-bottom:8px;">🔒 بوابة الإدارة المحمية</h2>
+    <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">هذه الصفحة مفصولة تماماً عن متجر الزبائن ومخصصة لصاحب المنصة فقط</p>
+    <input type="password" id="adm-pass" placeholder="كلمة مرور الإدارة..." value="SakerAdmin2026" style="margin-bottom:12px; text-align:center;" dir="ltr">
+    <button class="btn btn-gold" style="width:100%; padding:11px; font-size:14px;" onclick="unlockAdmin()">دخول لوحة المدير</button>
+  </div>
+</div>
+
+<header class="adm-header">
+  <div>
+    <h2 style="color:#fde68a;">👑 لوحة تحكم المدير المستقلة (/admin)</h2>
+    <small style="color:#34d399;">مفصولة جذرياً عن واجهة الزبائن • متصلة بقاعدة بيانات السيرفر</small>
+  </div>
+  <div style="display:flex; gap:10px; align-items:center;">
+    <a href="/" target="_blank" class="btn btn-gold" style="text-decoration:none;">🛒 فتح متجر الزبائن في تبويب آخر</a>
+  </div>
+</header>
+
+<div class="container">
+  <div class="tabs">
+    <button class="t-btn active" id="abtn-deps" onclick="setAdmTab('deps')">💳 1. سجلات الشحن والإيداعات</button>
+    <button class="t-btn" id="abtn-ords" onclick="setAdmTab('ords')">📦 2. الطلبات وحالة المورد</button>
+    <button class="t-btn" id="abtn-prods" onclick="setAdmTab('prods')">🎮 3. المنتجات والربط API</button>
+    <button class="t-btn" id="abtn-stats" onclick="setAdmTab('stats')">📊 4. الإحصائيات والمستخدمين</button>
+  </div>
+
+  <div id="asec-deps" class="panel">
+    <h3 style="color:#fde68a; margin-bottom:12px;">💳 طلبات شحن المحافظ (Deposits Table)</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>رقم الإيداع</th><th>التاريخ</th><th>المستخدم (ID)</th><th>وسيلة الدفع</th><th>رقم العملية (TxID)</th><th>المبلغ</th><th>الحالة</th><th>إجراء الإدارة</th></tr></thead>
+        <tbody id="adm-deps-tb"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="asec-ords" class="panel" style="display:none;">
+    <h3 style="color:var(--cyan); margin-bottom:12px;">📦 سجل الطلبات وتقسيم التكلفة والربح (Orders Table)</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>رقم الطلب</th><th>المشتري</th><th>الباقة (SKU)</th><th>Player ID</th><th>السعر المخصوم</th><th>تكلفة المورد</th><th>صافي ربحك</th><th>الحالة</th><th>قرار المورد</th></tr></thead>
+        <tbody id="adm-ords-tb"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="asec-prods" class="panel" style="display:none;">
+    <h3 style="color:#fde68a; margin-bottom:12px;">➕ إضافة / تعديل باقة في جدول المنتجات (Products Table)</h3>
+    <div class="inp-row">
+      <input type="text" id="np-game" placeholder="اسم اللعبة (ببجي موبايل)">
+      <input type="text" id="np-pack" placeholder="اسم الباقة (660 شدة)">
+      <input type="text" id="np-sku" placeholder="رمز الوكيل (PUBG-660)" dir="ltr">
+    </div>
+    <div class="inp-row">
+      <input type="number" step="0.05" id="np-cost" placeholder="تكلفة المورد ($)">
+      <input type="number" step="0.05" id="np-price" placeholder="سعر البيع للزبون ($)">
+      <button class="btn btn-green" onclick="addProd()">+ حفظ الباقة بالسيرفر</button>
+    </div>
+    <div style="overflow-x:auto; margin-top:16px;">
+      <table>
+        <thead><tr><th>#</th><th>اللعبة</th><th>الباقة</th><th>SKU الوكيل</th><th>تكلفة المورد</th><th>سعر البيع</th><th>ربحك الصافي</th><th>حذف</th></tr></thead>
+        <tbody id="adm-prods-tb"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="asec-stats" style="display:none;">
+    <div class="kpi-row">
+      <div class="kpi"><div>📦 مجموع الطلبات</div><h2 id="st-ords">0</h2></div>
+      <div class="kpi"><div>🏆 صافي الربح للمدير</div><h2 id="st-prof" style="color:#34d399;">$0.00</h2></div>
+      <div class="kpi"><div>💳 مجموع الإيداعات</div><h2 id="st-deps">$0.00</h2></div>
+      <div class="kpi"><div>👥 عدد المستخدمين</div><h2 id="st-usrs">0</h2></div>
+    </div>
+    <div class="panel">
+      <h3 style="color:var(--cyan); margin-bottom:12px;">👥 جدول المستخدمين المسجلين (Users Table)</h3>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>معرف المستخدم</th><th>الاسم</th><th>البريد الإلكتروني</th><th>الرصيد الفعلي بالمحفظة</th><th>تاريخ التسجيل</th></tr></thead>
+          <tbody id="adm-usrs-tb"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let ADM_KEY = "";
+  let ADM_DATA = { users: [], products: [], deposits: [], orders: [] };
+
+  async function unlockAdmin() {
+    ADM_KEY = document.getElementById("adm-pass").value.trim();
+    const res = await fetch("/api/admin/overview", { headers: { "X-Admin-Key": ADM_KEY } });
+    const d = await res.json();
+    if (!d.ok) return alert("❌ كلمة مرور الإدارة غير صحيحة!");
+    document.getElementById("admin-lock").style.display = "none";
+    ADM_DATA = d;
+    renderAdmin();
+  }
+
+  function setAdmTab(t) {
+    ["deps", "ords", "prods", "stats"].forEach(k => {
+      document.getElementById("abtn-" + k).classList.toggle("active", k === t);
+      document.getElementById("asec-" + k).style.display = k === t ? "block" : "none";
+    });
+  }
+
+  async function decideDep(dep_id, decision) {
+    await fetch("/api/admin/deposit-decide", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Admin-Key": ADM_KEY },
+      body: JSON.stringify({ dep_id, decision })
+    });
+    unlockAdmin();
+  }
+
+  async function setOrdStatus(order_id, status) {
+    await fetch("/api/admin/order-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Admin-Key": ADM_KEY },
+      body: JSON.stringify({ order_id, status })
+    });
+    unlockAdmin();
+  }
+
+  async function addProd() {
+    const game = document.getElementById("np-game").value.trim();
+    const pack = document.getElementById("np-pack").value.trim();
+    const sku = document.getElementById("np-sku").value.trim();
+    const supplier_cost_usd = parseFloat(document.getElementById("np-cost").value) || 0;
+    const price_usd = parseFloat(document.getElementById("np-price").value) || 0;
+    if (!game || !pack || price_usd <= 0) return alert("أكمل بيانات الباقة");
+    await fetch("/api/admin/product-add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Admin-Key": ADM_KEY },
+      body: JSON.stringify({ game, pack, sku, supplier_cost_usd, price_usd })
+    });
+    unlockAdmin();
+  }
+
+  async function delProd(id) {
+    await fetch("/api/admin/product-del", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Admin-Key": ADM_KEY },
+      body: JSON.stringify({ id })
+    });
+    unlockAdmin();
+  }
+
+  function renderAdmin() {
+    document.getElementById("adm-deps-tb").innerHTML = ADM_DATA.deposits.map(d => `
+      <tr>
+        <td><b>${d.id}</b></td><td>${d.date}</td>
+        <td>👤 ${d.user_name} (<code>${d.user_id}</code>)</td>
+        <td>${d.method}</td><td><code style="color:var(--cyan);">${d.tx_id}</code></td>
+        <td style="color:#34d399;">$${Number(d.amount_usd).toFixed(2)}</td>
+        <td>${d.status}</td>
+        <td>${d.status === 'معلق' ? `
+          <button class="btn btn-green" onclick="decideDep('${d.id}','مقبول')">✅ قبول وشحن</button>
+          <button class="btn btn-rose" onclick="decideDep('${d.id}','مرفوض')">❌ رفض</button>
+        ` : 'تمت المعالجة'}</td>
+      </tr>
+    `).join("");
+
+    document.getElementById("adm-ords-tb").innerHTML = ADM_DATA.orders.map(o => `
+      <tr>
+        <td><b>${o.id}</b></td><td>👤 ${o.user_name}</td>
+        <td>${o.game} - ${o.pack_name} (<code>${o.sku}</code>)</td>
+        <td><code style="color:var(--cyan);">${o.player_id}</code></td>
+        <td>$${Number(o.price_usd).toFixed(2)}</td>
+        <td>$${Number(o.supplier_cost_usd).toFixed(2)}</td>
+        <td style="color:#34d399;">+$${Number(o.admin_profit_usd).toFixed(2)}</td>
+        <td>${o.status}</td>
+        <td>
+          <button class="btn btn-green" onclick="setOrdStatus('${o.id}','مكتمل')">✅ مكتمل</button>
+          <button class="btn btn-rose" onclick="setOrdStatus('${o.id}','مرفوض من المورد')">❌ مرفوض (استرداد)</button>
+        </td>
+      </tr>
+    `).join("");
+
+    document.getElementById("adm-prods-tb").innerHTML = ADM_DATA.products.map((p, i) => `
+      <tr>
+        <td>${i+1}</td><td>${p.game}</td><td>${p.pack}</td><td><code>${p.sku}</code></td>
+        <td>$${Number(p.supplier_cost_usd).toFixed(2)}</td>
+        <td style="color:#fde68a;">$${Number(p.price_usd).toFixed(2)}</td>
+        <td style="color:#34d399;">+$${(p.price_usd - p.supplier_cost_usd).toFixed(2)}</td>
+        <td><button class="btn btn-rose" onclick="delProd(${p.id})">🗑️</button></td>
+      </tr>
+    `).join("");
+
+    const done = ADM_DATA.orders.filter(o => o.status === "مكتمل");
+    const prof = done.reduce((s, o) => s + Number(o.admin_profit_usd), 0);
+    const deps = ADM_DATA.deposits.filter(d => d.status === "مقبول").reduce((s, d) => s + Number(d.amount_usd), 0);
+    document.getElementById("st-ords").textContent = ADM_DATA.orders.length;
+    document.getElementById("st-prof").textContent = "$" + prof.toFixed(2);
+    document.getElementById("st-deps").textContent = "$" + deps.toFixed(2);
+    document.getElementById("st-usrs").textContent = ADM_DATA.users.length;
+
+    document.getElementById("adm-usrs-tb").innerHTML = ADM_DATA.users.map(u => `
+      <tr>
+        <td><code>${u.id}</code></td><td>👤 ${u.name}</td><td dir="ltr">${u.email}</td>
+        <td style="color:#34d399; direction:ltr;">$${Number(u.balance).toFixed(2)}</td><td>${u.created_at}</td>
+      </tr>
+    `).join("");
+  }
+</script>
+</body>
+</html>
