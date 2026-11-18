@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: boostix-store
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python3 server.py"
+    envVars:
+      - key: SUPABASE_URL
+        value: https://lxeloayuowzatrrlsasn.supabase.co
+      - key: SUPABASE_PUBLISHABLE_KEY
+        value: sb_publishable_m_-u5ofKmBmIldJz7VX7YA_D1QNNsPl
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: ADMIN_SECRET
+        sync: false
