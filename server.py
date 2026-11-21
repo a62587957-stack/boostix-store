@@ -2,7 +2,7 @@ import os, json, time, hmac, hashlib, base64, struct, secrets, threading
 import urllib.request, urllib.error
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from http.cookies import SimpleCookie
-from urllib.parse import urlparse, quote
+from urllib.parse import urlparse, quote, parse_qs
 
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(CUR_DIR)
@@ -350,8 +350,13 @@ class CloudHandler(BaseHTTPRequestHandler):
             return None
         if l == 0:
             return {}
+        raw = self.rfile.read(l).decode("utf-8", errors="ignore")
+        ctype = (self.headers.get("Content-Type") or "").lower()
+        if "application/x-www-form-urlencoded" in ctype:
+            qs = parse_qs(raw, keep_blank_values=True)
+            return {k: v[0] if v else "" for k, v in qs.items()}
         try:
-            return json.loads(self.rfile.read(l).decode("utf-8"))
+            return json.loads(raw)
         except Exception:
             return None
 
@@ -497,6 +502,13 @@ class CloudHandler(BaseHTTPRequestHandler):
             if not (pwd_ok and totp_ok):
                 record_login_fail(ip)
                 time.sleep(1.0)
+                ctype = (self.headers.get("Content-Type") or "").lower()
+                if "application/x-www-form-urlencoded" in ctype:
+                    self.send_response(303)
+                    self.send_header("Location", ADMIN_PATH + "?err=bad_creds")
+                    self._sec_headers(no_store=True)
+                    self.end_headers()
+                    return
                 self._json({"ok": False, "msg": "❌ كلمة المرور أو رمز التحقق (2FA) غير صحيح!"}, 403)
                 return
 
@@ -505,6 +517,14 @@ class CloudHandler(BaseHTTPRequestHandler):
             sec_flag = "; Secure" if self._is_https() else ""
             cookie = f"bx_adm_sess={tok}; Path=/; Max-Age={SESSION_TTL_SEC}; HttpOnly; SameSite=Strict{sec_flag}"
             print(f"[SECURITY] Admin login SUCCESS from {ip}", flush=True)
+            ctype = (self.headers.get("Content-Type") or "").lower()
+            if "application/x-www-form-urlencoded" in ctype:
+                self.send_response(303)
+                self.send_header("Set-Cookie", cookie)
+                self.send_header("Location", ADMIN_PATH)
+                self._sec_headers(no_store=True)
+                self.end_headers()
+                return
             self._json({"ok": True}, 200, extra_headers=[("Set-Cookie", cookie)])
             return
 
