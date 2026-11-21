@@ -53,9 +53,10 @@
     <h2 style="color:#fde68a; margin-bottom:6px;">🛡️ بوابة Boostix المحصّنة</h2>
     <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">جلسات مشفّرة HttpOnly • حماية ضد التخمين • مصادقة ثنائية 2FA</p>
     <input type="password" id="adm-pass" placeholder="كلمة مرور الإدارة السرية..." autocomplete="current-password" style="margin-bottom:10px; text-align:center;" dir="ltr" onkeydown="if(event.key==='Enter') loginAdmin()">
-    <input type="text" id="adm-totp" inputmode="numeric" maxlength="6" placeholder="رمز التحقق 2FA (6 أرقام من Authenticator)" autocomplete="one-time-code" style="margin-bottom:14px; text-align:center; letter-spacing:4px;" dir="ltr" onkeydown="if(event.key==='Enter') loginAdmin()">
-    <button class="btn btn-gold" id="unlock-btn" style="width:100%; padding:11px; font-size:14px;" onclick="loginAdmin()">🔓 التحقق والدخول الآمن</button>
-    <p id="sec-note" style="font-size:11px; color:#34d399; margin-top:12px;">يُحظر الـ IP تلقائياً لمدة 30 دقيقة بعد 5 محاولات خاطئة</p>
+    <input type="text" id="adm-totp" inputmode="numeric" maxlength="10" placeholder="رمز التحقق 2FA (6 أرقام من Authenticator)" autocomplete="one-time-code" style="margin-bottom:14px; text-align:center; letter-spacing:4px;" dir="ltr" onkeydown="if(event.key==='Enter') loginAdmin()">
+    <button type="button" class="btn btn-gold" id="unlock-btn" style="width:100%; padding:11px; font-size:14px;" onclick="loginAdmin()">🔓 التحقق والدخول الآمن</button>
+    <div id="login-status" style="display:none; margin-top:12px; padding:10px; border-radius:8px; font-size:12.5px; font-weight:800; line-height:1.5;"></div>
+    <p id="sec-note" style="font-size:11px; color:#34d399; margin-top:10px;">يُحظر الـ IP تلقائياً لمدة 30 دقيقة بعد 5 محاولات خاطئة</p>
   </div>
 </div>
 
@@ -251,27 +252,55 @@
     return { status: res.status, data };
   }
 
+  function setLoginStatus(msg, kind = "info") {
+    const box = document.getElementById("login-status");
+    if (!box) return;
+    box.style.display = "block";
+    box.textContent = msg;
+    if (kind === "err") {
+      box.style.background = "#4c0519"; box.style.border = "1px solid #f43f5e"; box.style.color = "#fecdd3";
+    } else if (kind === "ok") {
+      box.style.background = "#064e3b"; box.style.border = "1px solid #10b981"; box.style.color = "#a7f3d0";
+    } else {
+      box.style.background = "#1e293b"; box.style.border = "1px solid #f59e0b"; box.style.color = "#fde68a";
+    }
+  }
+
+  window.addEventListener("error", function(ev) {
+    setLoginStatus("⚠️ خطأ بالمتصفح: " + (ev.message || "غير معروف"), "err");
+  });
+
   async function loginAdmin() {
-    const password = document.getElementById("adm-pass").value;
-    const totp = document.getElementById("adm-totp").value.trim();
-    if (!password) return showToast("⚠️ أدخل كلمة المرور السرية", true);
+    const password = (document.getElementById("adm-pass").value || "").trim();
+    const totp = (document.getElementById("adm-totp").value || "").replace(/\D/g, "");
+    if (!password) {
+      setLoginStatus("⚠️ أدخل كلمة المرور السرية أولاً", "err");
+      return;
+    }
     const btn = document.getElementById("unlock-btn");
-    btn.disabled = true; btn.textContent = "جاري التحقق المشفّر...";
+    btn.disabled = true; btn.textContent = "⏳ جاري التحقق...";
+    setLoginStatus("⏳ جاري التحقق من السيرفر (قد يستغرق Render المجاني حتى 50 ثانية إذا كان نائماً)...", "info");
     try {
-      const { data } = await apiFetch(BASE_ADMIN_PATH + "/login", {
+      const { status, data } = await apiFetch(BASE_ADMIN_PATH + "/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password, totp })
       });
       if (!data.ok) {
-        showToast(data.msg || "❌ فشل تسجيل الدخول", true);
+        const errMsg = data.msg || ("❌ فشل تسجيل الدخول (رمز HTTP " + status + ")");
+        setLoginStatus(errMsg, "err");
+        showToast(errMsg, true);
         return;
       }
+      setLoginStatus("✅ تم التحقق بنجاح! جاري تحميل لوحة الإدارة...", "ok");
       document.getElementById("adm-pass").value = "";
       document.getElementById("adm-totp").value = "";
-      await loadOverview(false);
+      const loaded = await loadOverview(false);
+      if (!loaded) {
+        setLoginStatus("⚠️ نجح الدخول لكن المتصفح لم يحفظ الكوكيز أو فشل تحميل البيانات. جرّب تعطيل حظر الكوكيز.", "err");
+      }
     } catch (e) {
-      showToast("⚠️ تعذر الاتصال بالسيرفر", true);
+      setLoginStatus("⚠️ تعذر الاتصال بالسيرفر: " + (e && e.message ? e.message : "تحقق من الإنترنت"), "err");
     } finally {
       btn.disabled = false; btn.textContent = "🔓 التحقق والدخول الآمن";
     }
