@@ -2,10 +2,20 @@ import os, json, urllib.request, urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, quote
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ENV_FILE = os.path.join(BASE_DIR, "backend", ".env")
-STORE_HTML = os.path.join(BASE_DIR, "public", "store.html")
-ADMIN_HTML = os.path.join(BASE_DIR, "public", "admin.html")
+CUR_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.dirname(CUR_DIR)
+BASE_DIR = PARENT_DIR if os.path.basename(CUR_DIR) == "backend" else CUR_DIR
+
+def _resolve_file(*rels):
+    for r in rels:
+        p = os.path.join(BASE_DIR, r)
+        if os.path.exists(p):
+            return p
+    return os.path.join(BASE_DIR, rels[0])
+
+ENV_FILE = _resolve_file("backend/.env", ".env")
+STORE_HTML = _resolve_file("public/store.html", "store.html")
+ADMIN_HTML = _resolve_file("public/admin.html", "admin.html")
 
 def load_env():
     cfg = {}
