@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boostix Store | متجر الشحن الفوري والخدمات الرقمية</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #070b14; --card: #111827; --border: #1e293b;
+      --cyan: #06b6d4; --purple: #8b5cf6; --gold: #f59e0b; --green: #10b981; --rose: #f43f5e;
+      --text: #f8fafc; --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Cairo', sans-serif; padding-bottom: 60px; }
+
+    .header {
+      background: linear-gradient(135deg, #070b14, #1e1b4b);
+      border-bottom: 2px solid var(--cyan); padding: 14px 20px; position: sticky; top: 0; z-index: 500;
+    }
+    .header-in { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-logo { width: 46px; height: 46px; border-radius: 12px; background: linear-gradient(135deg, var(--purple), var(--cyan)); display: flex; align-items: center; justify-content: center; font-size: 24px; }
+    .brand h1 { font-size: 19px; font-weight: 900; }
+    .brand p { font-size: 11px; color: var(--cyan); font-weight: 700; }
+
+    .user-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .wallet-box { background: rgba(16,185,129,0.15); border: 1.5px solid var(--green); padding: 6px 14px; border-radius: 10px; display: flex; align-items: center; gap: 8px; }
+    .wallet-val { font-size: 16px; font-weight: 900; color: #34d399; direction: ltr; }
+
+    .container { max-width: 1200px; margin: 20px auto; padding: 0 16px; }
+    .nav-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 22px; }
+    .nav-btn {
+      background: var(--card); border: 2px solid var(--border); border-radius: 12px; padding: 13px;
+      color: var(--text); font-family: inherit; font-weight: 900; font-size: 14px; cursor: pointer; text-align: center; transition: 0.2s;
+    }
+    .nav-btn.active { background: linear-gradient(135deg, #1e1b4b, #0f766e); border-color: var(--cyan); }
+
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+    .f-pill { background: var(--card); color: var(--muted); border: 1px solid var(--border); padding: 7px 14px; border-radius: 20px; font-family: inherit; font-weight: 800; font-size: 13px; cursor: pointer; }
+    .f-pill.active { background: var(--cyan); color: #000; font-weight: 900; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+    .p-card { background: var(--card); border: 1.5px solid var(--border); border-radius: 15px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; transition: 0.2s; }
+    .p-card:hover { border-color: var(--cyan); transform: translateY(-3px); }
+    .p-ico { width: 50px; height: 50px; border-radius: 12px; background: rgba(6,182,212,0.12); border: 1px solid var(--cyan); display: flex; align-items: center; justify-content: center; font-size: 26px; }
+    .p-game { font-size: 12px; color: var(--cyan); font-weight: 800; }
+    .p-name { font-size: 15px; font-weight: 900; margin: 4px 0 10px; }
+    .p-price { background: #070b14; border: 1px solid var(--border); padding: 9px 12px; border-radius: 9px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+
+    .btn { font-family: inherit; font-weight: 900; border: none; padding: 10px 16px; border-radius: 9px; cursor: pointer; font-size: 13px; }
+    .btn-cyan { background: linear-gradient(90deg, var(--cyan), #2563eb); color: #fff; }
+    .btn-green { background: var(--green); color: #fff; }
+    .btn-rose { background: var(--rose); color: #fff; }
+    .btn-google { background: #ffffff; color: #0f172a; display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 10px; font-weight: 900; box-shadow: 0 4px 14px rgba(255,255,255,0.15); }
+
+    .panel { background: var(--card); border: 1.5px solid var(--border); border-radius: 15px; padding: 20px; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; min-width: 650px; }
+    th { background: #1e1b4b; color: #fde68a; padding: 10px; font-size: 13px; border: 1px solid #312e81; }
+    td { padding: 10px; border: 1px solid var(--border); text-align: center; font-size: 13px; font-weight: 700; }
+
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.82); z-index: 900; align-items: center; justify-content: center; padding: 16px; }
+    .modal.open { display: flex; }
+    .modal-box { background: var(--card); width: 100%; max-width: 460px; border-radius: 16px; border: 2px solid var(--cyan); overflow: hidden; }
+    .modal-head { background: #1e1b4b; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+    .modal-body { padding: 18px; }
+    .inp-g { margin-bottom: 12px; }
+    .inp-g label { display: block; font-size: 12px; color: var(--cyan); font-weight: 800; margin-bottom: 5px; }
+    .inp-g input, .inp-g select { width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid #334155; background: #070b14; color: #fff; font-family: inherit; font-weight: 800; }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-in">
+    <div class="brand">
+      <div class="brand-logo">🎮</div>
+      <div>
+        <h1>Boostix Store - بوستكس ستور</h1>
+        <p>جميع خدمات الألعاب، التطبيقات، البطاقات والأرقام الرقمية 24/7</p>
+      </div>
+    </div>
+
+    <div class="user-bar" id="logged-in-bar" style="display:none;">
+      <div class="wallet-box">
+        <span style="font-size:12px; color:#a7f3d0; font-weight:800;">💳 رصيدك:</span>
+        <span class="wallet-val" id="ui-balance">$0.00</span>
+        <button class="btn btn-green" style="padding:4px 10px; font-size:11px;" onclick="showTab('wallet')">+ شحن</button>
+      </div>
+      <span id="ui-username" style="font-size:13px; font-weight:800; background:#1e293b; padding:6px 12px; border-radius:8px;"></span>
+      <button class="btn btn-rose" style="padding:6px 10px; font-size:12px;" onclick="logoutGoogle()">خروج</button>
+    </div>
+
+    <div class="user-bar" id="logged-out-bar">
+      <button class="btn btn-google" onclick="signInWithGoogleOfficial()">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.7-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.7-.4-3.9z"/></svg>
+        تسجيل الدخول الرسمي بحساب Google
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="nav-bar">
+    <button class="nav-btn active" id="tabbtn-shop" onclick="showTab('shop')">🎮 تصفح الألعاب والباقات</button>
+    <button class="nav-btn" id="tabbtn-wallet" onclick="showTab('wallet')">💳 شحن المحفظة (إيداع رصيد)</button>
+    <button class="nav-btn" id="tabbtn-orders" onclick="showTab('orders')">📦 طلباتي وسجل المحفظة</button>
+  </div>
+
+  <div id="sec-shop">
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:center;">
+      <input type="text" id="store-search" placeholder="🔍 ابحث في Boostix Store عن لعبة، تطبيق، بطاقة أو باقة (من بين +2200 باقة)..." oninput="onSearchInput(this.value)" style="flex:1; min-width:240px; padding:12px 16px; border-radius:12px; border:1.5px solid var(--cyan); background:#070b14; color:#fff; font-family:inherit; font-weight:800; font-size:14px;">
+      <button class="btn btn-rose" id="btn-back-cats" style="display:none; padding:12px 18px;" onclick="resetSubFilter()">⬅️ العودة للأقسام</button>
+    </div>
+    <div class="filters" id="game-filters"></div>
+    <div id="sub-breadcrumb" style="margin-bottom:14px; font-size:14px; font-weight:900; color:#fde68a; display:none;"></div>
+    <div class="grid" id="products-grid">
+      <div class="panel" style="grid-column:1/-1; text-align:center; color:var(--cyan);">⏳ جاري تحميل أقسام وباقات Boostix Store...</div>
+    </div>
+  </div>
+
+  <div id="sec-wallet" style="display:none;">
+    <div class="panel" style="max-width:720px; margin:0 auto;">
+      <h3 style="color:#fde68a; margin-bottom:6px;">💳 شحن رصيد محفظتك في الموقع</h3>
+      <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">حوّل المبلغ لأحد حساباتنا المعتمدة أدناه، ثم اكتب المبلغ ورقم عملية التحويل ليتم تفعيل الرصيد بحسابك:</p>
+
+      <div class="inp-g">
+        <label>1️⃣ اختر وسيلة الدفع:</label>
+        <select id="dep-method" onchange="updatePayBox()">
+          <option value="شام كاش">📱 شام كاش (Sham Cash)</option>
+          <option value="سيريتل كاش">📲 سيريتل كاش (Syriatel Cash)</option>
+          <option value="USDT">💎 عملة رقمية (USDT TRC20 / Binance)</option>
+        </select>
+      </div>
+
+      <div id="pay-account-box" style="background:#070b14; border:1.5px dashed var(--cyan); padding:14px; border-radius:10px; margin-bottom:14px; font-weight:900; color:#fde68a;"></div>
+
+      <div class="inp-g">
+        <label>2️⃣ المبلغ المحول بالدولار ($):</label>
+        <input type="number" step="0.5" id="dep-amount" placeholder="مثال: 10" oninput="updateSYPPreview()">
+        <small id="dep-syp-hint" style="color:var(--cyan); display:block; margin-top:4px; font-weight:800;"></small>
+      </div>
+
+      <div class="inp-g">
+        <label>3️⃣ رقم عملية التحويل (من الإشعار):</label>
+        <input type="text" id="dep-tx" placeholder="أدخل رقم العملية بدقة..." dir="ltr">
+      </div>
+
+      <button class="btn btn-green" style="width:100%; padding:12px; font-size:15px;" onclick="submitDeposit()">📤 إرسال طلب شحن الرصيد</button>
+    </div>
+  </div>
+
+  <div id="sec-orders" style="display:none;">
+    <div class="panel">
+      <h3 style="color:var(--cyan); margin-bottom:12px;">📦 سجل طلباتي وحالة الشحن</h3>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr><th>رقم الطلب</th><th>التاريخ</th><th>الباقة</th><th>معرف اللاعب (ID)</th><th>السعر</th><th>الحالة</th><th>التفاصيل</th></tr>
+          </thead>
+          <tbody id="my-orders-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3 style="color:#fde68a; margin-bottom:12px;">📜 سجل إيداعات محفظتي</h3>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr><th>رقم العملية</th><th>التاريخ</th><th>طريقة الدفع</th><th>المبلغ</th><th>رقم الإشعار</th><th>الحالة</th></tr>
+          </thead>
+          <tbody id="my-deps-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="buy-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>⚡ إتمام الشراء الفوري</h3>
+      <button class="btn btn-rose" onclick="document.getElementById('buy-modal').classList.remove('open')">✖</button>
+    </div>
+    <div class="modal-body">
+      <div id="bm-summary" style="background:#070b14; border:1px solid var(--gold); padding:12px; border-radius:10px; margin-bottom:14px;"></div>
+      <div class="inp-g">
+        <label style="font-size:14px; color:#fde68a;">🎮 أدخل رقم الـ ID الخاص بحسابك في اللعبة:</label>
+        <input type="text" id="bm-player-id" placeholder="مثال: 5123456789" dir="ltr" style="font-size:16px; text-align:center; border-color:var(--cyan);">
+      </div>
+      <button class="btn btn-green" style="width:100%; padding:12px; font-size:15px;" onclick="confirmBuy()">✅ تأكيد الشراء وخصم المبلغ من رصيدي</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://lxeloayuowzatrrlsasn.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_m_-u5ofKmBmIldJz7VX7YA_D1QNNsPl";
+  const sbClient = (window.supabase && window.supabase.createClient)
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "implicit" }
+      })
+    : null;
+
+  let ACCESS_TOKEN = localStorage.getItem("saker_oauth_token") || "";
+  let DATA = { user: null, products: [], myOrders: [], myDeposits: [], payInfo: { rate_syp: 15000 } };
+  let mainCatFilter = "الألعاب";
+  let subCatFilter = "";
+  let searchQuery = "";
+  let buyProdId = null;
+
+  async function initAuthAndLoad() {
+    try {
+      if (window.location.hash && window.location.hash.includes("access_token=")) {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accTok = hashParams.get("access_token");
+        const refTok = hashParams.get("refresh_token") || "";
+        if (accTok) {
+          ACCESS_TOKEN = accTok;
+          localStorage.setItem("saker_oauth_token", accTok);
+          if (sbClient && sbClient.auth) {
+            try { await sbClient.auth.setSession({ access_token: accTok, refresh_token: refTok }); } catch (e) {}
+          }
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
+      if (sbClient && sbClient.auth) {
+        try {
+          const { data: { session } } = await sbClient.auth.getSession();
+          if (session && session.access_token) {
+            ACCESS_TOKEN = session.access_token;
+            localStorage.setItem("saker_oauth_token", ACCESS_TOKEN);
+          }
+        } catch (e) {}
+        sbClient.auth.onAuthStateChange((event, session) => {
+          if (session && session.access_token) {
+            ACCESS_TOKEN = session.access_token;
+            localStorage.setItem("saker_oauth_token", ACCESS_TOKEN);
+            loadStore();
+          }
+        });
+      }
+    } catch (e) {}
+    await loadStore();
+  }
+
+  async function signInWithGoogleOfficial() {
+    if (!sbClient || !sbClient.auth) return alert("مكتبة تسجيل الدخول قيد التحميل، يرجى المحاولة بعد ثانية.");
+    const { error } = await sbClient.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin + "/" }
+    });
+    if (error) alert("خطأ في الاتصال بـ Google OAuth: " + error.message);
+  }
+
+  async function logoutGoogle() {
+    try { if (sbClient && sbClient.auth) await sbClient.auth.signOut(); } catch (e) {}
+    ACCESS_TOKEN = "";
+    localStorage.removeItem("saker_oauth_token");
+    showTab("shop");
+    await loadStore();
+  }
+
+  async function loadStore() {
+    try {
+      const res = await fetch("/api/customer/bootstrap", {
+        headers: ACCESS_TOKEN ? { "Authorization": "Bearer " + ACCESS_TOKEN } : {}
+      });
+      const d = await res.json();
+      if (d && d.ok) {
+        DATA = d;
+        renderStore();
+      }
+    } catch (e) {
+      document.getElementById("products-grid").innerHTML = `<div class="panel" style="grid-column:1/-1; text-align:center; color:var(--rose);">⚠️ تعذر الاتصال بالسيرفر، أعد تحديث الصفحة.</div>`;
+    }
+  }
+
+  function fmtUSD(v) { return "$" + (Number(v) || 0).toFixed(2); }
+  function fmtSYP(v) { return Math.round((Number(v) || 0) * (Number(DATA.payInfo && DATA.payInfo.rate_syp) || 15000)).toLocaleString("en-US") + " ل.س"; }
+
+  function showTab(t) {
+    if ((t === "wallet" || t === "orders") && !DATA.user) {
+      signInWithGoogleOfficial();
+      return;
+    }
+    ["shop", "wallet", "orders"].forEach(k => {
+      document.getElementById("tabbtn-" + k).classList.toggle("active", k === t);
+      document.getElementById("sec-" + k).style.display = k === t ? "block" : "none";
+    });
+  }
+
+  function renderIconHTML(iconVal, size = 54) {
+    if (iconVal && (iconVal.startsWith("http://") || iconVal.startsWith("https://") || iconVal.startsWith("/"))) {
+      return `<img src="${iconVal}" alt="icon" loading="lazy" style="width:${size}px; height:${size}px; border-radius:12px; object-fit:cover; border:1.5px solid var(--cyan); background:#070b14;" onerror="this.style.display='none'">`;
+    }
+    return `<div class="p-ico" style="width:${size}px; height:${size}px;">${iconVal || '🎮'}</div>`;
+  }
+
+  function onSearchInput(val) { searchQuery = (val || "").trim().toLowerCase(); renderStore(); }
+  function selectMainCat(catName) { mainCatFilter = catName; subCatFilter = ""; searchQuery = ""; const inp = document.getElementById("store-search"); if (inp) inp.value = ""; renderStore(); }
+  function selectSubCat(subName) { subCatFilter = subName; renderStore(); window.scrollTo({ top: 120, behavior: "smooth" }); }
+  function resetSubFilter() { subCatFilter = ""; searchQuery = ""; const inp = document.getElementById("store-search"); if (inp) inp.value = ""; renderStore(); }
+
+  function splitGameField(g) {
+    const parts = (g || "الألعاب").split("|");
+    return { main: (parts[0] || "الألعاب").trim(), sub: (parts.slice(1).join("|") || parts[0] || "الألعاب").trim() };
+  }
+
+  function openBuy(id) {
+    if (!DATA.user) { signInWithGoogleOfficial(); return; }
+    buyProdId = id;
+    const p = DATA.products.find(x => x.id === id);
+    if (!p) return;
+    const info = splitGameField(p.game);
+    document.getElementById("bm-summary").innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          ${renderIconHTML(p.icon, 48)}
+          <div><div style="font-size:12px; color:var(--cyan);">${info.main} - ${info.sub}</div><div style="font-size:15px; font-weight:900;">${p.pack}</div></div>
+        </div>
+        <div style="font-size:19px; font-weight:900; color:#fde68a; direction:ltr;">${fmtUSD(p.price_usd)}</div>
+      </div>`;
+    document.getElementById("bm-player-id").value = "";
+    document.getElementById("buy-modal").classList.add("open");
+  }
+
+  async function confirmBuy() {
+    const player_id = document.getElementById("bm-player-id").value.trim();
+    if (!player_id) return alert("يرجى إدخال رقم الـ ID أو الحساب المطلوب");
+    const res = await fetch("/api/customer/purchase", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ACCESS_TOKEN },
+      body: JSON.stringify({ product_id: buyProdId, player_id })
+    });
+    const d = await res.json();
+    if (!d.ok) {
+      alert("⚠️ " + d.msg);
+      if (d.need_deposit) { document.getElementById("buy-modal").classList.remove("open"); showTab("wallet"); }
+      return;
+    }
+    document.getElementById("buy-modal").classList.remove("open");
+    await loadStore();
+    showTab("orders");
+    alert("✅ تم استلام طلبك بنجاح! يمكنك متابعة حالته من قسم طلباتي.");
+  }
+
+  function updatePayBox() {
+    const el = document.getElementById("dep-method");
+    if (!el || !DATA.payInfo) return;
+    const m = el.value;
+    let txt = DATA.payInfo.sham_account || "";
+    if (m.includes("سيريتل")) txt = DATA.payInfo.syriatel_account || "";
+    if (m.includes("USDT")) txt = DATA.payInfo.usdt_account || "";
+    document.getElementById("pay-account-box").textContent = "📌 حوّل إلى: " + txt;
+  }
+
+  function updateSYPPreview() {
+    const v = parseFloat(document.getElementById("dep-amount").value) || 0;
+    document.getElementById("dep-syp-hint").textContent = "المعادل بالليرة السورية: " + fmtSYP(v);
+  }
+
+  async function submitDeposit() {
+    const method = document.getElementById("dep-method").value;
+    const amount_usd = parseFloat(document.getElementById("dep-amount").value) || 0;
+    const tx_id = document.getElementById("dep-tx").value.trim();
+    const res = await fetch("/api/customer/deposit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ACCESS_TOKEN },
+      body: JSON.stringify({ method, amount_usd, tx_id })
+    });
+    const d = await res.json();
+    if (!d.ok) return alert("⚠️ " + d.msg);
+    document.getElementById("dep-amount").value = "";
+    document.getElementById("dep-tx").value = "";
+    await loadStore();
+    showTab("orders");
+    alert("✅ تم إرسال طلب شحن الرصيد، سيتم إضافته لمحفظتك فور مطابقة رقم العملية.");
+  }
+
+  function renderStore() {
+    if (DATA.user) {
+      document.getElementById("logged-in-bar").style.display = "flex";
+      document.getElementById("logged-out-bar").style.display = "none";
+      document.getElementById("ui-balance").textContent = fmtUSD(DATA.user.balance);
+      document.getElementById("ui-username").textContent = "👤 " + DATA.user.name + " (" + DATA.user.email + ")";
+    } else {
+      document.getElementById("logged-in-bar").style.display = "none";
+      document.getElementById("logged-out-bar").style.display = "flex";
+    }
+
+    const orderedMains = ["الألعاب", "تطبيقات دردشة", "تواصل اجتماعي", "بطاقات شحن", "قسم الأرقام", "توثيق حسابات", "عملات و أرصدة", "ذكاء اصطناعي Ai", "شاشة VIP", "برامج تصميم", "Vpn مدفوع", "سحب رواتب"];
+    const products = DATA.products || [];
+    const existingMains = [...new Set(products.map(p => splitGameField(p.game).main))];
+    const mainCats = orderedMains.filter(m => existingMains.includes(m));
+    existingMains.forEach(m => { if (!mainCats.includes(m)) mainCats.push(m); });
+    if (!mainCats.includes(mainCatFilter) && mainCats.length > 0) mainCatFilter = mainCats[0];
+
+    document.getElementById("game-filters").innerHTML = mainCats.map(m => {
+      const count = products.filter(p => splitGameField(p.game).main === m).length;
+      return `<button class="f-pill ${(!searchQuery && mainCatFilter === m) ? 'active' : ''}" onclick='selectMainCat(${JSON.stringify(m)})'>📂 ${m} <span style="font-size:11px; opacity:0.8;">(${count})</span></button>`;
+    }).join("");
+
+    const backBtn = document.getElementById("btn-back-cats");
+    const bread = document.getElementById("sub-breadcrumb");
+    const grid = document.getElementById("products-grid");
+
+    if (searchQuery || subCatFilter) {
+      backBtn.style.display = "inline-block";
+      bread.style.display = "block";
+      const filtered = searchQuery
+        ? products.filter(p => (p.pack && p.pack.toLowerCase().includes(searchQuery)) || (p.game && p.game.toLowerCase().includes(searchQuery))).slice(0, 120)
+        : products.filter(p => { const info = splitGameField(p.game); return info.main === mainCatFilter && info.sub === subCatFilter; });
+
+      bread.textContent = searchQuery
+        ? `🔍 نتائج البحث عن "${searchQuery}" (${filtered.length} باقة):`
+        : `📂 ${mainCatFilter} ⬅️ ${subCatFilter} (${filtered.length} باقة متوفرة):`;
+
+      grid.innerHTML = filtered.map(p => {
+        const info = splitGameField(p.game);
+        return `
+          <div class="p-card">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+              ${renderIconHTML(p.icon, 54)}
+              <div><div class="p-game">${info.sub}</div><div class="p-name" style="margin:2px 0 0;">${p.pack}</div></div>
+            </div>
+            <div>
+              <div class="p-price">
+                <span style="font-size:19px; font-weight:900; color:#fde68a; direction:ltr;">${fmtUSD(p.price_usd)}</span>
+                <span style="font-size:12px; color:var(--cyan); direction:ltr;">${fmtSYP(p.price_usd)}</span>
+              </div>
+              <button class="btn btn-cyan" style="width:100%;" onclick="openBuy(${p.id})">⚡ شراء فوري</button>
+            </div>
+          </div>`;
+      }).join("") || `<div class="panel" style="grid-column:1/-1; text-align:center;">لا توجد باقات مطابقة.</div>`;
+    } else {
+      backBtn.style.display = "none";
+      bread.style.display = "block";
+      const inMain = products.filter(p => splitGameField(p.game).main === mainCatFilter);
+      const subMap = new Map();
+      inMain.forEach(p => {
+        const sub = splitGameField(p.game).sub;
+        if (!subMap.has(sub)) subMap.set(sub, { name: sub, icon: p.icon, count: 0, minPrice: p.price_usd });
+        const entry = subMap.get(sub);
+        entry.count++;
+        if (p.price_usd < entry.minPrice) entry.minPrice = p.price_usd;
+      });
+      const subs = Array.from(subMap.values());
+      bread.textContent = `📂 أقسام ${mainCatFilter} (${subs.length} قسم فرعي - اضغط على القسم لعرض باقاته):`;
+
+      grid.innerHTML = subs.map(s => `
+        <div class="p-card" style="cursor:pointer; text-align:center; align-items:center;" onclick='selectSubCat(${JSON.stringify(s.name)})'>
+          <div style="margin-bottom:10px;">${renderIconHTML(s.icon, 74)}</div>
+          <div class="p-name" style="font-size:15px; margin-bottom:6px;">${s.name}</div>
+          <div style="font-size:12px; color:var(--cyan); font-weight:800; margin-bottom:12px;">📦 ${s.count} باقة | تبدأ من ${fmtUSD(s.minPrice)}</div>
+          <button class="btn btn-cyan" style="width:100%;">عرض الباقات ⬅️</button>
+        </div>`).join("");
+    }
+
+    updatePayBox();
+    const myOrders = DATA.myOrders || [];
+    document.getElementById("my-orders-tbody").innerHTML = myOrders.map(o => `
+      <tr><td><b>#${o.id}</b></td><td>${o.date}</td><td style="color:#fde68a;">${o.game} - ${o.pack_name}</td><td><code style="color:var(--cyan);">${o.player_id}</code></td><td style="color:#34d399;">${fmtUSD(o.price_usd)}</td><td>${o.status}</td><td style="font-size:12px; color:var(--muted);">${o.supplier_note || ''}</td></tr>
+    `).join("") || `<tr><td colspan="7" style="padding:18px; color:var(--muted);">لا توجد طلبات مسجلة في حسابك بعد.</td></tr>`;
+
+    const myDeposits = DATA.myDeposits || [];
+    document.getElementById("my-deps-tbody").innerHTML = myDeposits.map(d => `
+      <tr><td><b>#${d.id}</b></td><td>${d.date}</td><td>${d.method}</td><td style="color:#fde68a;">+${fmtUSD(d.amount_usd)}</td><td><code>${d.tx_id}</code></td><td>${d.status}</td></tr>
+    `).join("") || `<tr><td colspan="6" style="padding:18px; color:var(--muted);">لا توجد عمليات إيداع سابقة.</td></tr>`;
+  }
+
+  initAuthAndLoad();
+</script>
+</body>
+</html>
