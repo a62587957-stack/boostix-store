@@ -238,9 +238,14 @@
   })();
 
   function esc(v) {
-    return String(v !== null && v !== undefined ? v : "").replace(/[&<>"']/g, ch => ({
-      "&": "&", "<": "<", ">": ">", '"': """, "'": "'"
-    }[ch]));
+    return String(v !== null && v !== undefined ? v : "")
+      .replace(/&/g, "&")
+      .replace(/</g, "<")
+      .replace(/>/g, ">")
+      .replace(/"/g, """)
+      .replace(/'/g, "'");
+  }
+[ch]));
   }
 
   function showToast(msg, isErr = false) {
