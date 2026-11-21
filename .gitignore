@@ -1,4 +1,5 @@
-backend/.env
-backend/server.log
-backend/*.db
 __pycache__/
+*.pyc
+*.log
+backend/.env
+.env
