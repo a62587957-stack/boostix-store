@@ -52,9 +52,11 @@
   <div style="background:#111827; border:2px solid var(--gold); padding:28px; border-radius:16px; width:100%; max-width:420px; text-align:center;">
     <h2 style="color:#fde68a; margin-bottom:6px;">🛡️ بوابة Boostix المحصّنة</h2>
     <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">جلسات مشفّرة HttpOnly • حماية ضد التخمين • مصادقة ثنائية 2FA</p>
-    <input type="password" id="adm-pass" placeholder="كلمة مرور الإدارة السرية..." autocomplete="current-password" style="margin-bottom:10px; text-align:center;" dir="ltr" onkeydown="if(event.key==='Enter') loginAdmin()">
-    <input type="text" id="adm-totp" inputmode="numeric" maxlength="10" placeholder="رمز التحقق 2FA (6 أرقام من Authenticator)" autocomplete="one-time-code" style="margin-bottom:14px; text-align:center; letter-spacing:4px;" dir="ltr" onkeydown="if(event.key==='Enter') loginAdmin()">
-    <button type="button" class="btn btn-gold" id="unlock-btn" style="width:100%; padding:11px; font-size:14px;" onclick="loginAdmin()">🔓 التحقق والدخول الآمن</button>
+    <form id="adm-login-form" method="POST" action="" onsubmit="event.preventDefault(); loginAdmin();">
+      <input type="password" name="password" id="adm-pass" placeholder="كلمة مرور الإدارة السرية..." autocomplete="current-password" style="margin-bottom:10px; text-align:center;" dir="ltr" required>
+      <input type="text" name="totp" id="adm-totp" inputmode="numeric" maxlength="10" placeholder="رمز التحقق 2FA (6 أرقام من Authenticator)" autocomplete="one-time-code" style="margin-bottom:14px; text-align:center; letter-spacing:4px;" dir="ltr">
+      <button type="submit" class="btn btn-gold" id="unlock-btn" style="width:100%; padding:11px; font-size:14px;">🔓 التحقق والدخول الآمن</button>
+    </form>
     <div id="login-status" style="display:none; margin-top:12px; padding:10px; border-radius:8px; font-size:12.5px; font-weight:800; line-height:1.5;"></div>
     <p id="sec-note" style="font-size:11px; color:#34d399; margin-top:10px;">يُحظر الـ IP تلقائياً لمدة 30 دقيقة بعد 5 محاولات خاطئة</p>
   </div>
@@ -222,9 +224,21 @@
   let prodPage = 1;
   const PROD_PER_PAGE = 40;
   const BASE_ADMIN_PATH = window.location.pathname.replace(/\/+$/, "");
+  (function(){
+    var f = document.getElementById("adm-login-form");
+    if (f) f.action = BASE_ADMIN_PATH + "/login";
+    if (window.location.search.indexOf("err=bad_creds") !== -1) {
+      var b = document.getElementById("login-status");
+      if (b) {
+        b.style.display = "block";
+        b.style.background = "#4c0519"; b.style.border = "1px solid #f43f5e"; b.style.color = "#fecdd3";
+        b.textContent = "❌ كلمة المرور أو رمز التحقق (2FA) غير صحيح!";
+      }
+    }
+  })();
 
   function esc(v) {
-    return String(v ?? "").replace(/[&<>"']/g, ch => ({
+    return String(v !== null && v !== undefined ? v : "").replace(/[&<>"']/g, ch => ({
       "&": "&", "<": "<", ">": ">", '"': """, "'": "'"
     }[ch]));
   }
@@ -596,7 +610,7 @@
 
     const pi = ADM_DATA.payInfo || {};
     document.getElementById("set-rate").value = pi.rate_syp || 15000;
-    document.getElementById("set-margin").value = pi.default_margin_pct ?? 15;
+    document.getElementById("set-margin").value = (pi.default_margin_pct !== undefined ? pi.default_margin_pct : 15);
     document.getElementById("set-sham").value = pi.sham_account || "";
     document.getElementById("set-syriatel").value = pi.syriatel_account || "";
     document.getElementById("set-usdt").value = pi.usdt_account || "";
