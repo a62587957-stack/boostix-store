@@ -1,5 +1,5 @@
 import os, json, urllib.request, urllib.error
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, quote
 
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -16,6 +16,7 @@ def _resolve_file(*rels):
 ENV_FILE = _resolve_file("backend/.env", ".env")
 STORE_HTML = _resolve_file("public/store.html", "store.html")
 ADMIN_HTML = _resolve_file("public/admin.html", "admin.html")
+CATALOG_FILE = _resolve_file("boostix_store_catalog.json", "backend/boostix_store_catalog.json")
 
 def load_env():
     cfg = {}
@@ -34,7 +35,16 @@ SUPABASE_SECRET = os.environ.get("SUPABASE_SECRET_KEY") or CFG.get("SUPABASE_SEC
 ADMIN_SECRET = os.environ.get("ADMIN_SECRET") or CFG.get("ADMIN_SECRET", "SakerAdmin2026")
 PORT = int(os.environ.get("PORT", 8090))
 
-def sb_request(method, path, body=None, prefer_rep=False, custom_token=None):
+SETTINGS_SKU = "__STORE_SETTINGS__"
+DEFAULT_SETTINGS = {
+    "rate_syp": 15000,
+    "sham_account": "شام كاش المعتمد: 0931735665 (هاشم الظاهر)",
+    "syriatel_account": "سيريتل كاش: 0931735665",
+    "usdt_account": "USDT TRC20 / Binance ID: 554433221",
+    "default_margin_pct": 15.0
+}
+
+def sb_request(method, path, body=None, prefer_rep=False, custom_token=None, extra_headers=None, timeout=15):
     url = f"{SUPABASE_URL}{path}"
     auth_token = custom_token if custom_token else SUPABASE_SECRET
     headers = {
@@ -44,10 +54,12 @@ def sb_request(method, path, body=None, prefer_rep=False, custom_token=None):
     }
     if prefer_rep:
         headers["Prefer"] = "return=representation"
+    if extra_headers:
+        headers.update(extra_headers)
     data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=12) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             txt = resp.read().decode("utf-8").strip()
             return json.loads(txt) if txt else None
     except urllib.error.HTTPError as e:
@@ -59,24 +71,74 @@ def sb_request(method, path, body=None, prefer_rep=False, custom_token=None):
     except Exception as e:
         return {"error": str(e)}
 
+def get_store_settings():
+    res = sb_request("GET", f"/rest/v1/products?sku=eq.{SETTINGS_SKU}&select=id,pack&limit=1")
+    settings = dict(DEFAULT_SETTINGS)
+    if isinstance(res, list) and res:
+        try:
+            saved = json.loads(res[0].get("pack", "{}"))
+            if isinstance(saved, dict):
+                settings.update(saved)
+        except Exception:
+            pass
+    return settings
 
-def fetch_all_active_products():
+def save_store_settings(new_data):
+    cur = get_store_settings()
+    if "rate_syp" in new_data:
+        cur["rate_syp"] = max(1, int(float(new_data["rate_syp"])))
+    if "sham_account" in new_data:
+        cur["sham_account"] = str(new_data["sham_account"]).strip()
+    if "syriatel_account" in new_data:
+        cur["syriatel_account"] = str(new_data["syriatel_account"]).strip()
+    if "usdt_account" in new_data:
+        cur["usdt_account"] = str(new_data["usdt_account"]).strip()
+    if "default_margin_pct" in new_data:
+        cur["default_margin_pct"] = round(max(0.0, float(new_data["default_margin_pct"])), 2)
+
+    payload_str = json.dumps(cur, ensure_ascii=False)
+    res = sb_request("GET", f"/rest/v1/products?sku=eq.{SETTINGS_SKU}&select=id&limit=1")
+    if isinstance(res, list) and res:
+        sb_request("PATCH", f"/rest/v1/products?id=eq.{res[0]['id']}", {"pack": payload_str, "active": False})
+    else:
+        sb_request("POST", "/rest/v1/products", {
+            "game": "__SYSTEM__",
+            "pack": payload_str,
+            "price_usd": 1.00,
+            "supplier_cost_usd": 0.00,
+            "sku": SETTINGS_SKU,
+            "icon": "⚙️",
+            "active": False
+        })
+    return cur
+
+def fetch_all_products(active_only=True, full_fields=False):
     all_p = []
-    for offset in (0, 1000, 2000):
-        chunk = sb_request("GET", f"/rest/v1/products?active=eq.true&select=id,game,pack,price_usd,icon&order=id.asc&limit=1000&offset={offset}")
+    select = "id,game,pack,price_usd,supplier_cost_usd,sku,icon,active" if (not active_only or full_fields) else "id,game,pack,price_usd,icon"
+    filt = "active=eq.true&" if active_only else ""
+    offset = 0
+    while True:
+        chunk = None
+        for _ in range(3):
+            res = sb_request("GET", f"/rest/v1/products?{filt}select={select}&order=id.asc&limit=1000&offset={offset}", timeout=20)
+            if isinstance(res, list):
+                chunk = res
+                break
         if isinstance(chunk, list):
-            all_p.extend(chunk)
+            for item in chunk:
+                if item.get("sku") != SETTINGS_SKU and item.get("game") != "__SYSTEM__":
+                    all_p.append(item)
             if len(chunk) < 1000:
                 break
+            offset += 1000
         else:
             break
     return all_p
 
 def load_catalog_tree():
-    cat_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "boostix_store_catalog.json")
-    if os.path.exists(cat_path):
+    if os.path.exists(CATALOG_FILE):
         try:
-            with open(cat_path, "r", encoding="utf-8") as f:
+            with open(CATALOG_FILE, "r", encoding="utf-8") as f:
                 c = json.load(f)
             return {
                 "main_categories": c.get("main_categories", []),
@@ -116,6 +178,9 @@ def fmt_date(iso_str):
     return str(iso_str)[:16].replace("T", " ")
 
 class CloudHandler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        return
+
     def _json(self, data, code=200):
         raw = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
@@ -139,16 +204,16 @@ class CloudHandler(BaseHTTPRequestHandler):
             with open(STORE_HTML, "rb") as f: b = f.read()
             self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.end_headers(); self.wfile.write(b)
             return
-        if p == "/admin":
+        if p == "/admin" or p == "/admin.html":
             with open(ADMIN_HTML, "rb") as f: b = f.read()
             self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.end_headers(); self.wfile.write(b)
             return
 
         if p == "/api/customer/bootstrap":
             u = self._auth_user()
-            prods = fetch_all_active_products()
+            prods = fetch_all_products(active_only=True)
             cat_tree = load_catalog_tree()
-            if not isinstance(prods, list): prods = []
+            pay_info = get_store_settings()
             my_ords, my_deps, u_dict = [], [], None
             if u:
                 u_dict = {
@@ -178,32 +243,37 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "catalogTree": cat_tree,
                 "myOrders": my_ords,
                 "myDeposits": my_deps,
-                "payInfo": {
-                    "rate_syp": 15000,
-                    "sham_account": "شام كاش المعتمد: 0931735665 (هاشم الظاهر)",
-                    "syriatel_account": "سيريتل كاش: 0931735665",
-                    "usdt_account": "USDT TRC20 / Binance ID: 554433221"
-                }
+                "payInfo": pay_info
             })
             return
 
         if p == "/api/admin/overview":
             if self.headers.get("X-Admin-Key") != ADMIN_SECRET:
-                self._json({"ok": False}, 403); return
+                self._json({"ok": False, "msg": "Unauthorized"}, 403); return
             users = sb_request("GET", "/rest/v1/users?select=*&order=created_at.desc")
             if not isinstance(users, list): users = []
             for u in users: u["created_at"] = fmt_date(u.get("created_at"))
-            prods = sb_request("GET", "/rest/v1/products?select=*&order=id.asc")
-            if not isinstance(prods, list): prods = []
+            prods = fetch_all_products(active_only=False)
+            cat_tree = load_catalog_tree()
+            pay_info = get_store_settings()
             deps = sb_request("GET", "/rest/v1/deposits?select=*&order=id.desc")
             if not isinstance(deps, list): deps = []
             for d in deps: d["date"] = fmt_date(d.get("created_at"))
             ords = sb_request("GET", "/rest/v1/orders?select=*&order=id.desc")
             if not isinstance(ords, list): ords = []
             for o in ords: o["date"] = fmt_date(o.get("created_at"))
-            self._json({"ok": True, "users": users, "products": prods,
-                "catalogTree": cat_tree, "deposits": deps, "orders": ords})
+            self._json({
+                "ok": True,
+                "users": users,
+                "products": prods,
+                "catalogTree": cat_tree,
+                "payInfo": pay_info,
+                "deposits": deps,
+                "orders": ords
+            })
             return
+
+        self._json({"ok": False, "msg": "Not Found"}, 404)
 
     def do_POST(self):
         p = urlparse(self.path).path
@@ -271,7 +341,7 @@ class CloudHandler(BaseHTTPRequestHandler):
             return
 
         if self.headers.get("X-Admin-Key") != ADMIN_SECRET:
-            self._json({"ok": False}, 403); return
+            self._json({"ok": False, "msg": "Unauthorized"}, 403); return
 
         if p == "/api/admin/deposit-decide":
             did = body.get("dep_id")
@@ -299,22 +369,38 @@ class CloudHandler(BaseHTTPRequestHandler):
                     if isinstance(usrs, list) and usrs:
                         nb = round(float(usrs[0]["balance"]) + float(o["price_usd"]), 2)
                         sb_request("PATCH", f"/rest/v1/users?id=eq.{o['user_id']}", {"balance": nb})
-                    note = "رفض المورد الطلب وتم إرجاع المبلغ لمحفظتك تلقائياً"
+                    note = body.get("note") or "رفض المورد الطلب وتم إرجاع المبلغ لمحفظتك تلقائياً"
                 else:
-                    note = "تم إتمام الشحن بنجاح"
+                    note = body.get("note") or "تم إتمام الشحن بنجاح"
                 sb_request("PATCH", f"/rest/v1/orders?id=eq.{oid}", {"status": st, "supplier_note": note})
             self._json({"ok": True})
             return
 
         if p == "/api/admin/product-add":
             sb_request("POST", "/rest/v1/products", {
-                "game": body["game"],
-                "pack": body["pack"],
-                "price_usd": float(body["price_usd"]),
-                "supplier_cost_usd": float(body["supplier_cost_usd"]),
-                "sku": body["sku"],
-                "icon": "🎮"
+                "game": str(body["game"]).strip(),
+                "pack": str(body["pack"]).strip(),
+                "price_usd": round(float(body["price_usd"]), 2),
+                "supplier_cost_usd": round(float(body.get("supplier_cost_usd", 0)), 2),
+                "sku": str(body.get("sku") or "BX-CUSTOM").strip(),
+                "icon": str(body.get("icon") or "🎮").strip(),
+                "active": True
             })
+            self._json({"ok": True})
+            return
+
+        if p == "/api/admin/product-update":
+            pid = int(body.get("id", 0))
+            if pid <= 0:
+                self._json({"ok": False, "msg": "معرف الباقة غير صالح"}, 400); return
+            patch = {}
+            if "price_usd" in body: patch["price_usd"] = round(max(0.01, float(body["price_usd"])), 2)
+            if "supplier_cost_usd" in body: patch["supplier_cost_usd"] = round(max(0.0, float(body["supplier_cost_usd"])), 2)
+            if "pack" in body: patch["pack"] = str(body["pack"]).strip()
+            if "game" in body: patch["game"] = str(body["game"]).strip()
+            if "sku" in body: patch["sku"] = str(body["sku"]).strip()
+            if "active" in body: patch["active"] = bool(body["active"])
+            sb_request("PATCH", f"/rest/v1/products?id=eq.{pid}", patch)
             self._json({"ok": True})
             return
 
@@ -324,6 +410,79 @@ class CloudHandler(BaseHTTPRequestHandler):
             self._json({"ok": True})
             return
 
+        if p == "/api/admin/bulk-margin":
+            margin_pct = float(body.get("margin_pct", 15))
+            category = str(body.get("category", "ALL")).strip()
+            round_mode = str(body.get("round_mode", "exact")).strip()
+            if margin_pct < 0 or margin_pct > 500:
+                self._json({"ok": False, "msg": "نسبة الربح يجب أن تكون بين 0% و 500%"}, 400); return
+
+            prods = fetch_all_products(active_only=True, full_fields=True)
+            updates = []
+            for pr in prods:
+                if category != "ALL" and not str(pr.get("game", "")).startswith(category):
+                    continue
+                cost = float(pr.get("supplier_cost_usd") or 0)
+                if cost <= 0:
+                    continue
+                raw_price = cost * (1.0 + margin_pct / 100.0)
+                if round_mode == "0.05":
+                    new_price = round(round(raw_price * 20) / 20, 2)
+                elif round_mode == "0.99" and raw_price >= 1.0:
+                    new_price = round(int(raw_price) + 0.99, 2)
+                    if new_price < cost:
+                        new_price = round(int(raw_price) + 1.99, 2)
+                else:
+                    new_price = round(raw_price, 2)
+                if new_price < 0.01:
+                    new_price = 0.01
+                updates.append({
+                    "id": pr["id"],
+                    "game": pr["game"],
+                    "pack": pr["pack"],
+                    "sku": pr["sku"],
+                    "icon": pr.get("icon") or "🎮",
+                    "active": True,
+                    "supplier_cost_usd": cost,
+                    "price_usd": new_price
+                })
+
+            updated_count = 0
+            for i in range(0, len(updates), 250):
+                chunk = updates[i:i+250]
+                res = sb_request(
+                    "POST",
+                    "/rest/v1/products?on_conflict=id",
+                    chunk,
+                    extra_headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
+                    timeout=25
+                )
+                if not (isinstance(res, dict) and "error" in res):
+                    updated_count += len(chunk)
+
+            self._json({"ok": True, "updated": updated_count})
+            return
+
+        if p == "/api/admin/settings-save":
+            saved = save_store_settings(body)
+            self._json({"ok": True, "payInfo": saved})
+            return
+
+        if p == "/api/admin/user-balance":
+            uid = str(body.get("user_id", "")).strip()
+            delta = round(float(body.get("delta_usd", 0)), 2)
+            if not uid or delta == 0:
+                self._json({"ok": False, "msg": "بيانات التعديل غير صالحة"}, 400); return
+            usrs = sb_request("GET", f"/rest/v1/users?id=eq.{quote(uid)}&select=balance")
+            if not isinstance(usrs, list) or not usrs:
+                self._json({"ok": False, "msg": "المستخدم غير موجود"}, 404); return
+            nb = round(max(0.0, float(usrs[0]["balance"]) + delta), 2)
+            sb_request("PATCH", f"/rest/v1/users?id=eq.{quote(uid)}", {"balance": nb})
+            self._json({"ok": True, "balance": nb})
+            return
+
+        self._json({"ok": False, "msg": "Not Found"}, 404)
+
 if __name__ == "__main__":
-    HTTPServer.allow_reuse_address = True
-    HTTPServer(("0.0.0.0", PORT), CloudHandler).serve_forever()
+    ThreadingHTTPServer.allow_reuse_address = True
+    ThreadingHTTPServer(("0.0.0.0", PORT), CloudHandler).serve_forever()
