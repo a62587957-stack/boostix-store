@@ -1,5 +1,7 @@
-import os, json, urllib.request, urllib.error
+import os, json, time, hmac, hashlib, base64, struct, secrets, threading
+import urllib.request, urllib.error
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+from http.cookies import SimpleCookie
 from urllib.parse import urlparse, quote
 
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,15 +27,32 @@ def load_env():
             for line in f:
                 if "=" in line and not line.startswith("#"):
                     k, v = line.strip().split("=", 1)
-                    cfg[k] = v
+                    cfg[k.strip()] = v.strip()
     return cfg
 
 CFG = load_env()
 SUPABASE_URL = os.environ.get("SUPABASE_URL") or CFG.get("SUPABASE_URL", "https://lxeloayuowzatrrlsasn.supabase.co")
 SUPABASE_PUB = os.environ.get("SUPABASE_PUBLISHABLE_KEY") or CFG.get("SUPABASE_PUBLISHABLE_KEY", "")
 SUPABASE_SECRET = os.environ.get("SUPABASE_SECRET_KEY") or CFG.get("SUPABASE_SECRET_KEY", "")
-ADMIN_SECRET = os.environ.get("ADMIN_SECRET") or CFG.get("ADMIN_SECRET", "SakerAdmin2026")
+
+# لا توجد كلمة مرور افتراضية في الكود إطلاقاً
+ADMIN_SECRET = (os.environ.get("ADMIN_SECRET") or CFG.get("ADMIN_SECRET", "")).strip()
+RAW_ADMIN_PATH = (os.environ.get("ADMIN_PATH") or CFG.get("ADMIN_PATH", "")).strip()
+ADMIN_PATH = ("/" + RAW_ADMIN_PATH.strip("/")) if RAW_ADMIN_PATH else ""
+ADMIN_TOTP_SECRET = (os.environ.get("ADMIN_TOTP_SECRET") or CFG.get("ADMIN_TOTP_SECRET", "")).strip()
+SESSION_SIGN_KEY = (os.environ.get("SESSION_SIGN_KEY") or CFG.get("SESSION_SIGN_KEY", "") or secrets.token_hex(32)).encode("utf-8")
 PORT = int(os.environ.get("PORT", 8090))
+
+MAX_BODY_BYTES = 65536
+SESSION_TTL_SEC = 4 * 3600  # 4 ساعات
+MAX_LOGIN_FAILS = 5
+LOCKOUT_SEC = 30 * 60       # 30 دقيقة حظر بعد 5 محاولات خاطئة
+FAIL_WINDOW_SEC = 15 * 60
+
+_SEC_LOCK = threading.Lock()
+_FAILED_LOGINS = {}   # ip -> {"fails": [timestamps], "locked_until": float}
+_RATE_BUCKETS = {}    # (ip, bucket) -> [timestamps]
+_REVOKED_TOKENS = {}  # jti -> exp_ts
 
 SETTINGS_SKU = "__STORE_SETTINGS__"
 DEFAULT_SETTINGS = {
@@ -43,6 +62,104 @@ DEFAULT_SETTINGS = {
     "usdt_account": "USDT TRC20 / Binance ID: 554433221",
     "default_margin_pct": 15.0
 }
+
+def verify_totp(secret_b32, code_str, window=1):
+    code_str = str(code_str or "").strip().replace(" ", "")
+    if not code_str.isdigit() or len(code_str) != 6:
+        return False
+    try:
+        s = secret_b32.strip().replace(" ", "").upper()
+        pad = (-len(s)) % 8
+        key = base64.b32decode(s + ("=" * pad), casefold=True)
+    except Exception:
+        return False
+    step = int(time.time() // 30)
+    for delta in range(-window, window + 1):
+        msg = struct.pack(">Q", step + delta)
+        digest = hmac.new(key, msg, hashlib.sha1).digest()
+        offset = digest[-1] & 0x0F
+        truncated = struct.unpack(">I", digest[offset:offset + 4])[0] & 0x7FFFFFFF
+        expected = f"{truncated % 1000000:06d}"
+        if hmac.compare_digest(expected, code_str):
+            return True
+    return False
+
+def create_admin_token():
+    exp = int(time.time()) + SESSION_TTL_SEC
+    jti = secrets.token_hex(16)
+    payload = f"adm.{exp}.{jti}".encode("utf-8")
+    sig = hmac.new(SESSION_SIGN_KEY, payload, hashlib.sha256).hexdigest()
+    return f"adm.{exp}.{jti}.{sig}"
+
+def verify_admin_token(token):
+    if not token or not ADMIN_SECRET:
+        return None
+    parts = token.split(".")
+    if len(parts) != 4 or parts[0] != "adm":
+        return None
+    _, exp_s, jti, sig = parts
+    if not exp_s.isdigit():
+        return None
+    exp = int(exp_s)
+    if time.time() > exp:
+        return None
+    payload = f"adm.{exp_s}.{jti}".encode("utf-8")
+    expected_sig = hmac.new(SESSION_SIGN_KEY, payload, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(sig, expected_sig):
+        return None
+    with _SEC_LOCK:
+        # تنظيف الجلسات الملغاة المنتهية
+        now = time.time()
+        for k in [k for k, v in _REVOKED_TOKENS.items() if v < now]:
+            _REVOKED_TOKENS.pop(k, None)
+        if jti in _REVOKED_TOKENS:
+            return None
+    return {"jti": jti, "exp": exp}
+
+def revoke_admin_token(token):
+    info = verify_admin_token(token)
+    if info:
+        with _SEC_LOCK:
+            _REVOKED_TOKENS[info["jti"]] = info["exp"]
+
+def check_rate_limit(ip, bucket, limit, window_sec):
+    now = time.time()
+    key = (ip, bucket)
+    with _SEC_LOCK:
+        arr = [t for t in _RATE_BUCKETS.get(key, []) if now - t < window_sec]
+        if len(arr) >= limit:
+            _RATE_BUCKETS[key] = arr
+            return False
+        arr.append(now)
+        _RATE_BUCKETS[key] = arr
+        return True
+
+def check_login_lockout(ip):
+    now = time.time()
+    with _SEC_LOCK:
+        rec = _FAILED_LOGINS.get(ip)
+        if rec and rec.get("locked_until", 0) > now:
+            return int(rec["locked_until"] - now)
+    return 0
+
+def record_login_fail(ip):
+    now = time.time()
+    with _SEC_LOCK:
+        rec = _FAILED_LOGINS.get(ip, {"fails": [], "locked_until": 0})
+        fails = [t for t in rec["fails"] if now - t < FAIL_WINDOW_SEC]
+        fails.append(now)
+        rec["fails"] = fails
+        if len(fails) >= MAX_LOGIN_FAILS:
+            rec["locked_until"] = now + LOCKOUT_SEC
+            rec["fails"] = []
+            print(f"[SECURITY] IP {ip} LOCKED for {LOCKOUT_SEC}s after {MAX_LOGIN_FAILS} failed admin logins", flush=True)
+        else:
+            print(f"[SECURITY] Failed admin login from {ip} ({len(fails)}/{MAX_LOGIN_FAILS})", flush=True)
+        _FAILED_LOGINS[ip] = rec
+
+def clear_login_fails(ip):
+    with _SEC_LOCK:
+        _FAILED_LOGINS.pop(ip, None)
 
 def sb_request(method, path, body=None, prefer_rep=False, custom_token=None, extra_headers=None, timeout=15):
     url = f"{SUPABASE_URL}{path}"
@@ -88,18 +205,18 @@ def save_store_settings(new_data):
     if "rate_syp" in new_data:
         cur["rate_syp"] = max(1, int(float(new_data["rate_syp"])))
     if "sham_account" in new_data:
-        cur["sham_account"] = str(new_data["sham_account"]).strip()
+        cur["sham_account"] = str(new_data["sham_account"]).strip()[:200]
     if "syriatel_account" in new_data:
-        cur["syriatel_account"] = str(new_data["syriatel_account"]).strip()
+        cur["syriatel_account"] = str(new_data["syriatel_account"]).strip()[:200]
     if "usdt_account" in new_data:
-        cur["usdt_account"] = str(new_data["usdt_account"]).strip()
+        cur["usdt_account"] = str(new_data["usdt_account"]).strip()[:200]
     if "default_margin_pct" in new_data:
-        cur["default_margin_pct"] = round(max(0.0, float(new_data["default_margin_pct"])), 2)
+        cur["default_margin_pct"] = round(min(500.0, max(0.0, float(new_data["default_margin_pct"]))), 2)
 
     payload_str = json.dumps(cur, ensure_ascii=False)
     res = sb_request("GET", f"/rest/v1/products?sku=eq.{SETTINGS_SKU}&select=id&limit=1")
     if isinstance(res, list) and res:
-        sb_request("PATCH", f"/rest/v1/products?id=eq.{res[0]['id']}", {"pack": payload_str, "active": False})
+        sb_request("PATCH", f"/rest/v1/products?id=eq.{int(res[0]['id'])}", {"pack": payload_str, "active": False})
     else:
         sb_request("POST", "/rest/v1/products", {
             "game": "__SYSTEM__",
@@ -150,7 +267,7 @@ def load_catalog_tree():
     return {"main_categories": [], "sub_categories": [], "level3_categories": []}
 
 def verify_user_session(token):
-    if not token:
+    if not token or len(token) > 4096:
         return None
     auth_user = sb_request("GET", "/auth/v1/user", custom_token=token)
     if isinstance(auth_user, dict) and "id" in auth_user:
@@ -158,13 +275,13 @@ def verify_user_session(token):
         email = auth_user.get("email", "")
         meta = auth_user.get("user_metadata") or {}
         name = meta.get("full_name") or meta.get("name") or (email.split("@")[0] if email else "زبون")
-        rows = sb_request("GET", f"/rest/v1/users?id=eq.{quote(uid)}&select=*")
+        rows = sb_request("GET", f"/rest/v1/users?id=eq.{quote(str(uid))}&select=*")
         if isinstance(rows, list) and len(rows) > 0:
             return rows[0]
         created = sb_request("POST", "/rest/v1/users", {
             "id": uid,
             "email": email,
-            "name": name,
+            "name": str(name)[:100],
             "balance": 0.00,
             "role": "customer"
         }, prefer_rep=True)
@@ -181,17 +298,85 @@ class CloudHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         return
 
-    def _json(self, data, code=200):
+    def _client_ip(self):
+        cf_ip = self.headers.get("CF-Connecting-IP", "").strip()
+        if cf_ip:
+            return cf_ip
+        xff = self.headers.get("X-Forwarded-For", "").strip()
+        if xff:
+            return xff.split(",")[0].strip()
+        return self.client_address[0] if self.client_address else "unknown"
+
+    def _is_https(self):
+        return self.headers.get("X-Forwarded-Proto", "").lower() == "https"
+
+    def _sec_headers(self, no_store=False):
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        if no_store:
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+            self.send_header("Pragma", "no-cache")
+
+    def _json(self, data, code=200, extra_headers=None):
         raw = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
+        self._sec_headers(no_store=True)
+        if extra_headers:
+            for k, v in extra_headers:
+                self.send_header(k, v)
         self.end_headers()
         self.wfile.write(raw)
 
+    def _html(self, path, no_store=False):
+        with open(path, "rb") as f:
+            b = f.read()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(b)))
+        self._sec_headers(no_store=no_store)
+        self.end_headers()
+        self.wfile.write(b)
+
     def _body(self):
-        l = int(self.headers.get("Content-Length", 0))
-        return json.loads(self.rfile.read(l).decode("utf-8")) if l > 0 else {}
+        try:
+            l = int(self.headers.get("Content-Length", 0))
+        except ValueError:
+            return None
+        if l < 0 or l > MAX_BODY_BYTES:
+            return None
+        if l == 0:
+            return {}
+        try:
+            return json.loads(self.rfile.read(l).decode("utf-8"))
+        except Exception:
+            return None
+
+    def _check_origin(self):
+        origin = self.headers.get("Origin", "").strip()
+        if not origin:
+            return True
+        host = self.headers.get("Host", "").strip()
+        parsed = urlparse(origin)
+        return parsed.netloc == host
+
+    def _get_admin_cookie(self):
+        raw_cookie = self.headers.get("Cookie", "")
+        if not raw_cookie:
+            return ""
+        c = SimpleCookie()
+        try:
+            c.load(raw_cookie)
+        except Exception:
+            return ""
+        return c["bx_adm_sess"].value if "bx_adm_sess" in c else ""
+
+    def _is_admin(self):
+        tok = self._get_admin_cookie()
+        return verify_admin_token(tok) is not None
 
     def _auth_user(self):
         auth = self.headers.get("Authorization", "")
@@ -199,23 +384,31 @@ class CloudHandler(BaseHTTPRequestHandler):
         return verify_user_session(tok)
 
     def do_GET(self):
-        p = urlparse(self.path).path
+        p = urlparse(self.path).path.rstrip("/") or "/"
+        ip = self._client_ip()
+
         if p == "/" or p == "/index.html":
-            with open(STORE_HTML, "rb") as f: b = f.read()
-            self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.end_headers(); self.wfile.write(b)
+            self._html(STORE_HTML)
             return
-        if p == "/admin" or p == "/admin.html":
-            with open(ADMIN_HTML, "rb") as f: b = f.read()
-            self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.end_headers(); self.wfile.write(b)
+
+        # بوابة الإدارة لا تفتح إلا على المسار السري ADMIN_PATH فقط
+        if ADMIN_PATH and p == ADMIN_PATH:
+            if not ADMIN_SECRET:
+                self._json({"ok": False, "msg": "Admin disabled"}, 503)
+                return
+            self._html(ADMIN_HTML, no_store=True)
             return
 
         if p == "/api/customer/bootstrap":
+            if not check_rate_limit(ip, "bootstrap", 60, 60):
+                self._json({"ok": False, "msg": "طلبات كثيرة جداً، انتظر لحظة"}, 429); return
             u = self._auth_user()
             prods = fetch_all_products(active_only=True)
             cat_tree = load_catalog_tree()
             pay_info = get_store_settings()
             my_ords, my_deps, u_dict = [], [], None
             if u:
+                uid_q = quote(str(u["id"]))
                 u_dict = {
                     "id": u["id"],
                     "name": u["name"],
@@ -223,12 +416,12 @@ class CloudHandler(BaseHTTPRequestHandler):
                     "balance": float(u["balance"]),
                     "role": u.get("role", "customer")
                 }
-                raw_ords = sb_request("GET", f"/rest/v1/orders?user_id=eq.{u['id']}&select=id,created_at,game,pack_name,player_id,price_usd,status,supplier_note&order=id.desc")
+                raw_ords = sb_request("GET", f"/rest/v1/orders?user_id=eq.{uid_q}&select=id,created_at,game,pack_name,player_id,price_usd,status,supplier_note&order=id.desc")
                 if isinstance(raw_ords, list):
                     for o in raw_ords:
                         o["date"] = fmt_date(o.get("created_at"))
                         my_ords.append(o)
-                raw_deps = sb_request("GET", f"/rest/v1/deposits?user_id=eq.{u['id']}&select=id,created_at,method,amount_usd,tx_id,status&order=id.desc")
+                raw_deps = sb_request("GET", f"/rest/v1/deposits?user_id=eq.{uid_q}&select=id,created_at,method,amount_usd,tx_id,status&order=id.desc")
                 if isinstance(raw_deps, list):
                     for d in raw_deps:
                         d["date"] = fmt_date(d.get("created_at"))
@@ -248,8 +441,8 @@ class CloudHandler(BaseHTTPRequestHandler):
             return
 
         if p == "/api/admin/overview":
-            if self.headers.get("X-Admin-Key") != ADMIN_SECRET:
-                self._json({"ok": False, "msg": "Unauthorized"}, 403); return
+            if not self._is_admin():
+                self._json({"ok": False, "requires_totp": bool(ADMIN_TOTP_SECRET)}, 401); return
             users = sb_request("GET", "/rest/v1/users?select=*&order=created_at.desc")
             if not isinstance(users, list): users = []
             for u in users: u["created_at"] = fmt_date(u.get("created_at"))
@@ -264,6 +457,7 @@ class CloudHandler(BaseHTTPRequestHandler):
             for o in ords: o["date"] = fmt_date(o.get("created_at"))
             self._json({
                 "ok": True,
+                "totp_enabled": bool(ADMIN_TOTP_SECRET),
                 "users": users,
                 "products": prods,
                 "catalogTree": cat_tree,
@@ -276,17 +470,67 @@ class CloudHandler(BaseHTTPRequestHandler):
         self._json({"ok": False, "msg": "Not Found"}, 404)
 
     def do_POST(self):
-        p = urlparse(self.path).path
+        p = urlparse(self.path).path.rstrip("/") or "/"
+        ip = self._client_ip()
         body = self._body()
+        if body is None or not isinstance(body, dict):
+            self._json({"ok": False, "msg": "طلب غير صالح"}, 400); return
 
+        # 1. تسجيل دخول المدير (فقط عبر المسار السري + حماية Brute-Force + TOTP 2FA)
+        if ADMIN_PATH and p == f"{ADMIN_PATH}/login":
+            if not self._check_origin():
+                self._json({"ok": False, "msg": "Origin غير مصرح"}, 403); return
+            if not ADMIN_SECRET:
+                self._json({"ok": False, "msg": "لوحة الإدارة معطّلة حتى ضبط ADMIN_SECRET"}, 503); return
+            wait_sec = check_login_lockout(ip)
+            if wait_sec > 0:
+                mins = max(1, (wait_sec + 59) // 60)
+                self._json({"ok": False, "msg": f"⛔ تم حظر محاولات الدخول مؤقتاً بسبب تكرار الخطأ. حاول بعد {mins} دقيقة."}, 429)
+                return
+
+            pwd = str(body.get("password", ""))
+            totp_code = str(body.get("totp", "")).strip()
+
+            pwd_ok = hmac.compare_digest(pwd, ADMIN_SECRET)
+            totp_ok = True if not ADMIN_TOTP_SECRET else verify_totp(ADMIN_TOTP_SECRET, totp_code)
+
+            if not (pwd_ok and totp_ok):
+                record_login_fail(ip)
+                time.sleep(1.0)
+                self._json({"ok": False, "msg": "❌ كلمة المرور أو رمز التحقق (2FA) غير صحيح!"}, 403)
+                return
+
+            clear_login_fails(ip)
+            tok = create_admin_token()
+            sec_flag = "; Secure" if self._is_https() else ""
+            cookie = f"bx_adm_sess={tok}; Path=/; Max-Age={SESSION_TTL_SEC}; HttpOnly; SameSite=Strict{sec_flag}"
+            print(f"[SECURITY] Admin login SUCCESS from {ip}", flush=True)
+            self._json({"ok": True}, 200, extra_headers=[("Set-Cookie", cookie)])
+            return
+
+        if p == "/api/admin/logout":
+            if not self._check_origin():
+                self._json({"ok": False}, 403); return
+            revoke_admin_token(self._get_admin_cookie())
+            sec_flag = "; Secure" if self._is_https() else ""
+            cookie = f"bx_adm_sess=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict{sec_flag}"
+            self._json({"ok": True}, 200, extra_headers=[("Set-Cookie", cookie)])
+            return
+
+        # 2. مسارات الزبائن (مع Rate Limit وقفل مالي ضد الشراء المتزامن)
         if p == "/api/customer/deposit":
+            if not check_rate_limit(ip, "deposit", 10, 300):
+                self._json({"ok": False, "msg": "تم إرسال طلبات كثيرة، انتظر قليلاً"}, 429); return
             u = self._auth_user()
             if not u: self._json({"ok": False, "msg": "يرجى تسجيل الدخول بحساب Google أولاً"}, 401); return
-            amt = round(float(body.get("amount_usd", 0)), 2)
-            tx = str(body.get("tx_id", "")).strip()
-            method = str(body.get("method", "شام كاش")).strip()
-            if amt <= 0 or not tx:
-                self._json({"ok": False, "msg": "أدخل المبلغ ورقم العملية"}, 400); return
+            try:
+                amt = round(float(body.get("amount_usd", 0)), 2)
+            except Exception:
+                amt = 0
+            tx = str(body.get("tx_id", "")).strip()[:120]
+            method = str(body.get("method", "شام كاش")).strip()[:60]
+            if amt <= 0 or amt > 50000 or not tx:
+                self._json({"ok": False, "msg": "أدخل مبلغاً ورقم عملية صحيحين"}, 400); return
 
             dup = sb_request("GET", f"/rest/v1/deposits?tx_id=eq.{quote(tx)}&select=id")
             if isinstance(dup, list) and len(dup) > 0:
@@ -294,7 +538,7 @@ class CloudHandler(BaseHTTPRequestHandler):
 
             sb_request("POST", "/rest/v1/deposits", {
                 "user_id": u["id"],
-                "user_name": u["name"],
+                "user_name": str(u["name"])[:100],
                 "amount_usd": amt,
                 "method": method,
                 "tx_id": tx,
@@ -304,28 +548,47 @@ class CloudHandler(BaseHTTPRequestHandler):
             return
 
         if p == "/api/customer/purchase":
+            if not check_rate_limit(ip, "purchase", 15, 60):
+                self._json({"ok": False, "msg": "طلبات شراء كثيرة، انتظر لحظة"}, 429); return
             u = self._auth_user()
             if not u: self._json({"ok": False, "msg": "يرجى تسجيل الدخول بحساب Google أولاً"}, 401); return
-            pid = int(body.get("product_id", 0))
-            player_id = str(body.get("player_id", "")).strip()
-            prods = sb_request("GET", f"/rest/v1/products?id=eq.{pid}&select=*")
+            try:
+                pid = int(body.get("product_id", 0))
+            except Exception:
+                pid = 0
+            player_id = str(body.get("player_id", "")).strip()[:120]
+            if pid <= 0 or not player_id:
+                self._json({"ok": False, "msg": "أدخل معرف اللاعب (Player ID) بشكل صحيح"}, 400); return
+
+            prods = sb_request("GET", f"/rest/v1/products?id=eq.{pid}&active=eq.true&select=*")
             if not isinstance(prods, list) or not prods:
-                self._json({"ok": False, "msg": "الباقة غير موجودة"}, 404); return
+                self._json({"ok": False, "msg": "الباقة غير موجودة أو غير متاحة"}, 404); return
             prod = prods[0]
             price = round(float(prod["price_usd"]), 2)
             bal = round(float(u["balance"]), 2)
-            if bal < price:
+            if price <= 0 or bal < price:
                 self._json({"ok": False, "need_deposit": True, "msg": f"رصيد محفظتك (${bal:.2f}) غير كافٍ لشراء الباقة (${price:.2f}). اشحن محفظتك أولاً."}, 400)
                 return
 
             cost = round(float(prod["supplier_cost_usd"]), 2)
             profit = round(price - cost, 2)
             new_bal = round(bal - price, 2)
+            uid_q = quote(str(u["id"]))
 
-            sb_request("PATCH", f"/rest/v1/users?id=eq.{u['id']}", {"balance": new_bal})
+            # قفل ذري لمنع الشراء المتزامن بنفس الرصيد (Double-Spend Prevention)
+            deducted = sb_request(
+                "PATCH",
+                f"/rest/v1/users?id=eq.{uid_q}&balance=eq.{bal}",
+                {"balance": new_bal},
+                prefer_rep=True
+            )
+            if not isinstance(deducted, list) or len(deducted) == 0:
+                self._json({"ok": False, "msg": "تم تحديث رصيدك في عملية أخرى، أعد المحاولة"}, 409)
+                return
+
             sb_request("POST", "/rest/v1/orders", {
                 "user_id": u["id"],
-                "user_name": u["name"],
+                "user_name": str(u["name"])[:100],
                 "product_id": pid,
                 "game": prod["game"],
                 "pack_name": prod["pack"],
@@ -340,50 +603,66 @@ class CloudHandler(BaseHTTPRequestHandler):
             self._json({"ok": True})
             return
 
-        if self.headers.get("X-Admin-Key") != ADMIN_SECRET:
+        # 3. مسارات الإدارة المحمية بـ HttpOnly Cookie + التحقق من Origin
+        if not self._is_admin() or not self._check_origin():
             self._json({"ok": False, "msg": "Unauthorized"}, 403); return
 
         if p == "/api/admin/deposit-decide":
-            did = body.get("dep_id")
-            dec = body.get("decision")
-            deps = sb_request("GET", f"/rest/v1/deposits?id=eq.{did}&select=*")
-            if isinstance(deps, list) and deps and deps[0]["status"] == "معلق":
-                d = deps[0]
-                sb_request("PATCH", f"/rest/v1/deposits?id=eq.{did}", {"status": dec})
-                if dec == "مقبول":
-                    usrs = sb_request("GET", f"/rest/v1/users?id=eq.{d['user_id']}&select=balance")
-                    if isinstance(usrs, list) and usrs:
-                        nb = round(float(usrs[0]["balance"]) + float(d["amount_usd"]), 2)
-                        sb_request("PATCH", f"/rest/v1/users?id=eq.{d['user_id']}", {"balance": nb})
+            did = int(body.get("dep_id", 0))
+            dec = str(body.get("decision", "")).strip()
+            if did <= 0 or dec not in ("مقبول", "مرفوض"):
+                self._json({"ok": False, "msg": "قرار غير صالح"}, 400); return
+            # انتقال ذري من "معلق" فقط لمنع تكرار الشحن عند النقر المزدوج
+            updated = sb_request(
+                "PATCH",
+                f"/rest/v1/deposits?id=eq.{did}&status=eq.{quote('معلق')}",
+                {"status": dec},
+                prefer_rep=True
+            )
+            if isinstance(updated, list) and len(updated) == 1 and dec == "مقبول":
+                d = updated[0]
+                uid_q = quote(str(d["user_id"]))
+                usrs = sb_request("GET", f"/rest/v1/users?id=eq.{uid_q}&select=balance")
+                if isinstance(usrs, list) and usrs:
+                    nb = round(float(usrs[0]["balance"]) + float(d["amount_usd"]), 2)
+                    sb_request("PATCH", f"/rest/v1/users?id=eq.{uid_q}", {"balance": nb})
             self._json({"ok": True})
             return
 
         if p == "/api/admin/order-status":
-            oid = body.get("order_id")
-            st = body.get("status")
-            ords = sb_request("GET", f"/rest/v1/orders?id=eq.{oid}&select=*")
-            if isinstance(ords, list) and ords and ords[0]["status"] != st:
-                o = ords[0]
-                if st == "مرفوض من المورد" and o["status"] != "مرفوض من المورد":
-                    usrs = sb_request("GET", f"/rest/v1/users?id=eq.{o['user_id']}&select=balance")
+            oid = int(body.get("order_id", 0))
+            st = str(body.get("status", "")).strip()
+            if oid <= 0 or st not in ("قيد التنفيذ", "مكتمل", "مرفوض من المورد"):
+                self._json({"ok": False, "msg": "حالة غير صالحة"}, 400); return
+            note = str(body.get("note") or ("رفض المورد الطلب وتم إرجاع المبلغ لمحفظتك تلقائياً" if st == "مرفوض من المورد" else "تم إتمام الشحن بنجاح"))[:200]
+            if st == "مرفوض من المورد":
+                # انتقال ذري لمنع الاسترداد المزدوج
+                updated = sb_request(
+                    "PATCH",
+                    f"/rest/v1/orders?id=eq.{oid}&status=neq.{quote('مرفوض من المورد')}",
+                    {"status": st, "supplier_note": note},
+                    prefer_rep=True
+                )
+                if isinstance(updated, list) and len(updated) == 1:
+                    o = updated[0]
+                    uid_q = quote(str(o["user_id"]))
+                    usrs = sb_request("GET", f"/rest/v1/users?id=eq.{uid_q}&select=balance")
                     if isinstance(usrs, list) and usrs:
                         nb = round(float(usrs[0]["balance"]) + float(o["price_usd"]), 2)
-                        sb_request("PATCH", f"/rest/v1/users?id=eq.{o['user_id']}", {"balance": nb})
-                    note = body.get("note") or "رفض المورد الطلب وتم إرجاع المبلغ لمحفظتك تلقائياً"
-                else:
-                    note = body.get("note") or "تم إتمام الشحن بنجاح"
+                        sb_request("PATCH", f"/rest/v1/users?id=eq.{uid_q}", {"balance": nb})
+            else:
                 sb_request("PATCH", f"/rest/v1/orders?id=eq.{oid}", {"status": st, "supplier_note": note})
             self._json({"ok": True})
             return
 
         if p == "/api/admin/product-add":
             sb_request("POST", "/rest/v1/products", {
-                "game": str(body["game"]).strip(),
-                "pack": str(body["pack"]).strip(),
-                "price_usd": round(float(body["price_usd"]), 2),
-                "supplier_cost_usd": round(float(body.get("supplier_cost_usd", 0)), 2),
-                "sku": str(body.get("sku") or "BX-CUSTOM").strip(),
-                "icon": str(body.get("icon") or "🎮").strip(),
+                "game": str(body["game"]).strip()[:150],
+                "pack": str(body["pack"]).strip()[:150],
+                "price_usd": round(max(0.01, float(body["price_usd"])), 2),
+                "supplier_cost_usd": round(max(0.0, float(body.get("supplier_cost_usd", 0))), 2),
+                "sku": str(body.get("sku") or "BX-CUSTOM").strip()[:60],
+                "icon": str(body.get("icon") or "🎮").strip()[:16],
                 "active": True
             })
             self._json({"ok": True})
@@ -396,9 +675,9 @@ class CloudHandler(BaseHTTPRequestHandler):
             patch = {}
             if "price_usd" in body: patch["price_usd"] = round(max(0.01, float(body["price_usd"])), 2)
             if "supplier_cost_usd" in body: patch["supplier_cost_usd"] = round(max(0.0, float(body["supplier_cost_usd"])), 2)
-            if "pack" in body: patch["pack"] = str(body["pack"]).strip()
-            if "game" in body: patch["game"] = str(body["game"]).strip()
-            if "sku" in body: patch["sku"] = str(body["sku"]).strip()
+            if "pack" in body: patch["pack"] = str(body["pack"]).strip()[:150]
+            if "game" in body: patch["game"] = str(body["game"]).strip()[:150]
+            if "sku" in body: patch["sku"] = str(body["sku"]).strip()[:60]
             if "active" in body: patch["active"] = bool(body["active"])
             sb_request("PATCH", f"/rest/v1/products?id=eq.{pid}", patch)
             self._json({"ok": True})
@@ -406,7 +685,8 @@ class CloudHandler(BaseHTTPRequestHandler):
 
         if p == "/api/admin/product-del":
             pid = int(body.get("id", 0))
-            sb_request("DELETE", f"/rest/v1/products?id=eq.{pid}")
+            if pid > 0:
+                sb_request("DELETE", f"/rest/v1/products?id=eq.{pid}")
             self._json({"ok": True})
             return
 
@@ -471,13 +751,14 @@ class CloudHandler(BaseHTTPRequestHandler):
         if p == "/api/admin/user-balance":
             uid = str(body.get("user_id", "")).strip()
             delta = round(float(body.get("delta_usd", 0)), 2)
-            if not uid or delta == 0:
+            if not uid or delta == 0 or abs(delta) > 50000:
                 self._json({"ok": False, "msg": "بيانات التعديل غير صالحة"}, 400); return
-            usrs = sb_request("GET", f"/rest/v1/users?id=eq.{quote(uid)}&select=balance")
+            uid_q = quote(uid)
+            usrs = sb_request("GET", f"/rest/v1/users?id=eq.{uid_q}&select=balance")
             if not isinstance(usrs, list) or not usrs:
                 self._json({"ok": False, "msg": "المستخدم غير موجود"}, 404); return
             nb = round(max(0.0, float(usrs[0]["balance"]) + delta), 2)
-            sb_request("PATCH", f"/rest/v1/users?id=eq.{quote(uid)}", {"balance": nb})
+            sb_request("PATCH", f"/rest/v1/users?id=eq.{uid_q}", {"balance": nb})
             self._json({"ok": True, "balance": nb})
             return
 
