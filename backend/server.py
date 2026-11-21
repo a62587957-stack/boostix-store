@@ -396,6 +396,26 @@ class CloudHandler(BaseHTTPRequestHandler):
             self._html(STORE_HTML)
             return
 
+        if p.startswith("/assets/"):
+            rel = p[len("/assets/"):].lstrip("/")
+            assets_root = os.path.realpath(os.path.join(os.path.dirname(STORE_HTML), "assets"))
+            target = os.path.realpath(os.path.join(assets_root, rel))
+            if not target.startswith(assets_root + os.sep) or not os.path.isfile(target):
+                self._json({"ok": False, "msg": "Not Found"}, 404)
+                return
+            ext = os.path.splitext(target)[1].lower()
+            mime = {".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml"}.get(ext, "application/octet-stream")
+            with open(target, "rb") as f:
+                raw = f.read()
+            self.send_response(200)
+            self._sec_headers(no_store=False)
+            self.send_header("Content-Type", mime)
+            self.send_header("Cache-Control", "public, max-age=604800")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+            return
+
         # بوابة الإدارة لا تفتح إلا على المسار السري ADMIN_PATH فقط
         if ADMIN_PATH and p == ADMIN_PATH:
             if not ADMIN_SECRET:
