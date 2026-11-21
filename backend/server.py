@@ -112,13 +112,18 @@ def save_store_settings(new_data):
         })
     return cur
 
-def fetch_all_products(active_only=True):
+def fetch_all_products(active_only=True, full_fields=False):
     all_p = []
-    select = "id,game,pack,price_usd,icon" if active_only else "id,game,pack,price_usd,supplier_cost_usd,sku,icon,active"
+    select = "id,game,pack,price_usd,supplier_cost_usd,sku,icon,active" if (not active_only or full_fields) else "id,game,pack,price_usd,icon"
     filt = "active=eq.true&" if active_only else ""
     offset = 0
     while True:
-        chunk = sb_request("GET", f"/rest/v1/products?{filt}select={select}&order=id.asc&limit=1000&offset={offset}")
+        chunk = None
+        for _ in range(3):
+            res = sb_request("GET", f"/rest/v1/products?{filt}select={select}&order=id.asc&limit=1000&offset={offset}", timeout=20)
+            if isinstance(res, list):
+                chunk = res
+                break
         if isinstance(chunk, list):
             for item in chunk:
                 if item.get("sku") != SETTINGS_SKU and item.get("game") != "__SYSTEM__":
@@ -412,7 +417,7 @@ class CloudHandler(BaseHTTPRequestHandler):
             if margin_pct < 0 or margin_pct > 500:
                 self._json({"ok": False, "msg": "نسبة الربح يجب أن تكون بين 0% و 500%"}, 400); return
 
-            prods = fetch_all_products(active_only=True)
+            prods = fetch_all_products(active_only=True, full_fields=True)
             updates = []
             for pr in prods:
                 if category != "ALL" and not str(pr.get("game", "")).startswith(category):
