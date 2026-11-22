@@ -58,7 +58,7 @@
       background-attachment: fixed;
       color: var(--text);
       min-height: 100vh;
-      padding-bottom: 112px;
+      padding-bottom: -16px;
       overflow-x: hidden;
     }
 
@@ -580,7 +580,10 @@
   let ACCESS_TOKEN = localStorage.getItem("saker_oauth_token") || "";
   let DATA = { user: null, products: [], myOrders: [], myDeposits: [], payInfo: { rate_syp: 15000 } };
   let mainCatFilter = "";
+  let brandGroupFilter = "";
   let subCatFilter = "";
+  let SUB_ICONS = {};
+  fetch("/assets/sub_icons.json").then(r => r.ok ? r.json() : {}).then(d => { SUB_ICONS = d || {}; if (mainCatFilter) renderStore(); }).catch(() => {});
   let searchQuery = "";
   let buyProdId = null;
   let showSYPPrimary = localStorage.getItem("boostix_syp") === "1";
@@ -713,7 +716,7 @@
   }
 
   function goHome() {
-    mainCatFilter = ""; subCatFilter = ""; searchQuery = "";
+    mainCatFilter = ""; brandGroupFilter = ""; subCatFilter = ""; searchQuery = "";
     const inp = document.getElementById("store-search");
     if (inp) inp.value = "";
     showTab("shop");
@@ -723,20 +726,35 @@
   function goBackStep() {
     if (searchQuery) { searchQuery = ""; const inp = document.getElementById("store-search"); if (inp) inp.value = ""; }
     else if (subCatFilter) { subCatFilter = ""; }
+    else if (brandGroupFilter) { brandGroupFilter = ""; }
     else { mainCatFilter = ""; }
     renderStore();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function getBrandGroup(subName) {
+    const parts = (subName || "").split(" - ").map(s => s.trim()).filter(Boolean);
+    if (parts.length >= 3) return parts[0] + " - " + parts[1];
+    return (subName || "").trim();
+  }
+
+  function resolveSubIcon(subName, fallbackIcon) {
+    if (SUB_ICONS && SUB_ICONS[subName]) return SUB_ICONS[subName];
+    if (fallbackIcon && fallbackIcon.startsWith("/images/")) return "https://sonic8store.com" + fallbackIcon;
+    return fallbackIcon || "🎮";
+  }
+
   function renderIconHTML(iconVal, size = 54) {
+    if (iconVal && iconVal.startsWith("/images/")) iconVal = "https://sonic8store.com" + iconVal;
     if (iconVal && (iconVal.startsWith("http://") || iconVal.startsWith("https://") || iconVal.startsWith("/"))) {
-      return `<img src="${iconVal}" alt="icon" loading="lazy" style="width:${size}px; height:${size}px; border-radius:12px; object-fit:cover; border:1.5px solid var(--cyan); background:var(--input-bg);" onerror="this.style.display='none'">`;
+      return `<img src="${iconVal}" alt="icon" loading="lazy" style="width:${size}px; height:${size}px; border-radius:14px; object-fit:cover; border:1.5px solid var(--cyan); background:var(--input-bg);" onerror="this.style.display='none'">`;
     }
     return `<div class="p-ico" style="width:${size}px; height:${size}px;">${iconVal || '🎮'}</div>`;
   }
 
   function onSearchInput(val) { searchQuery = (val || "").trim().toLowerCase(); renderStore(); }
-  function selectMainCat(catName) { mainCatFilter = catName; subCatFilter = ""; searchQuery = ""; renderStore(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function selectMainCat(catName) { mainCatFilter = catName; brandGroupFilter = ""; subCatFilter = ""; searchQuery = ""; renderStore(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function selectBrandGroup(gName) { brandGroupFilter = gName; subCatFilter = ""; renderStore(); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function selectSubCat(subName) { subCatFilter = subName; renderStore(); window.scrollTo({ top: 0, behavior: "smooth" }); }
 
   function splitGameField(g) {
@@ -877,7 +895,7 @@
           return `
             <div class="p-card">
               <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                ${renderIconHTML(p.icon, 50)}
+                ${renderIconHTML(resolveSubIcon(info.sub, p.icon), 50)}
                 <div><div class="p-game">${info.sub}</div><div class="p-name">${p.pack}</div></div>
               </div>
               <div>
@@ -889,25 +907,55 @@
               </div>
             </div>`;
         }).join("") || `<div class="panel" style="grid-column:1/-1; text-align:center;">لا توجد باقات مطابقة.</div>`;
-      } else {
-        const inMain = products.filter(p => splitGameField(p.game).main === mainCatFilter);
+      } else if (brandGroupFilter) {
+        const inGroup = products.filter(p => {
+          const info = splitGameField(p.game);
+          return info.main === mainCatFilter && getBrandGroup(info.sub) === brandGroupFilter;
+        });
         const subMap = new Map();
-        inMain.forEach(p => {
+        inGroup.forEach(p => {
           const sub = splitGameField(p.game).sub;
-          if (!subMap.has(sub)) subMap.set(sub, { name: sub, icon: p.icon, count: 0, minPrice: p.price_usd });
+          if (!subMap.has(sub)) subMap.set(sub, { name: sub, icon: resolveSubIcon(sub, p.icon), count: 0, minPrice: p.price_usd });
           const entry = subMap.get(sub);
           entry.count++;
           if (p.price_usd < entry.minPrice) entry.minPrice = p.price_usd;
         });
         const subs = Array.from(subMap.values());
-        bread.textContent = `📂 ${mainCatFilter} (${subs.length} قسم فرعي)`;
+        bread.textContent = `📂 ${brandGroupFilter} (${subs.length} قسم)`;
         grid.innerHTML = subs.map(s => `
           <div class="p-card" style="cursor:pointer; text-align:center; align-items:center;" onclick='selectSubCat(${JSON.stringify(s.name)})'>
             <div style="margin-bottom:8px;">${renderIconHTML(s.icon, 72)}</div>
-            <div class="p-name" style="font-size:14px;">${s.name}</div>
+            <div class="p-name" style="font-size:14px;">${s.name.replace(brandGroupFilter + " - ", "")}</div>
             <div style="font-size:11px; color:var(--cyan); font-weight:800; margin-bottom:10px;">📦 ${s.count} باقة | من ${fmtPriceMain(s.minPrice)}</div>
             <button class="btn btn-cyan" style="width:100%;">عرض الباقات ⬅️</button>
           </div>`).join("");
+      } else {
+        const inMain = products.filter(p => splitGameField(p.game).main === mainCatFilter);
+        const groupMap = new Map();
+        inMain.forEach(p => {
+          const sub = splitGameField(p.game).sub;
+          const grp = getBrandGroup(sub);
+          if (!groupMap.has(grp)) groupMap.set(grp, { name: grp, icon: resolveSubIcon(sub, p.icon), subs: new Set(), count: 0, minPrice: p.price_usd });
+          const entry = groupMap.get(grp);
+          entry.subs.add(sub);
+          entry.count++;
+          if (p.price_usd < entry.minPrice) entry.minPrice = p.price_usd;
+          if ((!entry.icon || entry.icon === "🎮") && resolveSubIcon(sub, p.icon) !== "🎮") entry.icon = resolveSubIcon(sub, p.icon);
+        });
+        const groups = Array.from(groupMap.values());
+        bread.textContent = `📂 ${mainCatFilter} (${groups.length} لعبة / خدمة)`;
+        grid.innerHTML = groups.map(g => {
+          const singleSub = g.subs.size === 1 ? Array.from(g.subs)[0] : null;
+          const onClickAttr = singleSub ? `selectSubCat(${JSON.stringify(singleSub)})` : `selectBrandGroup(${JSON.stringify(g.name)})`;
+          const btnText = singleSub ? "عرض الباقات ⬅️" : `عرض الأقسام (${g.subs.size}) ⬅️`;
+          return `
+          <div class="p-card" style="cursor:pointer; text-align:center; align-items:center;" onclick='${onClickAttr}'>
+            <div style="margin-bottom:8px;">${renderIconHTML(g.icon, 74)}</div>
+            <div class="p-name" style="font-size:14px;">${g.name}</div>
+            <div style="font-size:11px; color:var(--cyan); font-weight:800; margin-bottom:10px;">📦 ${g.count} باقة | من ${fmtPriceMain(g.minPrice)}</div>
+            <button class="btn btn-cyan" style="width:100%;">${btnText}</button>
+          </div>`;
+        }).join("");
       }
     }
 
