@@ -372,6 +372,42 @@
       padding: 14px 16px; border-bottom: 1px solid var(--border);
     }
     .modal-body { padding: 16px; }
+
+    /* === ترقية المحفظة وإضافة الرصيد والطلبات (Boostix Style) === */
+    .stat-row { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:16px; }
+    .stat-card { border-radius:16px; padding:14px 10px; text-align:center; color:#fff; box-shadow:0 6px 18px rgba(0,0,0,0.18); position:relative; overflow:hidden; }
+    .stat-card .st-val { font-size:17px; font-weight:900; direction:ltr; margin-bottom:4px; }
+    .stat-card .st-lbl { font-size:11px; font-weight:800; opacity:0.95; }
+    .st-green { background:linear-gradient(135deg, #16a34a, #22c55e); }
+    .st-red { background:linear-gradient(135deg, #dc2626, #f43f5e); }
+    .st-purple { background:linear-gradient(135deg, #7c3aed, #c026d3); }
+
+    .filter-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+    .date-pill { flex:1; min-width:130px; background:var(--input-bg); border:1.5px solid var(--border); border-radius:999px; padding:6px 12px; display:flex; align-items:center; gap:6px; }
+    .date-pill span { font-size:11px; color:var(--muted); font-weight:800; white-space:nowrap; }
+    .date-pill input { border:none; background:transparent; color:var(--text); font-size:12px; font-weight:800; width:100%; outline:none; padding:0; }
+
+    .pill-tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:12px; scrollbar-width:none; }
+    .pill-tabs::-webkit-scrollbar { display:none; }
+    .f-pill { border:none; border-radius:999px; padding:7px 14px; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; background:var(--input-bg); color:var(--text); border:1.5px solid var(--border); display:inline-flex; align-items:center; gap:6px; transition:0.2s; }
+    .f-pill.active { background:linear-gradient(135deg, #4f46e5, #7c3aed); color:#fff; border-color:transparent; box-shadow:0 4px 12px rgba(99,102,241,0.35); }
+    .f-pill .cnt { background:rgba(255,255,255,0.2); padding:1px 7px; border-radius:999px; font-size:11px; }
+
+    .total-badge { display:inline-block; padding:6px 16px; border-radius:999px; border:1.5px solid var(--gold); color:var(--gold); font-weight:900; font-size:13px; margin-bottom:12px; direction:ltr; }
+
+    .pay-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:16px; }
+    .pay-card { border-radius:16px; padding:14px 8px; text-align:center; cursor:pointer; border:2px solid var(--border); background:var(--card-bg); transition:0.2s; display:flex; flex-direction:column; align-items:center; gap:8px; }
+    .pay-card:hover, .pay-card.selected { border-color:var(--cyan); transform:translateY(-2px); box-shadow:0 8px 20px rgba(56,189,248,0.22); }
+    .pay-ico { width:52px; height:52px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:24px; color:#fff; font-weight:900; box-shadow:0 4px 12px rgba(0,0,0,0.25); }
+    .pay-title { font-size:11px; font-weight:900; color:var(--text); line-height:1.3; }
+    .pay-tag { font-size:9px; padding:2px 7px; border-radius:999px; background:rgba(56,189,248,0.15); color:var(--cyan); font-weight:800; }
+
+    .bell-btn { position:relative; }
+    .bell-dot { position:absolute; top:5px; right:5px; width:8px; height:8px; border-radius:50%; background:#f43f5e; box-shadow:0 0 6px #f43f5e; }
+    .dr-quick { display:flex; justify-content:center; gap:18px; margin:10px 0; }
+    .dr-qbtn { width:38px; height:38px; border-radius:50%; border:1px solid var(--border); background:var(--input-bg); color:var(--text); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    @media (max-width: 420px) { .stat-card .st-val { font-size:14px; } .pay-grid { grid-template-columns:repeat(2, 1fr); } }
+
   </style>
 </head>
 <body>
@@ -388,9 +424,10 @@
     </div>
 
     <div class="tb-right">
+      <button class="icon-btn bell-btn" onclick="openNotifications()" title="الإشعارات">🔔<span class="bell-dot"></span></button>
       <button class="icon-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="تبديل الوضع الليلي/النهاري">☀️</button>
       <div id="logged-in-bar" style="display:none; align-items:center; gap:8px;">
-        <div class="wallet-pill" onclick="showTab('wallet')">
+        <div class="wallet-pill" onclick="showTab('recharge')">
           <span class="w-plus">+</span>
           <span class="w-val" id="ui-balance">$0.00</span>
           <span>💳</span>
@@ -413,16 +450,29 @@
       <span style="font-size:9px; color:#d946ef;">STORE</span>
     </div>
     <div id="dr-username" style="font-weight:900; font-size:14px;">زائر Boostix</div>
-    <div class="dr-vip">👑 VIP 1</div>
+    <div style="display:flex; align-items:center; justify-content:center; gap:6px; margin-top:4px;">
+      <span class="dr-vip" style="margin:0;">👑 VIP 1</span>
+      <span id="dr-uid" style="font-size:11px; color:var(--muted); font-weight:800;">#0000</span>
+    </div>
     <div class="dr-bal" id="dr-balance">$0.00</div>
+    <div class="dr-quick">
+      <button class="dr-qbtn" onclick="logoutGoogle(); toggleDrawer(false);" title="تسجيل الخروج">🚪</button>
+      <button class="dr-qbtn" onclick="showTab('wallet'); toggleDrawer(false);" title="حسابي">👤</button>
+      <button class="dr-qbtn" onclick="goHome(); toggleDrawer(false);" title="المفضلة">❤️</button>
+    </div>
     <button class="dr-syp-btn" id="dr-currency-btn" onclick="toggleCurrency()">🔄 العملة الثانوية: SYP</button>
   </div>
 
   <button class="dr-item active" onclick="goHome(); toggleDrawer(false);"><span>🏠 الرئيسية</span><span>‹</span></button>
-  <button class="dr-item" onclick="showTab('wallet'); toggleDrawer(false);"><span>💳 إضافة رصيد (شحن المحفظة)</span><span>‹</span></button>
-  <button class="dr-item" onclick="showTab('orders'); toggleDrawer(false);"><span>📦 طلباتي وسجل الدفعات</span><span>‹</span></button>
+  <button class="dr-item" onclick="openNotifications(); toggleDrawer(false);"><span>🔔 الإشعارات</span><span>‹</span></button>
+  <button class="dr-item" onclick="showTab('recharge'); toggleDrawer(false);"><span>➕ إضافة رصيد</span><span>‹</span></button>
+  <button class="dr-item" onclick="showTab('wallet'); setWalletFilter('deposits'); toggleDrawer(false);"><span>💸 دفعاتي</span><span>‹</span></button>
+  <button class="dr-item" onclick="showTab('wallet'); setWalletFilter('all'); toggleDrawer(false);"><span>💼 محفظتي</span><span>‹</span></button>
+  <button class="dr-item" onclick="openSupport(); toggleDrawer(false);"><span>✈️ حساب تلغرام</span><span>‹</span></button>
+  <button class="dr-item" onclick="showTab('orders'); toggleDrawer(false);"><span>🛒 طلباتي</span><span>‹</span></button>
+  <button class="dr-item" onclick="alert('🛡️ حسابك محمي بتسجيل الدخول الآمن عبر Google وتشفير كامل للبيانات.'); toggleDrawer(false);"><span>🛡️ الحماية</span><span>‹</span></button>
+  <button class="dr-item" onclick="alert('✅ حالة توثيق الهوية: موثق تلقائياً عبر حساب Google.'); toggleDrawer(false);"><span>🪪 تحقق الهوية</span><span>‹</span></button>
   <button class="dr-item" onclick="toggleTheme()"><span>🌗 تبديل الوضع الليلي / النهاري</span><span>‹</span></button>
-  <button class="dr-item" onclick="openSupport()"><span>🎧 الدعم الفني (تلغرام)</span><span>‹</span></button>
   <button class="dr-item" id="dr-logout-btn" style="display:none; color:#fb7185;" onclick="logoutGoogle(); toggleDrawer(false);"><span>🚪 تسجيل الخروج</span><span>‹</span></button>
   <button class="dr-item" id="dr-login-btn" onclick="signInWithGoogleOfficial(); toggleDrawer(false);"><span>🔐 تسجيل الدخول بـ Google</span><span>‹</span></button>
 
@@ -474,18 +524,102 @@
     </div>
   </div>
 
-  <!-- WALLET SECTION -->
+  <!-- WALLET SECTION (محفظتي + الإحصائيات والفلاتر) -->
   <div id="sec-wallet" style="display:none;">
-    <div class="panel" style="max-width:680px; margin:0 auto;">
-      <h3 style="color:var(--gold); margin-bottom:6px;">💳 شحن رصيد محفظتك في Boostix</h3>
-      <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">حوّل المبلغ لأحد حساباتنا المعتمدة أدناه، ثم اكتب المبلغ ورقم عملية التحويل ليتم تفعيل الرصيد بحسابك:</p>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="color:var(--text); margin:0;">💼 المحفظة</h3>
+      <button class="btn btn-cyan" style="padding:7px 14px; font-size:12px;" onclick="showTab('recharge')">➕ إضافة رصيد</button>
+    </div>
 
+    <div class="stat-row">
+      <div class="stat-card st-green">
+        <div class="st-val" id="w-stat-bal">$0.00</div>
+        <div class="st-lbl">رصيدك الحالي</div>
+      </div>
+      <div class="stat-card st-red">
+        <div class="st-val" id="w-stat-spent">$0.00</div>
+        <div class="st-lbl">إجمالي المشتريات</div>
+      </div>
+      <div class="stat-card st-purple">
+        <div class="st-val" id="w-stat-in">$0.00</div>
+        <div class="st-lbl">إجمالي الوارد</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="filter-bar">
+        <div class="date-pill"><span>من</span><input type="date" id="w-date-from" onchange="renderWalletView()"></div>
+        <div class="date-pill"><span>إلى</span><input type="date" id="w-date-to" onchange="renderWalletView()"></div>
+      </div>
+
+      <div class="pill-tabs" id="w-filter-pills">
+        <button class="f-pill active" data-wf="all" onclick="setWalletFilter('all')">الكل <span class="cnt" id="wc-all">0</span></button>
+        <button class="f-pill" data-wf="orders" onclick="setWalletFilter('orders')">طلبات <span class="cnt" id="wc-orders">0</span></button>
+        <button class="f-pill" data-wf="deposits" onclick="setWalletFilter('deposits')">إيداعات <span class="cnt" id="wc-deps">0</span></button>
+        <button class="f-pill" data-wf="refunds" onclick="setWalletFilter('refunds')">مسترجع <span class="cnt" id="wc-ref">0</span></button>
+      </div>
+
+      <div class="total-badge" id="w-filtered-total">إجمالي: $0.00</div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr><th>#</th><th>التاريخ</th><th>النوع</th><th>التفاصيل</th><th>المبلغ</th><th>الحالة</th></tr>
+          </thead>
+          <tbody id="wallet-tx-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECHARGE SECTION (إضافة رصيد - بطاقات طرق الدفع الفخمة) -->
+  <div id="sec-recharge" style="display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="color:var(--gold); margin:0;">➕ إضافة رصيد</h3>
+      <button class="btn btn-rose" style="padding:7px 14px; font-size:12px;" onclick="showTab('wallet')">💼 محفظتي</button>
+    </div>
+
+    <div class="pay-grid" id="pay-cards-grid">
+      <div class="pay-card selected" onclick="selectPayCard(this, 'USDT')">
+        <div class="pay-ico" style="background:linear-gradient(135deg,#0d9488,#14b8a6);">₮</div>
+        <div class="pay-title">USDT-TRC20</div>
+        <span class="pay-tag">فوري</span>
+      </div>
+      <div class="pay-card" onclick="selectPayCard(this, 'USDT')">
+        <div class="pay-ico" style="background:linear-gradient(135deg,#059669,#34d399);">₮</div>
+        <div class="pay-title">USDT-BEP20</div>
+        <span class="pay-tag">بدون عمولة</span>
+      </div>
+      <div class="pay-card" onclick="selectPayCard(this, 'USDT')">
+        <div class="pay-ico" style="background:linear-gradient(135deg,#ca8a04,#facc15);">◈</div>
+        <div class="pay-title">Binance Pay</div>
+        <span class="pay-tag">سريع</span>
+      </div>
+      <div class="pay-card" onclick="selectPayCard(this, 'شام كاش')">
+        <div class="pay-ico" style="background:linear-gradient(135deg,#0284c7,#38bdf8);">💎</div>
+        <div class="pay-title">شام كاش دولار</div>
+        <span class="pay-tag">معتمد</span>
+      </div>
+      <div class="pay-card" onclick="selectPayCard(this, 'سيريتل كاش')">
+        <div class="pay-ico" style="background:linear-gradient(135deg,#b91c1c,#ef4444);">📲</div>
+        <div class="pay-title">سيريتل كاش</div>
+        <span class="pay-tag">معتمد</span>
+      </div>
+      <div class="pay-card" onclick="selectPayCard(this, 'شام كاش')">
+        <div class="pay-ico" style="background:linear-gradient(135deg,#2563eb,#60a5fa);">💵</div>
+        <div class="pay-title">شام كاش ليرة</div>
+        <span class="pay-tag">يدوي</span>
+      </div>
+    </div>
+
+    <div class="panel" id="deposit-form-box" style="max-width:680px; margin:0 auto;">
+      <h4 style="color:var(--cyan); margin-bottom:10px;">📝 تأكيد عملية التحويل</h4>
       <div class="inp-g">
-        <label>1️⃣ اختر وسيلة الدفع:</label>
+        <label>1️⃣ وسيلة الدفع المختارة:</label>
         <select id="dep-method" onchange="updatePayBox()">
+          <option value="USDT">💎 عملة رقمية (USDT TRC20 / BEP20 / Binance)</option>
           <option value="شام كاش">📱 شام كاش (Sham Cash)</option>
           <option value="سيريتل كاش">📲 سيريتل كاش (Syriatel Cash)</option>
-          <option value="USDT">💎 عملة رقمية (USDT TRC20 / Binance)</option>
         </select>
       </div>
 
@@ -506,10 +640,30 @@
     </div>
   </div>
 
-  <!-- ORDERS SECTION -->
+  <!-- ORDERS SECTION (طلباتي مع البحث والفلاتر والعدادات) -->
   <div id="sec-orders" style="display:none;">
+    <h3 style="color:var(--cyan); margin-bottom:12px;">🛒 طلباتي</h3>
+
     <div class="panel">
-      <h3 style="color:var(--cyan); margin-bottom:12px;">📦 سجل طلباتي وحالة الشحن</h3>
+      <div class="filter-bar">
+        <div class="date-pill"><span>من</span><input type="date" id="o-date-from" onchange="renderOrdersView()"></div>
+        <div class="date-pill"><span>إلى</span><input type="date" id="o-date-to" onchange="renderOrdersView()"></div>
+      </div>
+
+      <div class="search-box" style="margin-bottom:12px;">
+        <span class="s-ico">🔍</span>
+        <input type="text" id="o-search-inp" placeholder="بحث برقم الطلب، اسم اللعبة أو المعرف (ID)..." oninput="renderOrdersView()">
+      </div>
+
+      <div class="pill-tabs" id="o-filter-pills">
+        <button class="f-pill active" data-of="all" onclick="setOrderFilter('all')">الكل <span class="cnt" id="oc-all">0</span></button>
+        <button class="f-pill" data-of="done" onclick="setOrderFilter('done')">✅ مقبول <span class="cnt" id="oc-done">0</span></button>
+        <button class="f-pill" data-of="pending" onclick="setOrderFilter('pending')">⏳ انتظار <span class="cnt" id="oc-pend">0</span></button>
+        <button class="f-pill" data-of="rejected" onclick="setOrderFilter('rejected')">❌ مرفوض <span class="cnt" id="oc-rej">0</span></button>
+      </div>
+
+      <div class="total-badge" id="o-filtered-total">إجمالي: $0.00</div>
+
       <div style="overflow-x:auto;">
         <table>
           <thead>
@@ -519,18 +673,7 @@
         </table>
       </div>
     </div>
-
-    <div class="panel">
-      <h3 style="color:var(--gold); margin-bottom:12px;">📜 سجل إيداعات محفظتي</h3>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead>
-            <tr><th>#</th><th>التاريخ</th><th>الطريقة</th><th>المبلغ</th><th>الإشعار</th><th>الحالة</th></tr>
-          </thead>
-          <tbody id="my-deps-tbody"></tbody>
-        </table>
-      </div>
-    </div>
+    <div style="display:none;"><tbody id="my-deps-tbody"></tbody></div>
   </div>
 
 </main>
@@ -972,6 +1115,145 @@
     document.getElementById("my-deps-tbody").innerHTML = myDeposits.map(d => `
       <tr><td><b>#${d.id}</b></td><td>${d.date}</td><td>${d.method}</td><td style="color:var(--gold);">+${fmtUSD(d.amount_usd)}</td><td><code>${d.tx_id}</code></td><td>${d.status}</td></tr>
     `).join("") || `<tr><td colspan="6" style="padding:18px; color:var(--muted); text-align:center;">لا توجد عمليات إيداع سابقة.</td></tr>`;
+  }
+
+
+  let walletFilterType = "all";
+  let orderFilterStatus = "all";
+
+  function openNotifications() {
+    const ords = DATA.myOrders || [];
+    const deps = DATA.myDeposits || [];
+    if (!ords.length && !deps.length) {
+      alert("🔔 لا توجد إشعارات جديدة حالياً. أهلاً بك في Boostix Store!");
+      return;
+    }
+    const lastO = ords[0] ? `آخر طلب #${ords[0].id}: ${ords[0].game} (${ords[0].status})` : "";
+    const lastD = deps[0] ? `آخر إيداع #${deps[0].id}: $${deps[0].amount_usd} (${deps[0].status})` : "";
+    alert("🔔 آخر تحديثات حسابك:\n" + [lastO, lastD].filter(Boolean).join("\n"));
+  }
+
+  function selectPayCard(cardEl, methodVal) {
+    document.querySelectorAll("#pay-cards-grid .pay-card").forEach(c => c.classList.remove("selected"));
+    if (cardEl) cardEl.classList.add("selected");
+    const sel = document.getElementById("dep-method");
+    if (sel) { sel.value = methodVal; updatePayBox(); }
+    const box = document.getElementById("deposit-form-box");
+    if (box) box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function setWalletFilter(f) {
+    walletFilterType = f;
+    document.querySelectorAll("#w-filter-pills .f-pill").forEach(b => b.classList.toggle("active", b.dataset.wf === f));
+    renderWalletView();
+  }
+
+  function setOrderFilter(f) {
+    orderFilterStatus = f;
+    document.querySelectorAll("#o-filter-pills .f-pill").forEach(b => b.classList.toggle("active", b.dataset.of === f));
+    renderOrdersView();
+  }
+
+  function _inDateRange(dateStr, fromVal, toVal) {
+    if (!fromVal && !toVal) return true;
+    const d = (dateStr || "").slice(0, 10);
+    if (!d) return true;
+    if (fromVal && d < fromVal) return false;
+    if (toVal && d > toVal) return false;
+    return true;
+  }
+
+  function _classifyStatus(st) {
+    const s = (st || "").toLowerCase();
+    if (s.includes("مكتمل") || s.includes("مقبول") || s.includes("تم") || s.includes("done") || s.includes("approved") || s.includes("completed")) return "done";
+    if (s.includes("مرفوض") || s.includes("ملغ") || s.includes("مسترجع") || s.includes("reject") || s.includes("cancel") || s.includes("refund")) return "rejected";
+    return "pending";
+  }
+
+  function renderWalletView() {
+    const u = DATA.user;
+    const ords = DATA.myOrders || [];
+    const deps = DATA.myDeposits || [];
+    const uidEl = document.getElementById("dr-uid");
+    if (uidEl && u) uidEl.textContent = "#" + String(u.id || "").slice(0, 6);
+
+    const bal = u ? Number(u.balance || 0) : 0;
+    const totalSpent = ords.filter(o => _classifyStatus(o.status) !== "rejected").reduce((s, o) => s + Number(o.price_usd || 0), 0);
+    const totalIn = deps.filter(d => _classifyStatus(d.status) === "done").reduce((s, d) => s + Number(d.amount_usd || 0), 0);
+
+    const elBal = document.getElementById("w-stat-bal");
+    const elSp = document.getElementById("w-stat-spent");
+    const elIn = document.getElementById("w-stat-in");
+    if (elBal) elBal.textContent = fmtPriceMain(bal);
+    if (elSp) elSp.textContent = fmtPriceMain(totalSpent);
+    if (elIn) elIn.textContent = fmtPriceMain(totalIn);
+
+    const dFrom = (document.getElementById("w-date-from") || {}).value || "";
+    const dTo = (document.getElementById("w-date-to") || {}).value || "";
+
+    const allTx = [
+      ...ords.map(o => ({ id: "O#" + o.id, date: o.date || "", type: _classifyStatus(o.status) === "rejected" ? "refunds" : "orders", label: _classifyStatus(o.status) === "rejected" ? "مسترجع" : "طلب شراء", desc: `${o.game} - ${o.pack_name}`, amount: Number(o.price_usd || 0), status: o.status })),
+      ...deps.map(d => ({ id: "D#" + d.id, date: d.date || "", type: "deposits", label: "إيداع رصيد", desc: `${d.method} (${d.tx_id || ""})`, amount: Number(d.amount_usd || 0), status: d.status }))
+    ].filter(tx => _inDateRange(tx.date, dFrom, dTo));
+
+    const cAll = allTx.length;
+    const cOrd = allTx.filter(t => t.type === "orders").length;
+    const cDep = allTx.filter(t => t.type === "deposits").length;
+    const cRef = allTx.filter(t => t.type === "refunds").length;
+    if (document.getElementById("wc-all")) document.getElementById("wc-all").textContent = cAll;
+    if (document.getElementById("wc-orders")) document.getElementById("wc-orders").textContent = cOrd;
+    if (document.getElementById("wc-deps")) document.getElementById("wc-deps").textContent = cDep;
+    if (document.getElementById("wc-ref")) document.getElementById("wc-ref").textContent = cRef;
+
+    const shown = walletFilterType === "all" ? allTx : allTx.filter(t => t.type === walletFilterType);
+    const sumShown = shown.reduce((s, t) => s + t.amount, 0);
+    if (document.getElementById("w-filtered-total")) document.getElementById("w-filtered-total").textContent = "إجمالي: " + fmtPriceMain(sumShown);
+
+    const tb = document.getElementById("wallet-tx-tbody");
+    if (tb) {
+      tb.innerHTML = shown.map(t => `
+        <tr>
+          <td><b>${t.id}</b></td>
+          <td>${t.date}</td>
+          <td style="color:var(--cyan);">${t.label}</td>
+          <td>${t.desc}</td>
+          <td style="color:${t.type === 'deposits' ? 'var(--green)' : 'var(--gold)'}; font-weight:900;">${t.type === 'deposits' ? '+' : '-'}${fmtPriceMain(t.amount)}</td>
+          <td>${t.status}</td>
+        </tr>`).join("") || `<tr><td colspan="6" style="padding:18px; color:var(--muted); text-align:center;">لا توجد عمليات خلال هذه الفترة.</td></tr>`;
+    }
+  }
+
+  function renderOrdersView() {
+    const ords = DATA.myOrders || [];
+    const dFrom = (document.getElementById("o-date-from") || {}).value || "";
+    const dTo = (document.getElementById("o-date-to") || {}).value || "";
+    const q = ((document.getElementById("o-search-inp") || {}).value || "").trim().toLowerCase();
+
+    const base = ords.filter(o => {
+      if (!_inDateRange(o.date, dFrom, dTo)) return false;
+      if (q && !(`${o.id} ${o.game} ${o.pack_name} ${o.player_id}`.toLowerCase().includes(q))) return false;
+      return true;
+    });
+
+    const cAll = base.length;
+    const cDone = base.filter(o => _classifyStatus(o.status) === "done").length;
+    const cPend = base.filter(o => _classifyStatus(o.status) === "pending").length;
+    const cRej = base.filter(o => _classifyStatus(o.status) === "rejected").length;
+    if (document.getElementById("oc-all")) document.getElementById("oc-all").textContent = cAll;
+    if (document.getElementById("oc-done")) document.getElementById("oc-done").textContent = cDone;
+    if (document.getElementById("oc-pend")) document.getElementById("oc-pend").textContent = cPend;
+    if (document.getElementById("oc-rej")) document.getElementById("oc-rej").textContent = cRej;
+
+    const shown = orderFilterStatus === "all" ? base : base.filter(o => _classifyStatus(o.status) === orderFilterStatus);
+    const sumShown = shown.reduce((s, o) => s + Number(o.price_usd || 0), 0);
+    if (document.getElementById("o-filtered-total")) document.getElementById("o-filtered-total").textContent = "إجمالي: " + fmtPriceMain(sumShown);
+
+    const tb = document.getElementById("my-orders-tbody");
+    if (tb) {
+      tb.innerHTML = shown.map(o => `
+        <tr><td><b>#${o.id}</b></td><td>${o.date}</td><td style="color:var(--gold);">${o.game} - ${o.pack_name}</td><td><code style="color:var(--cyan);">${o.player_id}</code></td><td style="color:var(--green);">${fmtPriceMain(o.price_usd)}</td><td>${o.status}</td><td style="font-size:11px; color:var(--muted);">${o.supplier_note || ''}</td></tr>
+      `).join("") || `<tr><td colspan="7" style="padding:18px; color:var(--muted); text-align:center;">لا توجد طلبات ضمن النطاق الزمني الحالي.</td></tr>`;
+    }
   }
 
   initAuthAndLoad();
