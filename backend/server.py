@@ -294,6 +294,81 @@ def fmt_date(iso_str):
         return ""
     return str(iso_str)[:16].replace("T", " ")
 
+
+# === محرك الدفع الأوتوماتيكي (شام كاش + سيريتل كاش) ===
+LOCAL_PAY_SECRET = os.environ.get("LOCAL_PAY_SECRET", "boostix_auto_pay_2026")
+INCOMING_TRANSFERS = {}  # {tx_id: {"amount": float, "currency": "USD"|"SYP", "method": str, "ts": float}}
+
+def _norm_digits(s):
+    return str(s or "").translate(str.maketrans("٠١٢٣٤٥٦٧٨٩٬٫", "0123456789,."))
+
+def _parse_local_pay_text(text, source=""):
+    t = _norm_digits(text)
+    low = (t + " " + str(source)).lower()
+    method = "سيريتل كاش" if any(k in low for k in ["syriatel", "سيريتل", "سيرياتيل", "cash"]) and "sham" not in low and "شام" not in low else "شام كاش"
+
+    # استخراج رقم العملية (يدعم صيغ سيريتل كاش وشام كاش)
+    tx = ""
+    tx_patterns = [
+        r"(?:رقم العملية|عملية رقم|معرف العملية|المرجع|رقم الحوالة|رقم التحويل|tx|ref|id|transaction)\s*[:#\-]?\s*([A-Za-z0-9\-]{5,40})",
+        r"(\d{7,16})",
+    ]
+    for pat in tx_patterns:
+        m = re.search(pat, t, flags=re.I)
+        if m:
+            tx = m.group(1).strip()
+            break
+
+    # استخراج المبلغ والعملة
+    amt = 0.0
+    currency = "SYP" if ("ل.س" in t or "ليرة" in t or "syp" in low or method == "سيريتل كاش") else "USD"
+    amt_patterns = [
+        r"(?:مبلغ|بمبلغ|تم تحويل|استلمت|تم استلام|amount|received)\s*[:\-]?\s*([0-9,]+(?:\.[0-9]+)?)",
+        r"([0-9,]+(?:\.[0-9]+)?)\s*(?:ل\.س|ليرة|syp|\$|دولار|usd)",
+    ]
+    for pat in amt_patterns:
+        m = re.search(pat, t, flags=re.I)
+        if m:
+            try:
+                amt = float(m.group(1).replace(",", ""))
+                break
+            except Exception:
+                pass
+    if "$" in t or "دولار" in t or "usd" in low:
+        currency = "USD"
+    return method, tx, amt, currency
+
+def _auto_approve_deposit_by_tx(tx_id, paid_amt, currency):
+    """مطابقة الحوالة الواردة مع إيداع معلق في Supabase واعتماده فوراً"""
+    tx = str(tx_id).strip()
+    if not tx:
+        return False, "empty_tx"
+    rows = sb_request("GET", f"/rest/v1/deposits?tx_id=eq.{quote(tx)}&status=eq.{quote('معلق')}&select=*")
+    if not isinstance(rows, list) or not rows:
+        return False, "no_pending_deposit"
+    d = rows[0]
+    expected_usd = float(d.get("amount_usd", 0))
+    # التحقق من المبلغ (بهامش تسامح 3% لفروقات التقريب)
+    syp_rate = float(os.environ.get("SYP_RATE", "15000"))
+    paid_usd = paid_amt if currency == "USD" else (paid_amt / syp_rate)
+    if paid_amt > 0 and expected_usd > 0 and paid_usd < expected_usd * 0.97:
+        return False, f"amount_mismatch_paid_{paid_usd:.2f}_expected_{expected_usd:.2f}"
+
+    updated = sb_request(
+        "PATCH",
+        f"/rest/v1/deposits?id=eq.{d['id']}&status=eq.{quote('معلق')}",
+        {"status": "مقبول"},
+        prefer_rep=True
+    )
+    if isinstance(updated, list) and len(updated) == 1:
+        uid_q = quote(str(d["user_id"]))
+        usrs = sb_request("GET", f"/rest/v1/users?id=eq.{uid_q}&select=balance")
+        if isinstance(usrs, list) and usrs:
+            nb = round(float(usrs[0]["balance"]) + expected_usd, 2)
+            sb_request("PATCH", f"/rest/v1/users?id=eq.{uid_q}", {"balance": nb})
+            return True, f"approved_deposit_{d['id']}_new_balance_{nb}"
+    return False, "race_or_update_failed"
+
 class CloudHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         return
@@ -625,7 +700,43 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "tx_id": tx,
                 "status": "معلق"
             }, prefer_rep=True)
-            self._json({"ok": True})
+            auto_ok = False
+            if tx in INCOMING_TRANSFERS:
+                tr = INCOMING_TRANSFERS[tx]
+                auto_ok, _ = _auto_approve_deposit_by_tx(tx, tr["amount"], tr["currency"])
+                if auto_ok:
+                    INCOMING_TRANSFERS.pop(tx, None)
+            self._json({"ok": True, "auto_approved": auto_ok})
+            return
+
+        if p == "/api/webhook/local-pay":
+            sec = str(body.get("secret") or self.headers.get("X-Webhook-Secret") or "").strip()
+            if sec != LOCAL_PAY_SECRET:
+                self._json({"ok": False, "msg": "Unauthorized"}, 401); return
+            raw_text = str(body.get("text") or body.get("message") or "").strip()
+            source = str(body.get("source") or body.get("app") or "").strip()
+            method, tx, amt, currency = _parse_local_pay_text(raw_text, source)
+            if body.get("tx_id"):
+                tx = _norm_digits(body.get("tx_id")).strip()
+            if body.get("amount"):
+                try: amt = float(_norm_digits(body.get("amount")).replace(",", ""))
+                except Exception: pass
+            if body.get("currency"):
+                currency = str(body.get("currency")).upper()
+            if not tx:
+                self._json({"ok": False, "msg": "لم يتم العثور على رقم العملية في النص", "raw": raw_text[:120]}, 400); return
+
+            # تنظيف الذاكرة المؤقتة الأقدم من 24 ساعة وحفظ الحوالة
+            now = time.time()
+            for k in list(INCOMING_TRANSFERS.keys()):
+                if now - INCOMING_TRANSFERS[k]["ts"] > 86400:
+                    INCOMING_TRANSFERS.pop(k, None)
+            INCOMING_TRANSFERS[tx] = {"amount": amt, "currency": currency, "method": method, "ts": now}
+
+            ok_app, info = _auto_approve_deposit_by_tx(tx, amt, currency)
+            if ok_app:
+                INCOMING_TRANSFERS.pop(tx, None)
+            self._json({"ok": True, "tx_id": tx, "amount": amt, "currency": currency, "method": method, "auto_approved": ok_app, "info": info})
             return
 
         if p == "/api/customer/purchase":
