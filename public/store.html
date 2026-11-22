@@ -1020,6 +1020,11 @@
     alert("✅ تم النسخ: " + txt);
   }
 
+  function copyPayText(txt) {
+    if (navigator.clipboard) navigator.clipboard.writeText(txt);
+    alert("✅ تم النسخ: " + txt);
+  }
+
   function updatePayBox() {
     const m = (document.getElementById("dep-method") || {}).value || "شام كاش";
     const box = document.getElementById("pay-account-box");
@@ -1215,6 +1220,44 @@
 
   function openNotifications() {
     showTab("notifications");
+  }
+
+  function renderNotificationsView() {
+    const box = document.getElementById("notifications-list");
+    if (!box) return;
+    const ords = DATA.myOrders || [];
+    const deps = DATA.myDeposits || [];
+    const items = [];
+    ords.slice(0, 15).forEach(o => {
+      items.push({
+        icon: "🛒",
+        title: `طلب #${o.id} — ${o.game || ""}`,
+        body: `${o.pack_name || ""} | الحالة: <b>${o.status || "قيد التنفيذ"}</b>`,
+        date: o.date || ""
+      });
+    });
+    deps.slice(0, 15).forEach(d => {
+      items.push({
+        icon: "💳",
+        title: `إيداع #${d.id} — $${Number(d.amount_usd || 0).toFixed(2)}`,
+        body: `${d.method || ""} | الحالة: <b>${d.status || "قيد المراجعة"}</b>`,
+        date: d.date || ""
+      });
+    });
+    if (!items.length) {
+      box.innerHTML = `<div class="panel" style="text-align:center; color:var(--muted); padding:24px;">🔔 لا توجد إشعارات جديدة حالياً. أهلاً بك في Boostix Store!</div>`;
+      return;
+    }
+    box.innerHTML = items.map(it => `
+      <div class="panel" style="display:flex; gap:12px; align-items:flex-start; padding:14px;">
+        <div style="font-size:24px; line-height:1;">${it.icon}</div>
+        <div style="flex:1;">
+          <div style="font-weight:900; font-size:13px; color:var(--gold); margin-bottom:4px;">${it.title}</div>
+          <div style="font-size:12px; color:var(--text); margin-bottom:4px;">${it.body}</div>
+          <div style="font-size:11px; color:var(--muted);">${it.date}</div>
+        </div>
+      </div>
+    `).join("");
   }
 
   function renderNotificationsView() {
