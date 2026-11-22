@@ -58,7 +58,7 @@
       background-attachment: fixed;
       color: var(--text);
       min-height: 100vh;
-      padding-bottom: 92px;
+      padding-bottom: 112px;
       overflow-x: hidden;
     }
 
@@ -329,36 +329,31 @@
       border-color: var(--purple); background: rgba(139,92,246,0.22); box-shadow: var(--glow);
     }
 
-    /* Bottom Navigation */
+    /* Bottom Navigation (Custom Transparent Graphic Bar) */
     .bottom-nav {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 70;
-      background: var(--nav-bg);
-      backdrop-filter: blur(14px);
-      border-top: 1.5px solid var(--border-strong);
-      border-radius: 22px 22px 0 0;
+      position: fixed; bottom: 0; left: 50%; transform: translate(-50%, 24%);
+      width: min(108vw, 560px); z-index: 70;
+      pointer-events: none;
+      filter: drop-shadow(0 -4px 14px rgba(0, 0, 0, 0.35));
+    }
+    .bn-graphic {
+      position: relative; width: 100%; pointer-events: auto;
+    }
+    .bn-graphic img {
+      width: 100%; height: auto; display: block; user-select: none; -webkit-user-drag: none;
+    }
+    .bn-img-light { display: none !important; }
+    [data-theme="light"] .bn-img-dark { display: none !important; }
+    [data-theme="light"] .bn-img-light { display: block !important; }
+    .bn-hotspots {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 24%;
       display: grid; grid-template-columns: repeat(5, 1fr);
-      align-items: center; padding: 6px 6px 10px;
-      box-shadow: 0 -6px 26px rgba(0,0,0,0.32);
     }
-    .bn-item {
-      background: none; border: none; color: var(--muted);
-      font-family: inherit; font-size: 11px; font-weight: 800;
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
-      cursor: pointer; padding: 4px 0;
+    .bn-hit {
+      background: transparent; border: none; cursor: pointer;
+      width: 100%; height: 100%; outline: none;
     }
-    .bn-item .bn-ico { font-size: 20px; }
-    .bn-item.active { color: var(--cyan); }
-    .bn-home {
-      position: relative; top: -18px;
-      width: 60px; height: 60px; margin: 0 auto; border-radius: 50%;
-      background: linear-gradient(135deg, #4f46e5, #a855f7, #ec4899);
-      border: 3px solid var(--bg);
-      color: #fff !important;
-      box-shadow: 0 0 24px rgba(168, 85, 247, 0.75);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      font-size: 10px; font-weight: 900;
-    }
-    .bn-home .bn-ico { font-size: 22px; line-height: 1; }
+    .bn-hit:active { background: rgba(255, 255, 255, 0.08); border-radius: 16px; }
 
     /* Modal */
     .modal {
@@ -377,6 +372,42 @@
       padding: 14px 16px; border-bottom: 1px solid var(--border);
     }
     .modal-body { padding: 16px; }
+
+    /* === ترقية المحفظة وإضافة الرصيد والطلبات (Boostix Style) === */
+    .stat-row { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:16px; }
+    .stat-card { border-radius:16px; padding:14px 10px; text-align:center; color:#fff; box-shadow:0 6px 18px rgba(0,0,0,0.18); position:relative; overflow:hidden; }
+    .stat-card .st-val { font-size:17px; font-weight:900; direction:ltr; margin-bottom:4px; }
+    .stat-card .st-lbl { font-size:11px; font-weight:800; opacity:0.95; }
+    .st-green { background:linear-gradient(135deg, #16a34a, #22c55e); }
+    .st-red { background:linear-gradient(135deg, #dc2626, #f43f5e); }
+    .st-purple { background:linear-gradient(135deg, #7c3aed, #c026d3); }
+
+    .filter-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+    .date-pill { flex:1; min-width:130px; background:var(--input-bg); border:1.5px solid var(--border); border-radius:999px; padding:6px 12px; display:flex; align-items:center; gap:6px; }
+    .date-pill span { font-size:11px; color:var(--muted); font-weight:800; white-space:nowrap; }
+    .date-pill input { border:none; background:transparent; color:var(--text); font-size:12px; font-weight:800; width:100%; outline:none; padding:0; }
+
+    .pill-tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:12px; scrollbar-width:none; }
+    .pill-tabs::-webkit-scrollbar { display:none; }
+    .f-pill { border:none; border-radius:999px; padding:7px 14px; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; background:var(--input-bg); color:var(--text); border:1.5px solid var(--border); display:inline-flex; align-items:center; gap:6px; transition:0.2s; }
+    .f-pill.active { background:linear-gradient(135deg, #4f46e5, #7c3aed); color:#fff; border-color:transparent; box-shadow:0 4px 12px rgba(99,102,241,0.35); }
+    .f-pill .cnt { background:rgba(255,255,255,0.2); padding:1px 7px; border-radius:999px; font-size:11px; }
+
+    .total-badge { display:inline-block; padding:6px 16px; border-radius:999px; border:1.5px solid var(--gold); color:var(--gold); font-weight:900; font-size:13px; margin-bottom:12px; direction:ltr; }
+
+    .pay-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:16px; }
+    .pay-card { border-radius:16px; padding:14px 8px; text-align:center; cursor:pointer; border:2px solid var(--border); background:var(--card-bg); transition:0.2s; display:flex; flex-direction:column; align-items:center; gap:8px; }
+    .pay-card:hover, .pay-card.selected { border-color:var(--cyan); transform:translateY(-2px); box-shadow:0 8px 20px rgba(56,189,248,0.22); }
+    .pay-ico { width:52px; height:52px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:24px; color:#fff; font-weight:900; box-shadow:0 4px 12px rgba(0,0,0,0.25); }
+    .pay-title { font-size:11px; font-weight:900; color:var(--text); line-height:1.3; }
+    .pay-tag { font-size:9px; padding:2px 7px; border-radius:999px; background:rgba(56,189,248,0.15); color:var(--cyan); font-weight:800; }
+
+    .bell-btn { position:relative; }
+    .bell-dot { position:absolute; top:5px; right:5px; width:8px; height:8px; border-radius:50%; background:#f43f5e; box-shadow:0 0 6px #f43f5e; }
+    .dr-quick { display:flex; justify-content:center; gap:18px; margin:10px 0; }
+    .dr-qbtn { width:38px; height:38px; border-radius:50%; border:1px solid var(--border); background:var(--input-bg); color:var(--text); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    @media (max-width: 420px) { .stat-card .st-val { font-size:14px; } .pay-grid { grid-template-columns:repeat(2, 1fr); } }
+
   </style>
 </head>
 <body>
@@ -393,9 +424,10 @@
     </div>
 
     <div class="tb-right">
+      <button class="icon-btn bell-btn" onclick="openNotifications()" title="الإشعارات">🔔<span class="bell-dot"></span></button>
       <button class="icon-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="تبديل الوضع الليلي/النهاري">☀️</button>
       <div id="logged-in-bar" style="display:none; align-items:center; gap:8px;">
-        <div class="wallet-pill" onclick="showTab('wallet')">
+        <div class="wallet-pill" onclick="showTab('recharge')">
           <span class="w-plus">+</span>
           <span class="w-val" id="ui-balance">$0.00</span>
           <span>💳</span>
@@ -418,16 +450,29 @@
       <span style="font-size:9px; color:#d946ef;">STORE</span>
     </div>
     <div id="dr-username" style="font-weight:900; font-size:14px;">زائر Boostix</div>
-    <div class="dr-vip">👑 VIP 1</div>
+    <div style="display:flex; align-items:center; justify-content:center; gap:6px; margin-top:4px;">
+      <span class="dr-vip" style="margin:0;">👑 VIP 1</span>
+      <span id="dr-uid" style="font-size:11px; color:var(--muted); font-weight:800;">#0000</span>
+    </div>
     <div class="dr-bal" id="dr-balance">$0.00</div>
+    <div class="dr-quick">
+      <button class="dr-qbtn" onclick="logoutGoogle(); toggleDrawer(false);" title="تسجيل الخروج">🚪</button>
+      <button class="dr-qbtn" onclick="showTab('wallet'); toggleDrawer(false);" title="حسابي">👤</button>
+      <button class="dr-qbtn" onclick="goHome(); toggleDrawer(false);" title="المفضلة">❤️</button>
+    </div>
     <button class="dr-syp-btn" id="dr-currency-btn" onclick="toggleCurrency()">🔄 العملة الثانوية: SYP</button>
   </div>
 
   <button class="dr-item active" onclick="goHome(); toggleDrawer(false);"><span>🏠 الرئيسية</span><span>‹</span></button>
-  <button class="dr-item" onclick="showTab('wallet'); toggleDrawer(false);"><span>💳 إضافة رصيد (شحن المحفظة)</span><span>‹</span></button>
-  <button class="dr-item" onclick="showTab('orders'); toggleDrawer(false);"><span>📦 طلباتي وسجل الدفعات</span><span>‹</span></button>
+  <button class="dr-item" onclick="openNotifications(); toggleDrawer(false);"><span>🔔 الإشعارات</span><span>‹</span></button>
+  <button class="dr-item" onclick="showTab('recharge'); toggleDrawer(false);"><span>➕ إضافة رصيد</span><span>‹</span></button>
+  <button class="dr-item" onclick="showTab('wallet'); setWalletFilter('deposits'); toggleDrawer(false);"><span>💸 دفعاتي</span><span>‹</span></button>
+  <button class="dr-item" onclick="showTab('wallet'); setWalletFilter('all'); toggleDrawer(false);"><span>💼 محفظتي</span><span>‹</span></button>
+  <button class="dr-item" onclick="openSupport(); toggleDrawer(false);"><span>✈️ حساب تلغرام</span><span>‹</span></button>
+  <button class="dr-item" onclick="showTab('orders'); toggleDrawer(false);"><span>🛒 طلباتي</span><span>‹</span></button>
+  <button class="dr-item" onclick="alert('🛡️ حسابك محمي بتسجيل الدخول الآمن عبر Google وتشفير كامل للبيانات.'); toggleDrawer(false);"><span>🛡️ الحماية</span><span>‹</span></button>
+  <button class="dr-item" onclick="alert('✅ حالة توثيق الهوية: موثق تلقائياً عبر حساب Google.'); toggleDrawer(false);"><span>🪪 تحقق الهوية</span><span>‹</span></button>
   <button class="dr-item" onclick="toggleTheme()"><span>🌗 تبديل الوضع الليلي / النهاري</span><span>‹</span></button>
-  <button class="dr-item" onclick="openSupport()"><span>🎧 الدعم الفني (تلغرام)</span><span>‹</span></button>
   <button class="dr-item" id="dr-logout-btn" style="display:none; color:#fb7185;" onclick="logoutGoogle(); toggleDrawer(false);"><span>🚪 تسجيل الخروج</span><span>‹</span></button>
   <button class="dr-item" id="dr-login-btn" onclick="signInWithGoogleOfficial(); toggleDrawer(false);"><span>🔐 تسجيل الدخول بـ Google</span><span>‹</span></button>
 
@@ -479,18 +524,102 @@
     </div>
   </div>
 
-  <!-- WALLET SECTION -->
+  <!-- WALLET SECTION (محفظتي + الإحصائيات والفلاتر) -->
   <div id="sec-wallet" style="display:none;">
-    <div class="panel" style="max-width:680px; margin:0 auto;">
-      <h3 style="color:var(--gold); margin-bottom:6px;">💳 شحن رصيد محفظتك في Boostix</h3>
-      <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">حوّل المبلغ لأحد حساباتنا المعتمدة أدناه، ثم اكتب المبلغ ورقم عملية التحويل ليتم تفعيل الرصيد بحسابك:</p>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="color:var(--text); margin:0;">💼 المحفظة</h3>
+      <button class="btn btn-cyan" style="padding:7px 14px; font-size:12px;" onclick="showTab('recharge')">➕ إضافة رصيد</button>
+    </div>
 
+    <div class="stat-row">
+      <div class="stat-card st-green">
+        <div class="st-val" id="w-stat-bal">$0.00</div>
+        <div class="st-lbl">رصيدك الحالي</div>
+      </div>
+      <div class="stat-card st-red">
+        <div class="st-val" id="w-stat-spent">$0.00</div>
+        <div class="st-lbl">إجمالي المشتريات</div>
+      </div>
+      <div class="stat-card st-purple">
+        <div class="st-val" id="w-stat-in">$0.00</div>
+        <div class="st-lbl">إجمالي الوارد</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="filter-bar">
+        <div class="date-pill"><span>من</span><input type="date" id="w-date-from" onchange="renderWalletView()"></div>
+        <div class="date-pill"><span>إلى</span><input type="date" id="w-date-to" onchange="renderWalletView()"></div>
+      </div>
+
+      <div class="pill-tabs" id="w-filter-pills">
+        <button class="f-pill active" data-wf="all" onclick="setWalletFilter('all')">الكل <span class="cnt" id="wc-all">0</span></button>
+        <button class="f-pill" data-wf="orders" onclick="setWalletFilter('orders')">طلبات <span class="cnt" id="wc-orders">0</span></button>
+        <button class="f-pill" data-wf="deposits" onclick="setWalletFilter('deposits')">إيداعات <span class="cnt" id="wc-deps">0</span></button>
+        <button class="f-pill" data-wf="refunds" onclick="setWalletFilter('refunds')">مسترجع <span class="cnt" id="wc-ref">0</span></button>
+      </div>
+
+      <div class="total-badge" id="w-filtered-total">إجمالي: $0.00</div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr><th>#</th><th>التاريخ</th><th>النوع</th><th>التفاصيل</th><th>المبلغ</th><th>الحالة</th></tr>
+          </thead>
+          <tbody id="wallet-tx-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECHARGE SECTION (إضافة رصيد - بطاقات طرق الدفع الفخمة) -->
+  <div id="sec-recharge" style="display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="color:var(--gold); margin:0;">➕ إضافة رصيد</h3>
+      <button class="btn btn-rose" style="padding:7px 14px; font-size:12px;" onclick="showTab('wallet')">💼 محفظتي</button>
+    </div>
+
+    <div class="pay-grid" id="pay-cards-grid">
+      <div class="pay-card selected" onclick="selectPayCard(this, 'USDT')">
+        <div class="pay-ico" style="background:linear-gradient(135deg,#0d9488,#14b8a6);">₮</div>
+        <div class="pay-title">USDT-TRC20</div>
+        <span class="pay-tag">فوري</span>
+      </div>
+      <div class="pay-card" onclick="selectPayCard(this, 'USDT')">
+        <div class="pay-ico" style="background:linear-gradient(135deg,#059669,#34d399);">₮</div>
+        <div class="pay-title">USDT-BEP20</div>
+        <span class="pay-tag">بدون عمولة</span>
+      </div>
+      <div class="pay-card" onclick="selectPayCard(this, 'USDT')">
+        <div class="pay-ico" style="background:linear-gradient(135deg,#ca8a04,#facc15);">◈</div>
+        <div class="pay-title">Binance Pay</div>
+        <span class="pay-tag">سريع</span>
+      </div>
+      <div class="pay-card" onclick="selectPayCard(this, 'شام كاش')">
+        <div class="pay-ico" style="background:linear-gradient(135deg,#0284c7,#38bdf8);">💎</div>
+        <div class="pay-title">شام كاش دولار</div>
+        <span class="pay-tag">معتمد</span>
+      </div>
+      <div class="pay-card" onclick="selectPayCard(this, 'سيريتل كاش')">
+        <div class="pay-ico" style="background:linear-gradient(135deg,#b91c1c,#ef4444);">📲</div>
+        <div class="pay-title">سيريتل كاش</div>
+        <span class="pay-tag">معتمد</span>
+      </div>
+      <div class="pay-card" onclick="selectPayCard(this, 'شام كاش')">
+        <div class="pay-ico" style="background:linear-gradient(135deg,#2563eb,#60a5fa);">💵</div>
+        <div class="pay-title">شام كاش ليرة</div>
+        <span class="pay-tag">يدوي</span>
+      </div>
+    </div>
+
+    <div class="panel" id="deposit-form-box" style="max-width:680px; margin:0 auto;">
+      <h4 style="color:var(--cyan); margin-bottom:10px;">📝 تأكيد عملية التحويل</h4>
       <div class="inp-g">
-        <label>1️⃣ اختر وسيلة الدفع:</label>
+        <label>1️⃣ وسيلة الدفع المختارة:</label>
         <select id="dep-method" onchange="updatePayBox()">
+          <option value="USDT">💎 عملة رقمية (USDT TRC20 / BEP20 / Binance)</option>
           <option value="شام كاش">📱 شام كاش (Sham Cash)</option>
           <option value="سيريتل كاش">📲 سيريتل كاش (Syriatel Cash)</option>
-          <option value="USDT">💎 عملة رقمية (USDT TRC20 / Binance)</option>
         </select>
       </div>
 
@@ -511,10 +640,30 @@
     </div>
   </div>
 
-  <!-- ORDERS SECTION -->
+  <!-- ORDERS SECTION (طلباتي مع البحث والفلاتر والعدادات) -->
   <div id="sec-orders" style="display:none;">
+    <h3 style="color:var(--cyan); margin-bottom:12px;">🛒 طلباتي</h3>
+
     <div class="panel">
-      <h3 style="color:var(--cyan); margin-bottom:12px;">📦 سجل طلباتي وحالة الشحن</h3>
+      <div class="filter-bar">
+        <div class="date-pill"><span>من</span><input type="date" id="o-date-from" onchange="renderOrdersView()"></div>
+        <div class="date-pill"><span>إلى</span><input type="date" id="o-date-to" onchange="renderOrdersView()"></div>
+      </div>
+
+      <div class="search-box" style="margin-bottom:12px;">
+        <span class="s-ico">🔍</span>
+        <input type="text" id="o-search-inp" placeholder="بحث برقم الطلب، اسم اللعبة أو المعرف (ID)..." oninput="renderOrdersView()">
+      </div>
+
+      <div class="pill-tabs" id="o-filter-pills">
+        <button class="f-pill active" data-of="all" onclick="setOrderFilter('all')">الكل <span class="cnt" id="oc-all">0</span></button>
+        <button class="f-pill" data-of="done" onclick="setOrderFilter('done')">✅ مقبول <span class="cnt" id="oc-done">0</span></button>
+        <button class="f-pill" data-of="pending" onclick="setOrderFilter('pending')">⏳ انتظار <span class="cnt" id="oc-pend">0</span></button>
+        <button class="f-pill" data-of="rejected" onclick="setOrderFilter('rejected')">❌ مرفوض <span class="cnt" id="oc-rej">0</span></button>
+      </div>
+
+      <div class="total-badge" id="o-filtered-total">إجمالي: $0.00</div>
+
       <div style="overflow-x:auto;">
         <table>
           <thead>
@@ -524,29 +673,24 @@
         </table>
       </div>
     </div>
-
-    <div class="panel">
-      <h3 style="color:var(--gold); margin-bottom:12px;">📜 سجل إيداعات محفظتي</h3>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead>
-            <tr><th>#</th><th>التاريخ</th><th>الطريقة</th><th>المبلغ</th><th>الإشعار</th><th>الحالة</th></tr>
-          </thead>
-          <tbody id="my-deps-tbody"></tbody>
-        </table>
-      </div>
-    </div>
+    <div style="display:none;"><tbody id="my-deps-tbody"></tbody></div>
   </div>
 
 </main>
 
 <!-- Bottom Navigation Bar -->
 <nav class="bottom-nav">
-  <button class="bn-item" id="bn-wallet" onclick="showTab('wallet')"><span class="bn-ico">💳</span><span>المحفظة</span></button>
-  <button class="bn-item" id="bn-orders" onclick="showTab('orders')"><span class="bn-ico">📄</span><span>طلباتي</span></button>
-  <button class="bn-home" id="bn-shop" onclick="goHome()"><span class="bn-ico">🏠</span><span>الرئيسية</span></button>
-  <button class="bn-item" onclick="openSupport()"><span class="bn-ico">🎧</span><span>الدعم الفني</span></button>
-  <button class="bn-item" onclick="toggleDrawer(true)"><span class="bn-ico">🛡️</span><span>القائمة</span></button>
+  <div class="bn-graphic">
+    <img src="/assets/nav_dark.webp" alt="شريط التنقل" class="bn-img-dark">
+    <img src="/assets/nav_light.webp" alt="شريط التنقل" class="bn-img-light">
+    <div class="bn-hotspots">
+      <button class="bn-hit" id="bn-wallet" onclick="showTab('wallet')" aria-label="المحفظة" title="المحفظة"></button>
+      <button class="bn-hit" id="bn-orders" onclick="showTab('orders')" aria-label="طلباتي" title="طلباتي"></button>
+      <button class="bn-hit" id="bn-shop" onclick="goHome()" aria-label="الرئيسية" title="الرئيسية"></button>
+      <button class="bn-hit" onclick="openSupport()" aria-label="الدعم الفني" title="الدعم الفني"></button>
+      <button class="bn-hit" onclick="toggleDrawer(true)" aria-label="تابعنا والقائمة" title="تابعنا"></button>
+    </div>
+  </div>
 </nav>
 
 <!-- Buy Modal -->
@@ -579,24 +723,27 @@
   let ACCESS_TOKEN = localStorage.getItem("saker_oauth_token") || "";
   let DATA = { user: null, products: [], myOrders: [], myDeposits: [], payInfo: { rate_syp: 15000 } };
   let mainCatFilter = "";
+  let brandGroupFilter = "";
   let subCatFilter = "";
+  const SUB_ICONS = {"1 ڤي 1 - 1V1": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/c0/c0/34/c0c034de-42ca-b688-2bf7-bd17af918d6d/AppIcon-0-0-1x_U007ephone-0-1-0-85-220.png/200x200bb.jpg", "Asmar 4k": "https://is1-ssl.mzstatic.com/image/thumb/Purple112/v4/56/80/07/568007d1-04df-911d-88e6-e08aa41c9103/AppIcon-1x_U007emarketing-0-4-0-85-220.jpeg/200x200bb.jpg", "BUBG GLOBAL - ببجي عالمي - ببجي روبوت - BUBG robot": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/0c/1a/dc/0c1adcc0-b63f-6bdb-3cba-d74161aad06a/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/200x200bb.jpg", "BUBG GLOBAL - ببجي عالمي - ببجي عالمي اكواد - PUBG World Codes": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/0c/1a/dc/0c1adcc0-b63f-6bdb-3cba-d74161aad06a/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/200x200bb.jpg", "BUBG GLOBAL - ببجي عالمي - عضويات ببجي - PUBG Memberships": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/0c/1a/dc/0c1adcc0-b63f-6bdb-3cba-d74161aad06a/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/200x200bb.jpg", "Blue 4k": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/24/b5/58/24b558a7-288d-445c-3de9-a7bd79c40b44/AppIcon-0-1x_U007epad-0-1-0-0-85-220-0.png/200x200bb.jpg", "Claude": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/21/3c/7b/213c7baf-7731-12fc-ea82-e1628b3fa4e7/AppIcon-0-0-1x_U007epad-0-0-0-1-0-85-220.png/200x200bb.jpg", "Doomsday : Last Survivors": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/35/39/f2/3539f255-bfef-bfd0-4872-a23324dbfcd0/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "ElevenLabs Creator": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/ca/d1/1f/cad11f7c-d248-0210-83c1-e1d0bb2c1e38/AppIcon-Prod-0-0-1x_U007epad-0-1-85-220.png/200x200bb.jpg", "Fc Mobile - FC Cambodia": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/92/b5/17/92b51785-f15c-5913-e9fb-669947500783/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "Fc Mobile - FC Malaysia": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/cb/90/a6/cb90a634-8353-a094-cd7a-490eced6c4c2/AppIcon-0-0-1x_U007emarketing-0-11-0-0-85-220.png/200x200bb.jpg", "Fc Mobile - FC Singapore": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/cb/90/a6/cb90a634-8353-a094-cd7a-490eced6c4c2/AppIcon-0-0-1x_U007emarketing-0-11-0-0-85-220.png/200x200bb.jpg", "IP TV": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/ac/f2/5e/acf25e92-2679-be5c-7416-a0915cc172e3/AppIcon-0-0-1x_U007emarketing-0-11-0-85-220.png/200x200bb.jpg", "Kling AI": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/02/45/fe/0245fe20-0ce7-2461-b9e1-c1d61c27c7b0/AppIconKlingabroad-0-0-1x_U007epad-0-1-0-sRGB-85-220.png/200x200bb.jpg", "Lovable": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/9f/fb/ea/9ffbead5-5b70-c791-67b7-ffb7fa300c70/app-icon-0-0-1x_U007epad-0-0-0-1-0-85-220.png/200x200bb.jpg", "OSN Plus": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2a/7e/1f/2a7e1fe9-3bd9-bc2b-7e73-f5f00e6c5486/AppIcon-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "PIA VPN": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/52/fb/e3/52fbe3e1-a2f5-95b6-03e2-62930720b38c/AppIcon-Production-0-0-1x_U007epad-0-1-85-220.png/200x200bb.jpg", "STAR LITE": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/1b/9e/00/1b9e0020-e262-ab57-97fb-521965c8d9a5/AppIcon-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "Sugo - سوجو": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/ba/62/91/ba629197-e181-2a97-ba7e-f493ed1100b1/AppIcon-0-0-1x_U007emarketing-0-6-0-85-220.png/200x200bb.jpg", "Vietnam - فيتنام": "https://flagcdn.com/w160/vn.png", "Whiteout Survival": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/e6/9e/98/e69e9840-fa2b-7b53-c7f9-75a75021de26/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "Zain 4K": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/3c/b4/74/3cb47473-5856-4316-df04-639226b58eb5/AppIcon-0-0-1x_U007emarketing-0-11-0-85-220.png/200x200bb.jpg", "أرقام تلغرام": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/2f/1b/e8/2f1be808-3e4c-9edc-7ab6-3508a48aac84/Telegram-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "أركنايتس: إندفيلد - arknights endfield": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/5e/a4/53/5ea453a8-f819-f42e-aae4-28f21b8c7166/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "ألمانيا - Germany": "https://flagcdn.com/w160/de.png", "أمازون - Amazon - أمازون أمريكي 🇺🇸": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/87/2c/05/872c0572-ddd5-ee40-23af-41860e79bf16/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "أمازون - Amazon - أمازون إماراتي 🇦🇪": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/87/2c/05/872c0572-ddd5-ee40-23af-41860e79bf16/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "أمازون - Amazon - أمازون بريطاني 🇬🇧": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/87/2c/05/872c0572-ddd5-ee40-23af-41860e79bf16/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "أمازون - Amazon - أمازون سعودي 🇸🇦": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/87/2c/05/872c0572-ddd5-ee40-23af-41860e79bf16/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "أمازون - Amazon - أمازون كندي 🇨🇦": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/87/2c/05/872c0572-ddd5-ee40-23af-41860e79bf16/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "أمريكي - United States": "https://flagcdn.com/w160/us.png", "أنداون - UNDAWN": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/2f/65/5f/2f655f20-bce6-6f29-b76e-ce36ca9f9c00/AppIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "إسبانيا- Spain": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/3a/94/f4/3a94f4a8-712f-6bee-a4cb-974c63b55eb2/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "إنفينيت لاغرانج - infinite lagrange": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/62/58/db/6258db01-1baf-c99b-fe19-d96e93570cae/AppIcon-0-0-1x_U007emarketing-0-11-0-85-220.png/200x200bb.jpg", "إيكوكاليبس - echocalypse scarlet covenant": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/fe/75/90/fe759031-b600-9196-db90-0e48ffdb8187/GameIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "ابل تي ڤي - Apple TV": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/a2/74/61/a274610a-1537-0429-df1b-afacfad5a478/tvCalistoga-0-0-1x_U007epad-0-1-0-sRGB-85-220.png/200x200bb.jpg", "ارينا اوف فالور - arena of valor EU": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/54/3c/5c/543c5c8e-5615-831d-b82c-edd691cf8f4f/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "استرال غارديانز - astral guardians cyber fantasy": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/a8/d7/a3/a8d7a373-d072-d95c-cb23-f97ba7894f18/AppIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "استراليا - Australia": "https://flagcdn.com/w160/au.png", "اسفلت 9 ليجندز - asphalt 9 legends": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/b0/5d/4c/b05d4cdb-f259-f7cf-6be3-77c4d0d5a9fb/AppIcon-0-0-1x_U007epad-0-1-85-220.png/200x200bb.jpg", "اشتراك انغامي بلس عالمي - anghami": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/27/c4/12/27c412bf-db35-8e52-6884-f27ac8f308f0/AppIcon-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "اشتراك شاهد VIP للحسابات الانترناشيونال": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/d4/d1/79/d4d179c9-e761-203c-1d5b-529084d3a80c/AppIcon-0-0-1x_U007emarketing-0-0-0-11-0-0-85-220.png/200x200bb.jpg", "اكس بوكس - XBOX - اكس بوكس أمريكي 🇺🇸": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2c/e3/83/2ce38364-dcd0-2f9b-4796-3b1c94d99370/AppIcon-1x_U007epad-0-1-85-220-0.png/200x200bb.jpg", "اكس بوكس - XBOX - اكس بوكس أوروبي 🇪🇺": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2c/e3/83/2ce38364-dcd0-2f9b-4796-3b1c94d99370/AppIcon-1x_U007epad-0-1-85-220-0.png/200x200bb.jpg", "اكس بوكس - XBOX - اكس بوكس إماراتي 🇦🇪": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2c/e3/83/2ce38364-dcd0-2f9b-4796-3b1c94d99370/AppIcon-1x_U007epad-0-1-85-220-0.png/200x200bb.jpg", "اكس بوكس - XBOX - اكس بوكس بريطاني 🇬🇧": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2c/e3/83/2ce38364-dcd0-2f9b-4796-3b1c94d99370/AppIcon-1x_U007epad-0-1-85-220-0.png/200x200bb.jpg", "اكس بوكس - XBOX - اكس بوكس سعودي 🇸🇦": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2c/e3/83/2ce38364-dcd0-2f9b-4796-3b1c94d99370/AppIcon-1x_U007epad-0-1-85-220-0.png/200x200bb.jpg", "اكس بوكس - XBOX - اكس بوكس كندي 🇨🇦": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2c/e3/83/2ce38364-dcd0-2f9b-4796-3b1c94d99370/AppIcon-1x_U007epad-0-1-85-220-0.png/200x200bb.jpg", "اكسبريس - Express vpn": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/a8/7c/a6/a87ca6f4-e85b-3fac-47c6-aea16fa0874d/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "اكسترا اورديني - extraordinary ones": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/bf/2a/69/bf2a69f3-89f8-344c-acdb-b2f61b1fc34e/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "الإمارات  - United Arab Emirates": "https://flagcdn.com/w160/ae.png", "الجزيرة المفقودة - Guns of glory": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/5a/ab/8e/5aab8e87-d7a5-6839-9b2d-01304d4bc59c/AppIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "الفيلق المظلم - Dark legion": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/4b/51/04/4b510461-3bfa-6bc1-b5ff-80de81d85baa/FPX_AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "المغرب - Morocco": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/f7/dd/3f/f7dd3fd5-59aa-08c0-9959-c1b34ffcfca4/AppIcon-1x_U007emarketing-0-8-0-sRGB-0-85-220-0.png/200x200bb.jpg", "الهوية الخامسة - identity v": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/cd/1c/78/cd1c78b5-de24-734e-749a-507f872745a7/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "امازون برايم - Amazon Prime Video 4K": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/87/2c/05/872c0572-ddd5-ee40-23af-41860e79bf16/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "امازون برايم - Amazon Prime Video 4K - امازون برايم فيديو أمريكي - Amazon prime": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/87/2c/05/872c0572-ddd5-ee40-23af-41860e79bf16/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "ان فيديو - In video": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/51/2e/e7/512ee762-e13f-98a8-282e-b231665d88c0/prodAppIcon-0-0-1x_U007epad-0-1-85-220.png/200x200bb.jpg", "اندونيسيا - Indonesia": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/9b/84/fb/9b84fb27-59ba-db8b-0507-0a5de806bc76/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/200x200bb.jpg", "انسامبل ستارز - ensemble stars music": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/7c/9c/6a/7c9c6a60-2248-32b5-8917-2eeecd3b5418/AppIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "انغامي بلس - anghami plus": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/27/c4/12/27c412bf-db35-8e52-6884-f27ac8f308f0/AppIcon-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "انهايبن وورلد - enhypen world": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/37/c0/c2/37c0c297-a506-b2d5-c9d7-ec90edca258a/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "اوفرمورتال - overmortal idle global": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/7b/33/f6/7b33f676-ec6e-ab5a-d6b1-e107acaa3a1a/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "ايتونز - Apple 🍏 - ايتونز  إماراتي": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - Apple 🍏 - ايتونز  بلجيكي": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - Apple 🍏 - ايتونز ألماني": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - Apple 🍏 - ايتونز أمريكي 🇺🇸": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - Apple 🍏 - ايتونز إسباني": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - Apple 🍏 - ايتونز إيطالي 🇮🇹": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - Apple 🍏 - ايتونز برتغالي": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - Apple 🍏 - ايتونز بريطاني": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - Apple 🍏 - ايتونز بريطاني 🇬🇧": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - Apple 🍏 - ايتونز تركي 🇹🇷": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - Apple 🍏 - ايتونز سعودي 🇸🇦": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - Apple 🍏 - ايتونز فرنسي": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - Apple 🍏 - ايتونز فرنسي 🇫🇷": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - Apple 🍏 - ايتونز كندي": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - Apple 🍏 - ايتونز كندي 🇨🇦": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايجي بارتي - eggy party": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/32/9d/d9/329dd995-3f6f-408c-70ba-0eec8409cca5/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "ايف إيكوز - eve echoes": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/bc/08/96/bc0896b6-03b6-b25b-5746-275a2530572f/AppIcon-0-0-1x_U007epad-0-1-85-220.png/200x200bb.jpg", "باليستك هيرو - ballistic hero vng": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/a5/af/57/a5af57c8-7178-213e-a0bb-1010f8847e3c/AppIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "ببجي نيوستيت اكواد - PUBG Newstate Codes": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/0c/1a/dc/0c1adcc0-b63f-6bdb-3cba-d74161aad06a/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/200x200bb.jpg", "بروتون - Proton vpn": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/1a/96/44/1a96446b-b5f7-c3e0-89de-dfeab714d160/AppIcon-0-0-1x_U007epad-0-1-85-220.png/200x200bb.jpg", "بريطانيا  - United Kingdom": "https://flagcdn.com/w160/gb.png", "بطاقات Visa": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2c/24/50/2c245052-f91a-6b81-f844-5ba7e9fd2320/AppIcon-0-0-1x_U007ephone-0-1-0-85-220.png/200x200bb.jpg", "بطاقات نتفلكس - Netflix - نتفلكس أمريكي 🇺🇸": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/4d/5d/8d/4d5d8d1d-8455-6c65-a256-f41ac98a2419/AppIcon-0-0-1x_U007epad-0-1-0-sRGB-0-85-220.png/200x200bb.jpg", "بطاقات نتفلكس - Netflix - نتفلكس إماراتي 🇦🇪": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/4d/5d/8d/4d5d8d1d-8455-6c65-a256-f41ac98a2419/AppIcon-0-0-1x_U007epad-0-1-0-sRGB-0-85-220.png/200x200bb.jpg", "بطاقات نتفلكس - Netflix - نتفلكس سعودي 🇸🇦": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/4d/5d/8d/4d5d8d1d-8455-6c65-a256-f41ac98a2419/AppIcon-0-0-1x_U007epad-0-1-0-sRGB-0-85-220.png/200x200bb.jpg", "بليزارد": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/4c/2e/a9/4c2ea994-4a5a-a0f1-dd58-1bf733fc22b9/AppIconGlass-0-0-1x_U007ephone-0-1-0-sRGB-85-220.png/200x200bb.jpg", "بليزارد - Blizzard - بليزرد أمريكي 🇺🇸": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/4c/2e/a9/4c2ea994-4a5a-a0f1-dd58-1bf733fc22b9/AppIconGlass-0-0-1x_U007ephone-0-1-0-sRGB-85-220.png/200x200bb.jpg", "بليزارد - Blizzard - بليزرد أوروبي 🇪🇺": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/4c/2e/a9/4c2ea994-4a5a-a0f1-dd58-1bf733fc22b9/AppIconGlass-0-0-1x_U007ephone-0-1-0-sRGB-85-220.png/200x200bb.jpg", "تلغرام مميز - Telegram Premium": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/2f/1b/e8/2f1be808-3e4c-9edc-7ab6-3508a48aac84/Telegram-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "جيد دايناستي نيو فانتسي - jade dynasty new fantasy": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/c8/a2/40/c8a24021-adab-ebc9-ac4f-ebec97258c13/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "دراغون راجا - dragon raja SEA": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/20/af/0c/20af0c3e-53c3-b14e-cf24-6cd94deed2c8/AppIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "دلتا فورس - Delta force - دلتا فورس عالمي - Delta force Global": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/55/f9/6a/55f96ae1-f8b1-ffe5-0ae2-123c3da1979e/AppIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "رشق تلغرام": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/2f/1b/e8/2f1be808-3e4c-9edc-7ab6-3508a48aac84/Telegram-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "رشق تلغرام - تفاعلات تلغرام": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/2f/1b/e8/2f1be808-3e4c-9edc-7ab6-3508a48aac84/Telegram-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "رشق تويتش": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/85/ba/e5/85bae56f-d7a9-e3ff-a7b6-c48469df6110/TikTok_AppIcon26-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "سبوتي فاي - Spotify": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/ce/b5/1c/ceb51c33-0a63-56fb-db99-5d345728ae9e/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "شاهد VIP": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/d4/d1/79/d4d179c9-e761-203c-1d5b-529084d3a80c/AppIcon-0-0-1x_U007emarketing-0-0-0-11-0-0-85-220.png/200x200bb.jpg", "فالورانت أمريكي - VALORANT US 🇺🇲": "https://flagcdn.com/w160/us.png", "فالورانت تركي - Valorant TRY🇹🇷": "https://flagcdn.com/w160/tr.png", "فرنسا - France": "https://flagcdn.com/w160/fr.png", "فورتنايت للحسابات الأمريكية": "https://flagcdn.com/w160/us.png", "كندا  - Canada": "https://flagcdn.com/w160/ca.png", "مصر - Egypt": "https://flagcdn.com/w160/eg.png", "نتفلكس - NETFLIX": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/4d/5d/8d/4d5d8d1d-8455-6c65-a256-f41ac98a2419/AppIcon-0-0-1x_U007epad-0-1-0-sRGB-0-85-220.png/200x200bb.jpg", "نتفلكس تركي - NETFLIX Turkey": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/4d/5d/8d/4d5d8d1d-8455-6c65-a256-f41ac98a2419/AppIcon-0-0-1x_U007epad-0-1-0-sRGB-0-85-220.png/200x200bb.jpg", "نون سعودي - noon": "https://flagcdn.com/w160/sa.png", "نيوزيلندا  - Netherlands": "https://flagcdn.com/w160/nl.png"};
+  const SUB_ICONS_NORM = {"1 ڤي 1 - 1v1": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/c0/c0/34/c0c034de-42ca-b688-2bf7-bd17af918d6d/AppIcon-0-0-1x_U007ephone-0-1-0-85-220.png/200x200bb.jpg", "asmar 4k": "https://is1-ssl.mzstatic.com/image/thumb/Purple112/v4/56/80/07/568007d1-04df-911d-88e6-e08aa41c9103/AppIcon-1x_U007emarketing-0-4-0-85-220.jpeg/200x200bb.jpg", "bubg global - ببجي عالمي - ببجي روبوت - bubg robot": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/0c/1a/dc/0c1adcc0-b63f-6bdb-3cba-d74161aad06a/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/200x200bb.jpg", "bubg global - ببجي عالمي - ببجي عالمي اكواد - pubg world codes": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/0c/1a/dc/0c1adcc0-b63f-6bdb-3cba-d74161aad06a/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/200x200bb.jpg", "bubg global - ببجي عالمي - عضويات ببجي - pubg memberships": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/0c/1a/dc/0c1adcc0-b63f-6bdb-3cba-d74161aad06a/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/200x200bb.jpg", "blue 4k": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/24/b5/58/24b558a7-288d-445c-3de9-a7bd79c40b44/AppIcon-0-1x_U007epad-0-1-0-0-85-220-0.png/200x200bb.jpg", "claude": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/21/3c/7b/213c7baf-7731-12fc-ea82-e1628b3fa4e7/AppIcon-0-0-1x_U007epad-0-0-0-1-0-85-220.png/200x200bb.jpg", "doomsday : last survivors": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/35/39/f2/3539f255-bfef-bfd0-4872-a23324dbfcd0/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "elevenlabs creator": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/ca/d1/1f/cad11f7c-d248-0210-83c1-e1d0bb2c1e38/AppIcon-Prod-0-0-1x_U007epad-0-1-85-220.png/200x200bb.jpg", "fc mobile - fc cambodia": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/92/b5/17/92b51785-f15c-5913-e9fb-669947500783/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "fc mobile - fc malaysia": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/cb/90/a6/cb90a634-8353-a094-cd7a-490eced6c4c2/AppIcon-0-0-1x_U007emarketing-0-11-0-0-85-220.png/200x200bb.jpg", "fc mobile - fc singapore": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/cb/90/a6/cb90a634-8353-a094-cd7a-490eced6c4c2/AppIcon-0-0-1x_U007emarketing-0-11-0-0-85-220.png/200x200bb.jpg", "ip tv": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/ac/f2/5e/acf25e92-2679-be5c-7416-a0915cc172e3/AppIcon-0-0-1x_U007emarketing-0-11-0-85-220.png/200x200bb.jpg", "kling ai": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/02/45/fe/0245fe20-0ce7-2461-b9e1-c1d61c27c7b0/AppIconKlingabroad-0-0-1x_U007epad-0-1-0-sRGB-85-220.png/200x200bb.jpg", "lovable": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/9f/fb/ea/9ffbead5-5b70-c791-67b7-ffb7fa300c70/app-icon-0-0-1x_U007epad-0-0-0-1-0-85-220.png/200x200bb.jpg", "osn plus": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2a/7e/1f/2a7e1fe9-3bd9-bc2b-7e73-f5f00e6c5486/AppIcon-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "pia vpn": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/52/fb/e3/52fbe3e1-a2f5-95b6-03e2-62930720b38c/AppIcon-Production-0-0-1x_U007epad-0-1-85-220.png/200x200bb.jpg", "star lite": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/1b/9e/00/1b9e0020-e262-ab57-97fb-521965c8d9a5/AppIcon-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "sugo - سوجو": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/ba/62/91/ba629197-e181-2a97-ba7e-f493ed1100b1/AppIcon-0-0-1x_U007emarketing-0-6-0-85-220.png/200x200bb.jpg", "vietnam - فيتنام": "https://flagcdn.com/w160/vn.png", "whiteout survival": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/e6/9e/98/e69e9840-fa2b-7b53-c7f9-75a75021de26/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "zain 4k": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/3c/b4/74/3cb47473-5856-4316-df04-639226b58eb5/AppIcon-0-0-1x_U007emarketing-0-11-0-85-220.png/200x200bb.jpg", "أرقام تلغرام": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/2f/1b/e8/2f1be808-3e4c-9edc-7ab6-3508a48aac84/Telegram-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "أركنايتس: إندفيلد - arknights endfield": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/5e/a4/53/5ea453a8-f819-f42e-aae4-28f21b8c7166/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "ألمانيا - germany": "https://flagcdn.com/w160/de.png", "أمازون - amazon - أمازون أمريكي 🇺🇸": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/87/2c/05/872c0572-ddd5-ee40-23af-41860e79bf16/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "أمازون - amazon - أمازون إماراتي 🇦🇪": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/87/2c/05/872c0572-ddd5-ee40-23af-41860e79bf16/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "أمازون - amazon - أمازون بريطاني 🇬🇧": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/87/2c/05/872c0572-ddd5-ee40-23af-41860e79bf16/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "أمازون - amazon - أمازون سعودي 🇸🇦": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/87/2c/05/872c0572-ddd5-ee40-23af-41860e79bf16/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "أمازون - amazon - أمازون كندي 🇨🇦": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/87/2c/05/872c0572-ddd5-ee40-23af-41860e79bf16/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "أمريكي - united states": "https://flagcdn.com/w160/us.png", "أنداون - undawn": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/2f/65/5f/2f655f20-bce6-6f29-b76e-ce36ca9f9c00/AppIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "إسبانيا- spain": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/3a/94/f4/3a94f4a8-712f-6bee-a4cb-974c63b55eb2/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "إنفينيت لاغرانج - infinite lagrange": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/62/58/db/6258db01-1baf-c99b-fe19-d96e93570cae/AppIcon-0-0-1x_U007emarketing-0-11-0-85-220.png/200x200bb.jpg", "إيكوكاليبس - echocalypse scarlet covenant": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/fe/75/90/fe759031-b600-9196-db90-0e48ffdb8187/GameIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "ابل تي ڤي - apple tv": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/a2/74/61/a274610a-1537-0429-df1b-afacfad5a478/tvCalistoga-0-0-1x_U007epad-0-1-0-sRGB-85-220.png/200x200bb.jpg", "ارينا اوف فالور - arena of valor eu": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/54/3c/5c/543c5c8e-5615-831d-b82c-edd691cf8f4f/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "استرال غارديانز - astral guardians cyber fantasy": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/a8/d7/a3/a8d7a373-d072-d95c-cb23-f97ba7894f18/AppIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "استراليا - australia": "https://flagcdn.com/w160/au.png", "اسفلت 9 ليجندز - asphalt 9 legends": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/b0/5d/4c/b05d4cdb-f259-f7cf-6be3-77c4d0d5a9fb/AppIcon-0-0-1x_U007epad-0-1-85-220.png/200x200bb.jpg", "اشتراك انغامي بلس عالمي - anghami": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/27/c4/12/27c412bf-db35-8e52-6884-f27ac8f308f0/AppIcon-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "اشتراك شاهد vip للحسابات الانترناشيونال": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/d4/d1/79/d4d179c9-e761-203c-1d5b-529084d3a80c/AppIcon-0-0-1x_U007emarketing-0-0-0-11-0-0-85-220.png/200x200bb.jpg", "اكس بوكس - xbox - اكس بوكس أمريكي 🇺🇸": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2c/e3/83/2ce38364-dcd0-2f9b-4796-3b1c94d99370/AppIcon-1x_U007epad-0-1-85-220-0.png/200x200bb.jpg", "اكس بوكس - xbox - اكس بوكس أوروبي 🇪🇺": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2c/e3/83/2ce38364-dcd0-2f9b-4796-3b1c94d99370/AppIcon-1x_U007epad-0-1-85-220-0.png/200x200bb.jpg", "اكس بوكس - xbox - اكس بوكس إماراتي 🇦🇪": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2c/e3/83/2ce38364-dcd0-2f9b-4796-3b1c94d99370/AppIcon-1x_U007epad-0-1-85-220-0.png/200x200bb.jpg", "اكس بوكس - xbox - اكس بوكس بريطاني 🇬🇧": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2c/e3/83/2ce38364-dcd0-2f9b-4796-3b1c94d99370/AppIcon-1x_U007epad-0-1-85-220-0.png/200x200bb.jpg", "اكس بوكس - xbox - اكس بوكس سعودي 🇸🇦": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2c/e3/83/2ce38364-dcd0-2f9b-4796-3b1c94d99370/AppIcon-1x_U007epad-0-1-85-220-0.png/200x200bb.jpg", "اكس بوكس - xbox - اكس بوكس كندي 🇨🇦": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2c/e3/83/2ce38364-dcd0-2f9b-4796-3b1c94d99370/AppIcon-1x_U007epad-0-1-85-220-0.png/200x200bb.jpg", "اكسبريس - express vpn": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/a8/7c/a6/a87ca6f4-e85b-3fac-47c6-aea16fa0874d/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "اكسترا اورديني - extraordinary ones": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/bf/2a/69/bf2a69f3-89f8-344c-acdb-b2f61b1fc34e/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "الإمارات - united arab emirates": "https://flagcdn.com/w160/ae.png", "الجزيرة المفقودة - guns of glory": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/5a/ab/8e/5aab8e87-d7a5-6839-9b2d-01304d4bc59c/AppIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "الفيلق المظلم - dark legion": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/4b/51/04/4b510461-3bfa-6bc1-b5ff-80de81d85baa/FPX_AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "المغرب - morocco": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/f7/dd/3f/f7dd3fd5-59aa-08c0-9959-c1b34ffcfca4/AppIcon-1x_U007emarketing-0-8-0-sRGB-0-85-220-0.png/200x200bb.jpg", "الهوية الخامسة - identity v": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/cd/1c/78/cd1c78b5-de24-734e-749a-507f872745a7/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "امازون برايم - amazon prime video 4k": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/87/2c/05/872c0572-ddd5-ee40-23af-41860e79bf16/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "امازون برايم - amazon prime video 4k - امازون برايم فيديو أمريكي - amazon prime": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/87/2c/05/872c0572-ddd5-ee40-23af-41860e79bf16/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "ان فيديو - in video": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/51/2e/e7/512ee762-e13f-98a8-282e-b231665d88c0/prodAppIcon-0-0-1x_U007epad-0-1-85-220.png/200x200bb.jpg", "اندونيسيا - indonesia": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/9b/84/fb/9b84fb27-59ba-db8b-0507-0a5de806bc76/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/200x200bb.jpg", "انسامبل ستارز - ensemble stars music": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/7c/9c/6a/7c9c6a60-2248-32b5-8917-2eeecd3b5418/AppIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "انغامي بلس - anghami plus": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/27/c4/12/27c412bf-db35-8e52-6884-f27ac8f308f0/AppIcon-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "انهايبن وورلد - enhypen world": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/37/c0/c2/37c0c297-a506-b2d5-c9d7-ec90edca258a/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "اوفرمورتال - overmortal idle global": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/7b/33/f6/7b33f676-ec6e-ab5a-d6b1-e107acaa3a1a/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "ايتونز - apple 🍏 - ايتونز إماراتي": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - apple 🍏 - ايتونز بلجيكي": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - apple 🍏 - ايتونز ألماني": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - apple 🍏 - ايتونز أمريكي 🇺🇸": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - apple 🍏 - ايتونز إسباني": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - apple 🍏 - ايتونز إيطالي 🇮🇹": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - apple 🍏 - ايتونز برتغالي": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - apple 🍏 - ايتونز بريطاني": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - apple 🍏 - ايتونز بريطاني 🇬🇧": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - apple 🍏 - ايتونز تركي 🇹🇷": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - apple 🍏 - ايتونز سعودي 🇸🇦": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - apple 🍏 - ايتونز فرنسي": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - apple 🍏 - ايتونز فرنسي 🇫🇷": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - apple 🍏 - ايتونز كندي": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايتونز - apple 🍏 - ايتونز كندي 🇨🇦": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg", "ايجي بارتي - eggy party": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/32/9d/d9/329dd995-3f6f-408c-70ba-0eec8409cca5/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "ايف إيكوز - eve echoes": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/bc/08/96/bc0896b6-03b6-b25b-5746-275a2530572f/AppIcon-0-0-1x_U007epad-0-1-85-220.png/200x200bb.jpg", "باليستك هيرو - ballistic hero vng": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/a5/af/57/a5af57c8-7178-213e-a0bb-1010f8847e3c/AppIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "ببجي نيوستيت اكواد - pubg newstate codes": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/0c/1a/dc/0c1adcc0-b63f-6bdb-3cba-d74161aad06a/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/200x200bb.jpg", "بروتون - proton vpn": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/1a/96/44/1a96446b-b5f7-c3e0-89de-dfeab714d160/AppIcon-0-0-1x_U007epad-0-1-85-220.png/200x200bb.jpg", "بريطانيا - united kingdom": "https://flagcdn.com/w160/gb.png", "بطاقات visa": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2c/24/50/2c245052-f91a-6b81-f844-5ba7e9fd2320/AppIcon-0-0-1x_U007ephone-0-1-0-85-220.png/200x200bb.jpg", "بطاقات نتفلكس - netflix - نتفلكس أمريكي 🇺🇸": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/4d/5d/8d/4d5d8d1d-8455-6c65-a256-f41ac98a2419/AppIcon-0-0-1x_U007epad-0-1-0-sRGB-0-85-220.png/200x200bb.jpg", "بطاقات نتفلكس - netflix - نتفلكس إماراتي 🇦🇪": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/4d/5d/8d/4d5d8d1d-8455-6c65-a256-f41ac98a2419/AppIcon-0-0-1x_U007epad-0-1-0-sRGB-0-85-220.png/200x200bb.jpg", "بطاقات نتفلكس - netflix - نتفلكس سعودي 🇸🇦": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/4d/5d/8d/4d5d8d1d-8455-6c65-a256-f41ac98a2419/AppIcon-0-0-1x_U007epad-0-1-0-sRGB-0-85-220.png/200x200bb.jpg", "بليزارد": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/4c/2e/a9/4c2ea994-4a5a-a0f1-dd58-1bf733fc22b9/AppIconGlass-0-0-1x_U007ephone-0-1-0-sRGB-85-220.png/200x200bb.jpg", "بليزارد - blizzard - بليزرد أمريكي 🇺🇸": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/4c/2e/a9/4c2ea994-4a5a-a0f1-dd58-1bf733fc22b9/AppIconGlass-0-0-1x_U007ephone-0-1-0-sRGB-85-220.png/200x200bb.jpg", "بليزارد - blizzard - بليزرد أوروبي 🇪🇺": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/4c/2e/a9/4c2ea994-4a5a-a0f1-dd58-1bf733fc22b9/AppIconGlass-0-0-1x_U007ephone-0-1-0-sRGB-85-220.png/200x200bb.jpg", "تلغرام مميز - telegram premium": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/2f/1b/e8/2f1be808-3e4c-9edc-7ab6-3508a48aac84/Telegram-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "جيد دايناستي نيو فانتسي - jade dynasty new fantasy": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/c8/a2/40/c8a24021-adab-ebc9-ac4f-ebec97258c13/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg", "دراغون راجا - dragon raja sea": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/20/af/0c/20af0c3e-53c3-b14e-cf24-6cd94deed2c8/AppIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "دلتا فورس - delta force - دلتا فورس عالمي - delta force global": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/55/f9/6a/55f96ae1-f8b1-ffe5-0ae2-123c3da1979e/AppIcon-1x_U007emarketing-0-8-0-85-220-0.png/200x200bb.jpg", "رشق تلغرام": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/2f/1b/e8/2f1be808-3e4c-9edc-7ab6-3508a48aac84/Telegram-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "رشق تلغرام - تفاعلات تلغرام": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/2f/1b/e8/2f1be808-3e4c-9edc-7ab6-3508a48aac84/Telegram-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "رشق تويتش": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/85/ba/e5/85bae56f-d7a9-e3ff-a7b6-c48469df6110/TikTok_AppIcon26-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg", "سبوتي فاي - spotify": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/ce/b5/1c/ceb51c33-0a63-56fb-db99-5d345728ae9e/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg", "شاهد vip": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/d4/d1/79/d4d179c9-e761-203c-1d5b-529084d3a80c/AppIcon-0-0-1x_U007emarketing-0-0-0-11-0-0-85-220.png/200x200bb.jpg", "فالورانت أمريكي - valorant us 🇺🇲": "https://flagcdn.com/w160/us.png", "فالورانت تركي - valorant try🇹🇷": "https://flagcdn.com/w160/tr.png", "فرنسا - france": "https://flagcdn.com/w160/fr.png", "فورتنايت للحسابات الأمريكية": "https://flagcdn.com/w160/us.png", "كندا - canada": "https://flagcdn.com/w160/ca.png", "مصر - egypt": "https://flagcdn.com/w160/eg.png", "نتفلكس - netflix": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/4d/5d/8d/4d5d8d1d-8455-6c65-a256-f41ac98a2419/AppIcon-0-0-1x_U007epad-0-1-0-sRGB-0-85-220.png/200x200bb.jpg", "نتفلكس تركي - netflix turkey": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/4d/5d/8d/4d5d8d1d-8455-6c65-a256-f41ac98a2419/AppIcon-0-0-1x_U007epad-0-1-0-sRGB-0-85-220.png/200x200bb.jpg", "نون سعودي - noon": "https://flagcdn.com/w160/sa.png", "نيوزيلندا - netherlands": "https://flagcdn.com/w160/nl.png"};
   let searchQuery = "";
   let buyProdId = null;
   let showSYPPrimary = localStorage.getItem("boostix_syp") === "1";
 
   // ربط الأقسام الـ 11 بصورها المضغوطة
   const CAT_IMAGE_MAP = {
-    "الألعاب": "/assets/categories/cat_02.webp",
-    "بطاقات شحن": "/assets/categories/cat_04.webp",
-    "قسم الأرقام": "/assets/categories/cat_03.webp",
-    "تطبيقات دردشة": "/assets/categories/cat_05.webp",
-    "تواصل اجتماعي": "/assets/categories/cat_01.webp",
-    "شاشة VIP": "/assets/categories/cat_07.webp",
-    "Vpn مدفوع": "/assets/categories/cat_11.webp",
-    "ذكاء اصطناعي Ai": "/assets/categories/cat_06.webp",
-    "برامج تصميم": "/assets/categories/cat_09.webp",
-    "توثيق حسابات": "/assets/categories/cat_08.webp",
-    "عملات و أرصدة": "/assets/categories/cat_10.webp"
+    "الألعاب": "/assets/categories/cat_12.webp",
+    "بطاقات شحن": "/assets/categories/cat_09.webp",
+    "قسم الأرقام": "/assets/categories/cat_08.webp",
+    "تطبيقات دردشة": "/assets/categories/cat_10.webp",
+    "تواصل اجتماعي": "/assets/categories/cat_11.webp",
+    "شاشة VIP": "/assets/categories/cat_06.webp",
+    "Vpn مدفوع": "/assets/categories/cat_01.webp",
+    "ذكاء اصطناعي Ai": "/assets/categories/cat_05.webp",
+    "برامج تصميم": "/assets/categories/cat_02.webp",
+    "توثيق حسابات": "/assets/categories/cat_07.webp",
+    "عملات و أرصدة": "/assets/categories/cat_04.webp"
   };
 
   function applyTheme(t) {
@@ -712,7 +859,7 @@
   }
 
   function goHome() {
-    mainCatFilter = ""; subCatFilter = ""; searchQuery = "";
+    mainCatFilter = ""; brandGroupFilter = ""; subCatFilter = ""; searchQuery = "";
     const inp = document.getElementById("store-search");
     if (inp) inp.value = "";
     showTab("shop");
@@ -722,20 +869,38 @@
   function goBackStep() {
     if (searchQuery) { searchQuery = ""; const inp = document.getElementById("store-search"); if (inp) inp.value = ""; }
     else if (subCatFilter) { subCatFilter = ""; }
+    else if (brandGroupFilter) { brandGroupFilter = ""; }
     else { mainCatFilter = ""; }
     renderStore();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function renderIconHTML(iconVal, size = 54) {
-    if (iconVal && (iconVal.startsWith("http://") || iconVal.startsWith("https://") || iconVal.startsWith("/"))) {
-      return `<img src="${iconVal}" alt="icon" loading="lazy" style="width:${size}px; height:${size}px; border-radius:12px; object-fit:cover; border:1.5px solid var(--cyan); background:var(--input-bg);" onerror="this.style.display='none'">`;
+  function getBrandGroup(subName) {
+    const parts = (subName || "").split(" - ").map(s => s.trim()).filter(Boolean);
+    if (parts.length >= 3) return parts[0] + " - " + parts[1];
+    return (subName || "").trim();
+  }
+
+  function resolveSubIcon(subName, fallbackIcon) {
+    if (subName) {
+      if (SUB_ICONS[subName]) return SUB_ICONS[subName];
+      const nk = subName.replace(/\s+/g, " ").trim().toLowerCase();
+      if (SUB_ICONS_NORM[nk]) return SUB_ICONS_NORM[nk];
     }
-    return `<div class="p-ico" style="width:${size}px; height:${size}px;">${iconVal || '🎮'}</div>`;
+    if (fallbackIcon && fallbackIcon.startsWith("http") && !fallbackIcon.includes("sonic8store")) return fallbackIcon;
+    return "🎮";
+  }
+
+  function renderIconHTML(iconVal, size = 54) {
+    if (iconVal && (iconVal.startsWith("http://") || iconVal.startsWith("https://") || iconVal.startsWith("/assets/"))) {
+      return `<img src="${iconVal}" alt="" loading="lazy" style="width:${size}px; height:${size}px; border-radius:16px; object-fit:cover; border:1.5px solid var(--cyan); background:var(--input-bg);" onerror="this.outerHTML='<div class=\'p-ico\' style=\'width:${size}px;height:${size}px;\'>🎮</div>'">`;
+    }
+    return `<div class="p-ico" style="width:${size}px; height:${size}px; font-size:${Math.round(size*0.48)}px;">${iconVal || '🎮'}</div>`;
   }
 
   function onSearchInput(val) { searchQuery = (val || "").trim().toLowerCase(); renderStore(); }
-  function selectMainCat(catName) { mainCatFilter = catName; subCatFilter = ""; searchQuery = ""; renderStore(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function selectMainCat(catName) { mainCatFilter = catName; brandGroupFilter = ""; subCatFilter = ""; searchQuery = ""; renderStore(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function selectBrandGroup(gName) { brandGroupFilter = gName; subCatFilter = ""; renderStore(); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function selectSubCat(subName) { subCatFilter = subName; renderStore(); window.scrollTo({ top: 0, behavior: "smooth" }); }
 
   function splitGameField(g) {
@@ -855,7 +1020,6 @@
         return `
           <div class="cat-card" onclick='selectMainCat(${JSON.stringify(m)})'>
             <img src="${imgSrc}" alt="${m}" loading="lazy">
-            <span class="cat-badge">${count} باقة</span>
           </div>`;
       }).join("");
     } else {
@@ -877,7 +1041,7 @@
           return `
             <div class="p-card">
               <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                ${renderIconHTML(p.icon, 50)}
+                ${renderIconHTML(resolveSubIcon(info.sub, p.icon), 50)}
                 <div><div class="p-game">${info.sub}</div><div class="p-name">${p.pack}</div></div>
               </div>
               <div>
@@ -889,25 +1053,55 @@
               </div>
             </div>`;
         }).join("") || `<div class="panel" style="grid-column:1/-1; text-align:center;">لا توجد باقات مطابقة.</div>`;
-      } else {
-        const inMain = products.filter(p => splitGameField(p.game).main === mainCatFilter);
+      } else if (brandGroupFilter) {
+        const inGroup = products.filter(p => {
+          const info = splitGameField(p.game);
+          return info.main === mainCatFilter && getBrandGroup(info.sub) === brandGroupFilter;
+        });
         const subMap = new Map();
-        inMain.forEach(p => {
+        inGroup.forEach(p => {
           const sub = splitGameField(p.game).sub;
-          if (!subMap.has(sub)) subMap.set(sub, { name: sub, icon: p.icon, count: 0, minPrice: p.price_usd });
+          if (!subMap.has(sub)) subMap.set(sub, { name: sub, icon: resolveSubIcon(sub, p.icon), count: 0, minPrice: p.price_usd });
           const entry = subMap.get(sub);
           entry.count++;
           if (p.price_usd < entry.minPrice) entry.minPrice = p.price_usd;
         });
         const subs = Array.from(subMap.values());
-        bread.textContent = `📂 ${mainCatFilter} (${subs.length} قسم فرعي)`;
+        bread.textContent = `📂 ${brandGroupFilter} (${subs.length} قسم)`;
         grid.innerHTML = subs.map(s => `
           <div class="p-card" style="cursor:pointer; text-align:center; align-items:center;" onclick='selectSubCat(${JSON.stringify(s.name)})'>
             <div style="margin-bottom:8px;">${renderIconHTML(s.icon, 72)}</div>
-            <div class="p-name" style="font-size:14px;">${s.name}</div>
+            <div class="p-name" style="font-size:14px;">${s.name.replace(brandGroupFilter + " - ", "")}</div>
             <div style="font-size:11px; color:var(--cyan); font-weight:800; margin-bottom:10px;">📦 ${s.count} باقة | من ${fmtPriceMain(s.minPrice)}</div>
             <button class="btn btn-cyan" style="width:100%;">عرض الباقات ⬅️</button>
           </div>`).join("");
+      } else {
+        const inMain = products.filter(p => splitGameField(p.game).main === mainCatFilter);
+        const groupMap = new Map();
+        inMain.forEach(p => {
+          const sub = splitGameField(p.game).sub;
+          const grp = getBrandGroup(sub);
+          if (!groupMap.has(grp)) groupMap.set(grp, { name: grp, icon: resolveSubIcon(sub, p.icon), subs: new Set(), count: 0, minPrice: p.price_usd });
+          const entry = groupMap.get(grp);
+          entry.subs.add(sub);
+          entry.count++;
+          if (p.price_usd < entry.minPrice) entry.minPrice = p.price_usd;
+          if ((!entry.icon || entry.icon === "🎮") && resolveSubIcon(sub, p.icon) !== "🎮") entry.icon = resolveSubIcon(sub, p.icon);
+        });
+        const groups = Array.from(groupMap.values());
+        bread.textContent = `📂 ${mainCatFilter} (${groups.length} لعبة / خدمة)`;
+        grid.innerHTML = groups.map(g => {
+          const singleSub = g.subs.size === 1 ? Array.from(g.subs)[0] : null;
+          const onClickAttr = singleSub ? `selectSubCat(${JSON.stringify(singleSub)})` : `selectBrandGroup(${JSON.stringify(g.name)})`;
+          const btnText = singleSub ? "عرض الباقات ⬅️" : `عرض الأقسام (${g.subs.size}) ⬅️`;
+          return `
+          <div class="p-card" style="cursor:pointer; text-align:center; align-items:center;" onclick='${onClickAttr}'>
+            <div style="margin-bottom:8px;">${renderIconHTML(g.icon, 74)}</div>
+            <div class="p-name" style="font-size:14px;">${g.name}</div>
+            <div style="font-size:11px; color:var(--cyan); font-weight:800; margin-bottom:10px;">📦 ${g.count} باقة | من ${fmtPriceMain(g.minPrice)}</div>
+            <button class="btn btn-cyan" style="width:100%;">${btnText}</button>
+          </div>`;
+        }).join("");
       }
     }
 
@@ -921,6 +1115,145 @@
     document.getElementById("my-deps-tbody").innerHTML = myDeposits.map(d => `
       <tr><td><b>#${d.id}</b></td><td>${d.date}</td><td>${d.method}</td><td style="color:var(--gold);">+${fmtUSD(d.amount_usd)}</td><td><code>${d.tx_id}</code></td><td>${d.status}</td></tr>
     `).join("") || `<tr><td colspan="6" style="padding:18px; color:var(--muted); text-align:center;">لا توجد عمليات إيداع سابقة.</td></tr>`;
+  }
+
+
+  let walletFilterType = "all";
+  let orderFilterStatus = "all";
+
+  function openNotifications() {
+    const ords = DATA.myOrders || [];
+    const deps = DATA.myDeposits || [];
+    if (!ords.length && !deps.length) {
+      alert("🔔 لا توجد إشعارات جديدة حالياً. أهلاً بك في Boostix Store!");
+      return;
+    }
+    const lastO = ords[0] ? `آخر طلب #${ords[0].id}: ${ords[0].game} (${ords[0].status})` : "";
+    const lastD = deps[0] ? `آخر إيداع #${deps[0].id}: $${deps[0].amount_usd} (${deps[0].status})` : "";
+    alert("🔔 آخر تحديثات حسابك:\n" + [lastO, lastD].filter(Boolean).join("\n"));
+  }
+
+  function selectPayCard(cardEl, methodVal) {
+    document.querySelectorAll("#pay-cards-grid .pay-card").forEach(c => c.classList.remove("selected"));
+    if (cardEl) cardEl.classList.add("selected");
+    const sel = document.getElementById("dep-method");
+    if (sel) { sel.value = methodVal; updatePayBox(); }
+    const box = document.getElementById("deposit-form-box");
+    if (box) box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function setWalletFilter(f) {
+    walletFilterType = f;
+    document.querySelectorAll("#w-filter-pills .f-pill").forEach(b => b.classList.toggle("active", b.dataset.wf === f));
+    renderWalletView();
+  }
+
+  function setOrderFilter(f) {
+    orderFilterStatus = f;
+    document.querySelectorAll("#o-filter-pills .f-pill").forEach(b => b.classList.toggle("active", b.dataset.of === f));
+    renderOrdersView();
+  }
+
+  function _inDateRange(dateStr, fromVal, toVal) {
+    if (!fromVal && !toVal) return true;
+    const d = (dateStr || "").slice(0, 10);
+    if (!d) return true;
+    if (fromVal && d < fromVal) return false;
+    if (toVal && d > toVal) return false;
+    return true;
+  }
+
+  function _classifyStatus(st) {
+    const s = (st || "").toLowerCase();
+    if (s.includes("مكتمل") || s.includes("مقبول") || s.includes("تم") || s.includes("done") || s.includes("approved") || s.includes("completed")) return "done";
+    if (s.includes("مرفوض") || s.includes("ملغ") || s.includes("مسترجع") || s.includes("reject") || s.includes("cancel") || s.includes("refund")) return "rejected";
+    return "pending";
+  }
+
+  function renderWalletView() {
+    const u = DATA.user;
+    const ords = DATA.myOrders || [];
+    const deps = DATA.myDeposits || [];
+    const uidEl = document.getElementById("dr-uid");
+    if (uidEl && u) uidEl.textContent = "#" + String(u.id || "").slice(0, 6);
+
+    const bal = u ? Number(u.balance || 0) : 0;
+    const totalSpent = ords.filter(o => _classifyStatus(o.status) !== "rejected").reduce((s, o) => s + Number(o.price_usd || 0), 0);
+    const totalIn = deps.filter(d => _classifyStatus(d.status) === "done").reduce((s, d) => s + Number(d.amount_usd || 0), 0);
+
+    const elBal = document.getElementById("w-stat-bal");
+    const elSp = document.getElementById("w-stat-spent");
+    const elIn = document.getElementById("w-stat-in");
+    if (elBal) elBal.textContent = fmtPriceMain(bal);
+    if (elSp) elSp.textContent = fmtPriceMain(totalSpent);
+    if (elIn) elIn.textContent = fmtPriceMain(totalIn);
+
+    const dFrom = (document.getElementById("w-date-from") || {}).value || "";
+    const dTo = (document.getElementById("w-date-to") || {}).value || "";
+
+    const allTx = [
+      ...ords.map(o => ({ id: "O#" + o.id, date: o.date || "", type: _classifyStatus(o.status) === "rejected" ? "refunds" : "orders", label: _classifyStatus(o.status) === "rejected" ? "مسترجع" : "طلب شراء", desc: `${o.game} - ${o.pack_name}`, amount: Number(o.price_usd || 0), status: o.status })),
+      ...deps.map(d => ({ id: "D#" + d.id, date: d.date || "", type: "deposits", label: "إيداع رصيد", desc: `${d.method} (${d.tx_id || ""})`, amount: Number(d.amount_usd || 0), status: d.status }))
+    ].filter(tx => _inDateRange(tx.date, dFrom, dTo));
+
+    const cAll = allTx.length;
+    const cOrd = allTx.filter(t => t.type === "orders").length;
+    const cDep = allTx.filter(t => t.type === "deposits").length;
+    const cRef = allTx.filter(t => t.type === "refunds").length;
+    if (document.getElementById("wc-all")) document.getElementById("wc-all").textContent = cAll;
+    if (document.getElementById("wc-orders")) document.getElementById("wc-orders").textContent = cOrd;
+    if (document.getElementById("wc-deps")) document.getElementById("wc-deps").textContent = cDep;
+    if (document.getElementById("wc-ref")) document.getElementById("wc-ref").textContent = cRef;
+
+    const shown = walletFilterType === "all" ? allTx : allTx.filter(t => t.type === walletFilterType);
+    const sumShown = shown.reduce((s, t) => s + t.amount, 0);
+    if (document.getElementById("w-filtered-total")) document.getElementById("w-filtered-total").textContent = "إجمالي: " + fmtPriceMain(sumShown);
+
+    const tb = document.getElementById("wallet-tx-tbody");
+    if (tb) {
+      tb.innerHTML = shown.map(t => `
+        <tr>
+          <td><b>${t.id}</b></td>
+          <td>${t.date}</td>
+          <td style="color:var(--cyan);">${t.label}</td>
+          <td>${t.desc}</td>
+          <td style="color:${t.type === 'deposits' ? 'var(--green)' : 'var(--gold)'}; font-weight:900;">${t.type === 'deposits' ? '+' : '-'}${fmtPriceMain(t.amount)}</td>
+          <td>${t.status}</td>
+        </tr>`).join("") || `<tr><td colspan="6" style="padding:18px; color:var(--muted); text-align:center;">لا توجد عمليات خلال هذه الفترة.</td></tr>`;
+    }
+  }
+
+  function renderOrdersView() {
+    const ords = DATA.myOrders || [];
+    const dFrom = (document.getElementById("o-date-from") || {}).value || "";
+    const dTo = (document.getElementById("o-date-to") || {}).value || "";
+    const q = ((document.getElementById("o-search-inp") || {}).value || "").trim().toLowerCase();
+
+    const base = ords.filter(o => {
+      if (!_inDateRange(o.date, dFrom, dTo)) return false;
+      if (q && !(`${o.id} ${o.game} ${o.pack_name} ${o.player_id}`.toLowerCase().includes(q))) return false;
+      return true;
+    });
+
+    const cAll = base.length;
+    const cDone = base.filter(o => _classifyStatus(o.status) === "done").length;
+    const cPend = base.filter(o => _classifyStatus(o.status) === "pending").length;
+    const cRej = base.filter(o => _classifyStatus(o.status) === "rejected").length;
+    if (document.getElementById("oc-all")) document.getElementById("oc-all").textContent = cAll;
+    if (document.getElementById("oc-done")) document.getElementById("oc-done").textContent = cDone;
+    if (document.getElementById("oc-pend")) document.getElementById("oc-pend").textContent = cPend;
+    if (document.getElementById("oc-rej")) document.getElementById("oc-rej").textContent = cRej;
+
+    const shown = orderFilterStatus === "all" ? base : base.filter(o => _classifyStatus(o.status) === orderFilterStatus);
+    const sumShown = shown.reduce((s, o) => s + Number(o.price_usd || 0), 0);
+    if (document.getElementById("o-filtered-total")) document.getElementById("o-filtered-total").textContent = "إجمالي: " + fmtPriceMain(sumShown);
+
+    const tb = document.getElementById("my-orders-tbody");
+    if (tb) {
+      tb.innerHTML = shown.map(o => `
+        <tr><td><b>#${o.id}</b></td><td>${o.date}</td><td style="color:var(--gold);">${o.game} - ${o.pack_name}</td><td><code style="color:var(--cyan);">${o.player_id}</code></td><td style="color:var(--green);">${fmtPriceMain(o.price_usd)}</td><td>${o.status}</td><td style="font-size:11px; color:var(--muted);">${o.supplier_note || ''}</td></tr>
+      `).join("") || `<tr><td colspan="7" style="padding:18px; color:var(--muted); text-align:center;">لا توجد طلبات ضمن النطاق الزمني الحالي.</td></tr>`;
+    }
   }
 
   initAuthAndLoad();
