@@ -1,3 +1,4 @@
+from urllib.parse import quote
 import os, json, time, hmac, hashlib, base64, struct, secrets, threading
 import urllib.request, urllib.error
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -311,7 +312,7 @@ def _parse_local_pay_text(text, source=""):
     tx = ""
     tx_patterns = [
         r"(?:رقم العملية|عملية رقم|معرف العملية|المرجع|رقم الحوالة|رقم التحويل|tx|ref|id|transaction)\s*[:#\-]?\s*([A-Za-z0-9\-]{5,40})",
-        r"(\d{7,16})",
+        r"\b(\d{7,16})\b",
     ]
     for pat in tx_patterns:
         m = re.search(pat, t, flags=re.I)
@@ -733,7 +734,10 @@ class CloudHandler(BaseHTTPRequestHandler):
                     INCOMING_TRANSFERS.pop(k, None)
             INCOMING_TRANSFERS[tx] = {"amount": amt, "currency": currency, "method": method, "ts": now}
 
-            ok_app, info = _auto_approve_deposit_by_tx(tx, amt, currency)
+            try:
+                ok_app, info = _auto_approve_deposit_by_tx(tx, amt, currency)
+            except Exception as e:
+                self._json({"ok": False, "msg": "webhook_error", "error": str(e)}, 500); return
             if ok_app:
                 INCOMING_TRANSFERS.pop(tx, None)
             self._json({"ok": True, "tx_id": tx, "amount": amt, "currency": currency, "method": method, "auto_approved": ok_app, "info": info})
