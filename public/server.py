@@ -398,7 +398,7 @@ class CloudHandler(BaseHTTPRequestHandler):
 
         if p.startswith("/assets/"):
             rel = p[len("/assets/"):].lstrip("/")
-            assets_root = os.path.realpath(os.path.join(os.path.dirname(STORE_HTML), "assets"))
+            assets_root = os.path.realpath("public/assets") if os.path.isdir("public/assets") else os.path.realpath(os.path.join(os.path.dirname(STORE_HTML), "assets"))
             target = os.path.realpath(os.path.join(assets_root, rel))
             if not target.startswith(assets_root + os.sep) or not os.path.isfile(target):
                 self._json({"ok": False, "msg": "Not Found"}, 404)
