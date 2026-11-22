@@ -331,10 +331,10 @@
 
     /* Bottom Navigation (Custom Transparent Graphic Bar) */
     .bottom-nav {
-      position: fixed; bottom: -10px; left: 50%; transform: translateX(-50%);
-      width: min(108vw, 560px); z-index: 70;
+      position: fixed; bottom: -20px; left: 50%; transform: translateX(-50%);
+      width: min(110vw, 580px); z-index: 70;
       pointer-events: none;
-      filter: drop-shadow(0 -4px 16px rgba(0, 0, 0, 0.38));
+      filter: drop-shadow(0 -4px 14px rgba(0, 0, 0, 0.35));
     }
     .bn-graphic {
       position: relative; width: 100%; pointer-events: auto;
@@ -747,7 +747,7 @@
   function renderIconHTML(iconVal, size = 54) {
     if (iconVal && iconVal.startsWith("/images/")) iconVal = "https://sonic8store.com" + iconVal;
     if (iconVal && (iconVal.startsWith("http://") || iconVal.startsWith("https://") || iconVal.startsWith("/"))) {
-      return `<img src="${iconVal}" alt="icon" loading="lazy" style="width:${size}px; height:${size}px; border-radius:14px; object-fit:cover; border:1.5px solid var(--cyan); background:var(--input-bg);" onerror="this.style.display='none'">`;
+      return `<img src="${iconVal}" alt="icon" loading="lazy" referrerpolicy="no-referrer" style="width:${size}px; height:${size}px; border-radius:14px; object-fit:cover; border:1.5px solid var(--cyan); background:var(--input-bg);" onerror="this.style.display='none'">`;
     }
     return `<div class="p-ico" style="width:${size}px; height:${size}px;">${iconVal || '🎮'}</div>`;
   }
