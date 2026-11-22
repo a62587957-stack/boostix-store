@@ -416,6 +416,47 @@ class CloudHandler(BaseHTTPRequestHandler):
             self.wfile.write(raw)
             return
 
+        if p.startswith("/proxy-img/"):
+            import re as _re, urllib.request as _ureq
+            rel = p[len("/proxy-img/"):].lstrip("/")
+            if not _re.match(r"^images/(categories|products)/[A-Za-z0-9_.-]+\.(webp|png|jpg|jpeg)$", rel):
+                self._json({"ok": False, "msg": "Invalid image path"}, 400)
+                return
+            cache_dir = "/tmp/boostix_img_cache"
+            os.makedirs(cache_dir, exist_ok=True)
+            cache_file = os.path.join(cache_dir, rel.replace("/", "_"))
+            raw = None
+            if os.path.isfile(cache_file):
+                try:
+                    with open(cache_file, "rb") as f:
+                        raw = f.read()
+                except Exception:
+                    raw = None
+            if not raw:
+                try:
+                    req = _ureq.Request(
+                        "https://sonic8store.com/" + rel,
+                        headers={"User-Agent": "Mozilla/5.0 (Linux; Android 14) Chrome/120.0.0.0 Mobile"}
+                    )
+                    with _ureq.urlopen(req, timeout=12) as resp:
+                        raw = resp.read()
+                    if raw:
+                        with open(cache_file, "wb") as f:
+                            f.write(raw)
+                except Exception:
+                    self._json({"ok": False, "msg": "Image fetch failed"}, 502)
+                    return
+            ext = os.path.splitext(rel)[1].lower()
+            mime = {".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}.get(ext, "image/webp")
+            self.send_response(200)
+            self._sec_headers(no_store=False)
+            self.send_header("Content-Type", mime)
+            self.send_header("Cache-Control", "public, max-age=2592000, immutable")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+            return
+
         # بوابة الإدارة لا تفتح إلا على المسار السري ADMIN_PATH فقط
         if ADMIN_PATH and p == ADMIN_PATH:
             if not ADMIN_SECRET:
