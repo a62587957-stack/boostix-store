@@ -329,36 +329,31 @@
       border-color: var(--purple); background: rgba(139,92,246,0.22); box-shadow: var(--glow);
     }
 
-    /* Bottom Navigation */
+    /* Bottom Navigation (Custom Transparent Graphic Bar) */
     .bottom-nav {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 70;
-      background: var(--nav-bg);
-      backdrop-filter: blur(14px);
-      border-top: 1.5px solid var(--border-strong);
-      border-radius: 22px 22px 0 0;
+      position: fixed; bottom: 4px; left: 50%; transform: translateX(-50%);
+      width: min(98vw, 480px); z-index: 70;
+      pointer-events: none;
+      filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45));
+    }
+    .bn-graphic {
+      position: relative; width: 100%; pointer-events: auto;
+    }
+    .bn-graphic img {
+      width: 100%; height: auto; display: block; user-select: none; -webkit-user-drag: none;
+    }
+    .bn-img-light { display: none !important; }
+    [data-theme="light"] .bn-img-dark { display: none !important; }
+    [data-theme="light"] .bn-img-light { display: block !important; }
+    .bn-hotspots {
+      position: absolute; inset: 0;
       display: grid; grid-template-columns: repeat(5, 1fr);
-      align-items: center; padding: 6px 6px 10px;
-      box-shadow: 0 -6px 26px rgba(0,0,0,0.32);
     }
-    .bn-item {
-      background: none; border: none; color: var(--muted);
-      font-family: inherit; font-size: 11px; font-weight: 800;
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
-      cursor: pointer; padding: 4px 0;
+    .bn-hit {
+      background: transparent; border: none; cursor: pointer;
+      width: 100%; height: 100%; outline: none;
     }
-    .bn-item .bn-ico { font-size: 20px; }
-    .bn-item.active { color: var(--cyan); }
-    .bn-home {
-      position: relative; top: -18px;
-      width: 60px; height: 60px; margin: 0 auto; border-radius: 50%;
-      background: linear-gradient(135deg, #4f46e5, #a855f7, #ec4899);
-      border: 3px solid var(--bg);
-      color: #fff !important;
-      box-shadow: 0 0 24px rgba(168, 85, 247, 0.75);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      font-size: 10px; font-weight: 900;
-    }
-    .bn-home .bn-ico { font-size: 22px; line-height: 1; }
+    .bn-hit:active { background: rgba(255, 255, 255, 0.08); border-radius: 16px; }
 
     /* Modal */
     .modal {
@@ -542,11 +537,17 @@
 
 <!-- Bottom Navigation Bar -->
 <nav class="bottom-nav">
-  <button class="bn-item" id="bn-wallet" onclick="showTab('wallet')"><span class="bn-ico">💳</span><span>المحفظة</span></button>
-  <button class="bn-item" id="bn-orders" onclick="showTab('orders')"><span class="bn-ico">📄</span><span>طلباتي</span></button>
-  <button class="bn-home" id="bn-shop" onclick="goHome()"><span class="bn-ico">🏠</span><span>الرئيسية</span></button>
-  <button class="bn-item" onclick="openSupport()"><span class="bn-ico">🎧</span><span>الدعم الفني</span></button>
-  <button class="bn-item" onclick="toggleDrawer(true)"><span class="bn-ico">🛡️</span><span>القائمة</span></button>
+  <div class="bn-graphic">
+    <img src="/assets/nav_dark.webp" alt="شريط التنقل" class="bn-img-dark">
+    <img src="/assets/nav_light.webp" alt="شريط التنقل" class="bn-img-light">
+    <div class="bn-hotspots">
+      <button class="bn-hit" id="bn-wallet" onclick="showTab('wallet')" aria-label="المحفظة" title="المحفظة"></button>
+      <button class="bn-hit" id="bn-orders" onclick="showTab('orders')" aria-label="طلباتي" title="طلباتي"></button>
+      <button class="bn-hit" id="bn-shop" onclick="goHome()" aria-label="الرئيسية" title="الرئيسية"></button>
+      <button class="bn-hit" onclick="openSupport()" aria-label="الدعم الفني" title="الدعم الفني"></button>
+      <button class="bn-hit" onclick="toggleDrawer(true)" aria-label="تابعنا والقائمة" title="تابعنا"></button>
+    </div>
+  </div>
 </nav>
 
 <!-- Buy Modal -->
