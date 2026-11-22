@@ -1,3 +1,4 @@
+import re
 from urllib.parse import quote
 import os, json, time, hmac, hashlib, base64, struct, secrets, threading
 import urllib.request, urllib.error
