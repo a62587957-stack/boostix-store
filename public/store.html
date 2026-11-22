@@ -408,37 +408,63 @@
     .dr-qbtn { width:38px; height:38px; border-radius:50%; border:1px solid var(--border); background:var(--input-bg); color:var(--text); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
     @media (max-width: 420px) { .stat-card .st-val { font-size:14px; } .pay-grid { grid-template-columns:repeat(2, 1fr); } }
 
+
+    /* === الشريط العلوي الرسومي (مثل الشريط السفلي) === */
+    .topbar {
+      position: sticky; top: 0; z-index: 60;
+      width: 100%; background: var(--nav-bg);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.22);
+      padding: 0; border-bottom: none;
+    }
+    .tb-graphic {
+      position: relative; width: 100%; max-width: 560px; margin: 0 auto;
+      line-height: 0; direction: ltr;
+    }
+    .tb-graphic img { width: 100%; height: auto; display: block; user-select: none; }
+    .tb-img-light { display: none !important; }
+    [data-theme="light"] .tb-img-dark { display: none !important; }
+    [data-theme="light"] .tb-img-light { display: block !important; }
+
+    .tb-bal-overlay {
+      position: absolute; left: 74.5%; top: 26%; width: 9.2%; height: 48%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: clamp(10px, 2.9vw, 14px); font-weight: 900;
+      color: #ffffff; pointer-events: none; direction: ltr; white-space: nowrap;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.45);
+    }
+    [data-theme="light"] .tb-bal-overlay {
+      color: #1e1b4b; text-shadow: none;
+    }
+    .tb-hit {
+      position: absolute; top: 0; height: 100%; background: transparent;
+      border: none; cursor: pointer; padding: 0; margin: 0;
+    }
+    .tb-hit-menu    { left: 0%;   width: 12%; }
+    .tb-hit-brand   { left: 12%;  width: 44%; }
+    .tb-hit-bell    { left: 57%;  width: 11%; }
+    .tb-hit-wallet  { left: 68%;  width: 21%; }
+    .tb-hit-profile { left: 89%;  width: 11%; }
+
   </style>
 </head>
 <body>
 
 <!-- Top Header -->
 <header class="topbar">
-  <div class="topbar-in">
-    <div class="tb-left">
-      <button class="icon-btn" onclick="toggleDrawer(true)" title="القائمة">☰</button>
-      <div class="brand-title" onclick="goHome()">
-        <span class="b-main">BOOSTIX</span>
-        <span class="b-sub">STORE</span>
-      </div>
-    </div>
-
-    <div class="tb-right">
-      <button class="icon-btn bell-btn" onclick="openNotifications()" title="الإشعارات">🔔<span class="bell-dot"></span></button>
-      <button class="icon-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="تبديل الوضع الليلي/النهاري">☀️</button>
-      <div id="logged-in-bar" style="display:none; align-items:center; gap:8px;">
-        <div class="wallet-pill" onclick="showTab('recharge')">
-          <span class="w-plus">+</span>
-          <span class="w-val" id="ui-balance">$0.00</span>
-          <span>💳</span>
-        </div>
-        <button class="icon-btn" onclick="toggleDrawer(true)" title="حسابي">👤</button>
-      </div>
-      <div id="logged-out-bar">
-        <button class="btn-login-mini" onclick="signInWithGoogleOfficial()">دخول Google</button>
-      </div>
-    </div>
+  <div class="tb-graphic">
+    <img src="/assets/header_dark.webp" alt="Boostix Store" class="tb-img-dark">
+    <img src="/assets/header_light.webp" alt="Boostix Store" class="tb-img-light">
+    <div class="tb-bal-overlay" id="ui-balance">دخول</div>
+    <button class="tb-hit tb-hit-menu" onclick="toggleDrawer(true)" aria-label="القائمة" title="القائمة"></button>
+    <button class="tb-hit tb-hit-brand" onclick="goHome()" aria-label="الرئيسية" title="الرئيسية"></button>
+    <button class="tb-hit tb-hit-bell" onclick="openNotifications()" aria-label="الإشعارات" title="الإشعارات"></button>
+    <button class="tb-hit tb-hit-wallet" onclick="DATA.user ? showTab('recharge') : signInWithGoogleOfficial()" aria-label="إضافة رصيد" title="إضافة رصيد"></button>
+    <button class="tb-hit tb-hit-profile" onclick="DATA.user ? toggleDrawer(true) : signInWithGoogleOfficial()" aria-label="حسابي" title="حسابي"></button>
   </div>
+  <!-- عناصر مخفية للتوافق مع دوال تسجيل الدخول القديمة -->
+  <div id="logged-in-bar" style="display:none;"></div>
+  <div id="logged-out-bar" style="display:none;"></div>
+  <button id="theme-toggle-btn" style="display:none;"></button>
 </header>
 
 <!-- Side Drawer -->
@@ -673,7 +699,7 @@
         </table>
       </div>
     </div>
-    <div style="display:none;"><tbody id="my-deps-tbody"></tbody></div>
+    <table style="display:none;"><tbody id="my-deps-tbody"></tbody></table>
   </div>
 
 </main>
@@ -1107,12 +1133,12 @@
 
     updatePayBox();
     const myOrders = DATA.myOrders || [];
-    document.getElementById("my-orders-tbody").innerHTML = myOrders.map(o => `
+    if (document.getElementById("my-orders-tbody")) if (document.getElementById("my-orders-tbody")) document.getElementById("my-orders-tbody").innerHTML = myOrders.map(o => `
       <tr><td><b>#${o.id}</b></td><td>${o.date}</td><td style="color:var(--gold);">${o.game} - ${o.pack_name}</td><td><code style="color:var(--cyan);">${o.player_id}</code></td><td style="color:var(--green);">${fmtPriceMain(o.price_usd)}</td><td>${o.status}</td><td style="font-size:11px; color:var(--muted);">${o.supplier_note || ''}</td></tr>
     `).join("") || `<tr><td colspan="7" style="padding:18px; color:var(--muted); text-align:center;">لا توجد طلبات مسجلة في حسابك بعد.</td></tr>`;
 
     const myDeposits = DATA.myDeposits || [];
-    document.getElementById("my-deps-tbody").innerHTML = myDeposits.map(d => `
+    if (document.getElementById("my-deps-tbody")) if (document.getElementById("my-deps-tbody")) document.getElementById("my-deps-tbody").innerHTML = myDeposits.map(d => `
       <tr><td><b>#${d.id}</b></td><td>${d.date}</td><td>${d.method}</td><td style="color:var(--gold);">+${fmtUSD(d.amount_usd)}</td><td><code>${d.tx_id}</code></td><td>${d.status}</td></tr>
     `).join("") || `<tr><td colspan="6" style="padding:18px; color:var(--muted); text-align:center;">لا توجد عمليات إيداع سابقة.</td></tr>`;
   }
