@@ -58,7 +58,7 @@
       background-attachment: fixed;
       color: var(--text);
       min-height: 100vh;
-      padding-bottom: 92px;
+      padding-bottom: 112px;
       overflow-x: hidden;
     }
 
@@ -331,10 +331,10 @@
 
     /* Bottom Navigation (Custom Transparent Graphic Bar) */
     .bottom-nav {
-      position: fixed; bottom: 4px; left: 50%; transform: translateX(-50%);
-      width: min(98vw, 480px); z-index: 70;
+      position: fixed; bottom: -5px; left: 50%; transform: translateX(-50%);
+      width: min(104vw, 540px); z-index: 70;
       pointer-events: none;
-      filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45));
+      filter: drop-shadow(0 -4px 16px rgba(0, 0, 0, 0.38));
     }
     .bn-graphic {
       position: relative; width: 100%; pointer-events: auto;
@@ -856,7 +856,6 @@
         return `
           <div class="cat-card" onclick='selectMainCat(${JSON.stringify(m)})'>
             <img src="${imgSrc}" alt="${m}" loading="lazy">
-            <span class="cat-badge">${count} باقة</span>
           </div>`;
       }).join("");
     } else {
