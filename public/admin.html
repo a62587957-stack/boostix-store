@@ -172,14 +172,14 @@
   <div class="lock-card">
     <div class="brand-title">BOOSTIX STORE</div>
     <p style="font-size:13px; color:var(--muted); margin:6px 0 18px;">🛡️ بوابة الإدارة المحصّنة</p>
-    <form id="adm-login-form" onsubmit="event.preventDefault(); loginAdmin();">
+    <form id="adm-login-form" method="POST">
       <div style="text-align:right; margin-bottom:10px;">
         <label class="flbl">كلمة المرور السرية</label>
-        <input type="password" id="adm-pass" placeholder="أدخل كلمة مرور الأدمن..." autocomplete="current-password">
+        <input type="password" id="adm-pass" name="password" required placeholder="أدخل كلمة مرور الأدمن..." autocomplete="current-password">
       </div>
       <div style="text-align:right; margin-bottom:14px;">
         <label class="flbl">رمز التحقق 2FA (إن كان مفعّلاً)</label>
-        <input type="text" id="adm-totp" inputmode="numeric" maxlength="6" placeholder="000000" dir="ltr" style="text-align:center;">
+        <input type="text" id="adm-totp" name="totp" inputmode="numeric" maxlength="6" placeholder="000000" dir="ltr" style="text-align:center;">
       </div>
       <button type="submit" id="unlock-btn" class="btn btn-grad" style="width:100%; padding:12px; font-size:15px;">🔓 التحقق والدخول الآمن</button>
     </form>
@@ -463,6 +463,18 @@
   let prodPage = 1;
   const PROD_PER_PAGE = 40;
   const BASE_ADMIN_PATH = window.location.pathname.replace(/\/+$/, "");
+  (function initLoginForm() {
+    const f = document.getElementById("adm-login-form");
+    if (f) f.action = BASE_ADMIN_PATH + "/login";
+    if (window.location.search.indexOf("err=bad_creds") !== -1) {
+      const b = document.getElementById("login-status");
+      if (b) {
+        b.style.display = "block";
+        b.style.background = "#4c0519"; b.style.color = "#fecdd3";
+        b.textContent = "❌ كلمة المرور أو رمز التحقق (2FA) غير صحيح!";
+      }
+    }
+  })();
   const MAIN_CATS_DEFAULT = ["الألعاب", "بطاقات شحن", "تطبيقات دردشة", "تواصل اجتماعي", "قسم الأرقام", "شاشة VIP", "ذكاء اصطناعي Ai", "توثيق حسابات", "برامج تصميم", "عملات و أرصدة", "Vpn مدفوع"];
   let _imgCallback = null;
 
