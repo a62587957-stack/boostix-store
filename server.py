@@ -573,12 +573,13 @@ class CloudHandler(BaseHTTPRequestHandler):
             return None
 
     def _check_origin(self):
-        origin = self.headers.get("Origin", "").strip()
-        if not origin:
+        origin = (self.headers.get("Origin") or "").strip()
+        if not origin or origin.lower() == "null":
             return True
-        host = self.headers.get("Host", "").strip()
-        parsed = urlparse(origin)
-        return parsed.netloc == host
+        raw_host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "").split(",")[0].strip().lower()
+        host_no_port = raw_host.split(":")[0]
+        orig_host = (urlparse(origin).netloc or "").strip().lower().split(":")[0]
+        return (orig_host == host_no_port) or (orig_host == "boostix-store.onrender.com")
 
     def _get_admin_cookie(self):
         raw_cookie = self.headers.get("Cookie", "")
