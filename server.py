@@ -694,6 +694,18 @@ class CloudHandler(BaseHTTPRequestHandler):
             if isinstance(dup, list) and len(dup) > 0:
                 self._json({"ok": False, "msg": "رقم عملية التحويل هذا مسجل مسبقاً!"}, 400); return
 
+            is_local_auto = any(k in method for k in ["شام كاش", "سيريتل", "سيرياتيل"])
+            if is_local_auto:
+                if tx not in INCOMING_TRANSFERS:
+                    self._json({"ok": False, "msg": "لا يوجد رقم عملية مطابق حالياً! تأكد من الرقم أو انتظر دقيقة بعد التحويل وأعد المحاولة."}, 400)
+                    return
+                tr = INCOMING_TRANSFERS[tx]
+                syp_rate = float(os.environ.get("SYP_RATE", "15000"))
+                paid_usd = tr["amount"] if tr["currency"] == "USD" else (tr["amount"] / syp_rate)
+                if tr["amount"] > 0 and amt > 0 and paid_usd < amt * 0.97:
+                    self._json({"ok": False, "msg": f"المبلغ المستلم (${paid_usd:.2f}) أقل من قيمة الفاتورة (${amt:.2f})!"}, 400)
+                    return
+
             sb_request("POST", "/rest/v1/deposits", {
                 "user_id": u["id"],
                 "user_name": str(u["name"])[:100],
