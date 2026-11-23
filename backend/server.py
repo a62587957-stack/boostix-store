@@ -1,3 +1,5 @@
+import re
+from urllib.parse import quote
 import os, json, time, hmac, hashlib, base64, struct, secrets, threading
 import urllib.request, urllib.error
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -311,7 +313,7 @@ def _parse_local_pay_text(text, source=""):
     tx = ""
     tx_patterns = [
         r"(?:رقم العملية|عملية رقم|معرف العملية|المرجع|رقم الحوالة|رقم التحويل|tx|ref|id|transaction)\s*[:#\-]?\s*([A-Za-z0-9\-]{5,40})",
-        r"(\d{7,16})",
+        r"\b(\d{7,16})\b",
     ]
     for pat in tx_patterns:
         m = re.search(pat, t, flags=re.I)
@@ -692,6 +694,18 @@ class CloudHandler(BaseHTTPRequestHandler):
             if isinstance(dup, list) and len(dup) > 0:
                 self._json({"ok": False, "msg": "رقم عملية التحويل هذا مسجل مسبقاً!"}, 400); return
 
+            is_local_auto = any(k in method for k in ["شام كاش", "سيريتل", "سيرياتيل"])
+            if is_local_auto:
+                if tx not in INCOMING_TRANSFERS:
+                    self._json({"ok": False, "msg": "لا يوجد رقم عملية مطابق حالياً! تأكد من الرقم أو انتظر دقيقة بعد التحويل وأعد المحاولة."}, 400)
+                    return
+                tr = INCOMING_TRANSFERS[tx]
+                syp_rate = float(os.environ.get("SYP_RATE", "15000"))
+                paid_usd = tr["amount"] if tr["currency"] == "USD" else (tr["amount"] / syp_rate)
+                if tr["amount"] > 0 and amt > 0 and paid_usd < amt * 0.97:
+                    self._json({"ok": False, "msg": f"المبلغ المستلم (${paid_usd:.2f}) أقل من قيمة الفاتورة (${amt:.2f})!"}, 400)
+                    return
+
             sb_request("POST", "/rest/v1/deposits", {
                 "user_id": u["id"],
                 "user_name": str(u["name"])[:100],
@@ -733,7 +747,10 @@ class CloudHandler(BaseHTTPRequestHandler):
                     INCOMING_TRANSFERS.pop(k, None)
             INCOMING_TRANSFERS[tx] = {"amount": amt, "currency": currency, "method": method, "ts": now}
 
-            ok_app, info = _auto_approve_deposit_by_tx(tx, amt, currency)
+            try:
+                ok_app, info = _auto_approve_deposit_by_tx(tx, amt, currency)
+            except Exception as e:
+                self._json({"ok": False, "msg": "webhook_error", "error": str(e)}, 500); return
             if ok_app:
                 INCOMING_TRANSFERS.pop(tx, None)
             self._json({"ok": True, "tx_id": tx, "amount": amt, "currency": currency, "method": method, "auto_approved": ok_app, "info": info})

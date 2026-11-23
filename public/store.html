@@ -617,33 +617,23 @@
     <!-- الخطوة 1: شبكة بطاقات طرق الدفع -->
     <div id="rec-step-1">
       <div class="pay-grid" id="pay-cards-grid">
-        <div class="pay-card" onclick="openPayAmountStep('شام كاش', 'شام كاش دولار', 'USD')">
-          <div class="pay-ico" style="background:linear-gradient(135deg,#0284c7,#38bdf8);">💎</div>
+        <div class="pay-card" style="padding:10px;" onclick="openPayAmountStep('شام كاش', 'شام كاش دولار', 'USD')">
+          <img src="/assets/payments/shamcash_usd.webp" alt="شام كاش دولار" style="width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:14px; margin-bottom:8px; display:block;">
           <div class="pay-title">شام كاش دولار</div>
-          <span class="pay-tag">معتمد</span>
+          <span class="pay-tag">تلقائي</span>
         </div>
-        <div class="pay-card" onclick="openPayAmountStep('شام كاش', 'شام كاش ليرة', 'SYP')">
-          <div class="pay-ico" style="background:linear-gradient(135deg,#2563eb,#60a5fa);">💵</div>
+        <div class="pay-card" style="padding:10px;" onclick="openPayAmountStep('شام كاش', 'شام كاش ليرة', 'SYP')">
+          <img src="/assets/payments/shamcash_syp.webp" alt="شام كاش ليرة" style="width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:14px; margin-bottom:8px; display:block;">
           <div class="pay-title">شام كاش ليرة</div>
-          <span class="pay-tag">يدوي</span>
+          <span class="pay-tag">تلقائي</span>
         </div>
-        <div class="pay-card" onclick="openPayAmountStep('سيريتل كاش', 'سيريتل كاش', 'SYP')">
-          <div class="pay-ico" style="background:linear-gradient(135deg,#b91c1c,#ef4444);">📲</div>
+        <div class="pay-card" style="padding:10px;" onclick="openPayAmountStep('سيريتل كاش', 'سيريتل كاش', 'SYP')">
+          <img src="/assets/payments/syriatel_cash.webp" alt="سيريتل كاش" style="width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:14px; margin-bottom:8px; display:block;">
           <div class="pay-title">سيريتل كاش</div>
-          <span class="pay-tag">معتمد</span>
+          <span class="pay-tag">تلقائي</span>
         </div>
-        <div class="pay-card" onclick="openPayAmountStep('USDT', 'USDT-TRC20', 'USD')">
-          <div class="pay-ico" style="background:linear-gradient(135deg,#0d9488,#14b8a6);">₮</div>
-          <div class="pay-title">USDT-TRC20</div>
-          <span class="pay-tag">فوري</span>
-        </div>
-        <div class="pay-card" onclick="openPayAmountStep('USDT', 'USDT-BEP20', 'USD')">
-          <div class="pay-ico" style="background:linear-gradient(135deg,#059669,#34d399);">₮</div>
-          <div class="pay-title">USDT-BEP20</div>
-          <span class="pay-tag">بدون عمولة</span>
-        </div>
-        <div class="pay-card" onclick="openPayAmountStep('USDT', 'Binance Pay', 'USD')">
-          <div class="pay-ico" style="background:linear-gradient(135deg,#ca8a04,#facc15);">◈</div>
+        <div class="pay-card" style="padding:10px;" onclick="openPayAmountStep('USDT', 'Binance Pay', 'USD')">
+          <img src="/assets/payments/binance_pay.webp" alt="Binance Pay" style="width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:14px; margin-bottom:8px; display:block;">
           <div class="pay-title">Binance Pay</div>
           <span class="pay-tag">سريع</span>
         </div>
@@ -1109,9 +1099,15 @@
   }
 
   async function submitDeposit() {
+    if (typeof recSecondsLeft !== "undefined" && recSecondsLeft <= 0) {
+      alert("⏳ انتهى وقت الفاتورة (30 دقيقة)، يرجى إنشاء فاتورة جديدة.");
+      cancelPayInvoice();
+      return;
+    }
     const method = document.getElementById("dep-method").value;
     const amount_usd = parseFloat(document.getElementById("dep-amount").value) || 0;
     const tx_id = document.getElementById("dep-tx").value.trim();
+    if (!tx_id) return alert("⚠️ يرجى إدخال رقم عملية التحويل أولاً.");
     const res = await fetch("/api/customer/deposit", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ACCESS_TOKEN },
@@ -1119,11 +1115,14 @@
     });
     const d = await res.json();
     if (!d.ok) return alert("⚠️ " + d.msg);
+    if (recTimerHandle) { clearInterval(recTimerHandle); recTimerHandle = null; }
     document.getElementById("dep-amount").value = "";
     document.getElementById("dep-tx").value = "";
     await loadStore();
     showTab("orders");
-    alert("✅ تم إرسال طلب شحن الرصيد، سيتم إضافته لمحفظتك فور مطابقة رقم العملية.");
+    alert(d.auto_approved
+      ? "✅ تم التحقق من رقم العملية وإضافة الرصيد إلى محفظتك فوراً!"
+      : "✅ تم إرسال طلب شحن الرصيد، سيتم إضافته لمحفظتك فور مطابقة رقم العملية.");
   }
 
   function renderStore() {
@@ -1599,7 +1598,7 @@
       const s = String(recSecondsLeft % 60).padStart(2, "0");
       const el = document.getElementById("rec-timer-txt");
       if (el) el.textContent = `${m}:${s}`;
-      if (recSecondsLeft <= 0) { clearInterval(recTimerHandle); recTimerHandle = null; }
+      if (recSecondsLeft <= 0) { clearInterval(recTimerHandle); recTimerHandle = null; alert("⏳ انتهى وقت الفاتورة (30 دقيقة)، تم إلغاء المعاملة تلقائياً."); cancelPayInvoice(); return; }
       recSecondsLeft--;
     };
     updTimer();
