@@ -1,3 +1,5 @@
+import re, gzip
+from urllib.parse import urlencode, quote
 import os, json, time, hmac, hashlib, base64, struct, secrets, threading
 import urllib.request, urllib.error
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -43,7 +45,7 @@ ADMIN_TOTP_SECRET = (os.environ.get("ADMIN_TOTP_SECRET") or CFG.get("ADMIN_TOTP_
 SESSION_SIGN_KEY = (os.environ.get("SESSION_SIGN_KEY") or CFG.get("SESSION_SIGN_KEY", "") or secrets.token_hex(32)).encode("utf-8")
 PORT = int(os.environ.get("PORT", 8090))
 
-MAX_BODY_BYTES = 65536
+MAX_BODY_BYTES = 2 * 1024 * 1024
 SESSION_TTL_SEC = 4 * 3600  # 4 ساعات
 MAX_LOGIN_FAILS = 5
 LOCKOUT_SEC = 30 * 60       # 30 دقيقة حظر بعد 5 محاولات خاطئة
@@ -57,11 +59,62 @@ _REVOKED_TOKENS = {}  # jti -> exp_ts
 SETTINGS_SKU = "__STORE_SETTINGS__"
 DEFAULT_SETTINGS = {
     "rate_syp": 15000,
-    "sham_account": "شام كاش المعتمد: 0931735665 (هاشم الظاهر)",
-    "syriatel_account": "سيريتل كاش: 0931735665",
-    "usdt_account": "USDT TRC20 / Binance ID: 554433221",
-    "default_margin_pct": 15.0
+    "sham_account": "f3bdb7354d6e1b254d2b1418e9ee916d",
+    "syriatel_account": "0931735665",
+    "usdt_account": "Binance ID: 554433221",
+    "default_margin_pct": 15.0,
+    "hero_banners": [
+        {
+            "id": "default_1",
+            "title": "مرحباً بك في Boostix Store",
+            "img_dark": "/assets/hero_dark.webp",
+            "img_light": "/assets/hero_light.webp",
+            "target_cat": "الألعاب",
+            "active": True
+        }
+    ],
+    "promo_banner": {
+        "img_dark": "/assets/promo_dark.webp",
+        "img_light": "/assets/promo_light.webp",
+        "target_cat": "شاشة VIP",
+        "active": True
+    },
+    "category_images": {},
+    "suppliers": []
 }
+
+# === ذاكرة التخزين المؤقت السريعة (RAM Cache) لتسريع فتح المتجر لأقل من ثانية ===
+_CACHE_LOCK = threading.Lock()
+_CACHE = {
+    "products_active": {"ts": 0, "data": None},
+    "settings": {"ts": 0, "data": None},
+    "catalog_tree": None,
+    "html_files": {},
+    "media": {}
+}
+CACHE_TTL_SEC = 600
+
+def invalidate_cache(kind="all"):
+    with _CACHE_LOCK:
+        if kind in ("all", "products"):
+            _CACHE["products_active"] = {"ts": 0, "data": None}
+        if kind in ("all", "settings"):
+            _CACHE["settings"] = {"ts": 0, "data": None}
+
+def _supplier_http_post(url, form_data, timeout=15):
+    data = urlencode(form_data).encode("utf-8")
+    req = urllib.request.Request(url, data=data, method="POST")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    req.add_header("User-Agent", "BoostixStore/2.0")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        txt = resp.read().decode("utf-8", errors="ignore").strip()
+        return json.loads(txt) if txt else {}
+
+def _find_supplier_by_id(settings, sid):
+    for s in (settings.get("suppliers") or []):
+        if str(s.get("id")) == str(sid) and s.get("active", True):
+            return s
+    return None
 
 def verify_totp(secret_b32, code_str, window=1):
     code_str = str(code_str or "").strip().replace(" ", "")
@@ -188,7 +241,13 @@ def sb_request(method, path, body=None, prefer_rep=False, custom_token=None, ext
     except Exception as e:
         return {"error": str(e)}
 
-def get_store_settings():
+def get_store_settings(use_cache=True):
+    now = time.time()
+    if use_cache:
+        with _CACHE_LOCK:
+            c = _CACHE["settings"]
+            if c["data"] is not None and (now - c["ts"]) < CACHE_TTL_SEC:
+                return dict(c["data"])
     res = sb_request("GET", f"/rest/v1/products?sku=eq.{SETTINGS_SKU}&select=id,pack&limit=1")
     settings = dict(DEFAULT_SETTINGS)
     if isinstance(res, list) and res:
@@ -198,10 +257,12 @@ def get_store_settings():
                 settings.update(saved)
         except Exception:
             pass
+    with _CACHE_LOCK:
+        _CACHE["settings"] = {"ts": now, "data": dict(settings)}
     return settings
 
 def save_store_settings(new_data):
-    cur = get_store_settings()
+    cur = get_store_settings(use_cache=False)
     if "rate_syp" in new_data:
         cur["rate_syp"] = max(1, int(float(new_data["rate_syp"])))
     if "sham_account" in new_data:
@@ -212,6 +273,44 @@ def save_store_settings(new_data):
         cur["usdt_account"] = str(new_data["usdt_account"]).strip()[:200]
     if "default_margin_pct" in new_data:
         cur["default_margin_pct"] = round(min(500.0, max(0.0, float(new_data["default_margin_pct"]))), 2)
+    if "hero_banners" in new_data and isinstance(new_data["hero_banners"], list):
+        clean_b = []
+        for b in new_data["hero_banners"][:20]:
+            if isinstance(b, dict):
+                clean_b.append({
+                    "id": str(b.get("id") or secrets.token_hex(4))[:40],
+                    "title": str(b.get("title") or "")[:120],
+                    "img_dark": str(b.get("img_dark") or "").strip()[:500],
+                    "img_light": str(b.get("img_light") or b.get("img_dark") or "").strip()[:500],
+                    "target_cat": str(b.get("target_cat") or "").strip()[:120],
+                    "link": str(b.get("link") or "").strip()[:300],
+                    "active": bool(b.get("active", True))
+                })
+        cur["hero_banners"] = clean_b
+    if "promo_banner" in new_data and isinstance(new_data["promo_banner"], dict):
+        pb = new_data["promo_banner"]
+        cur["promo_banner"] = {
+            "img_dark": str(pb.get("img_dark") or "/assets/promo_dark.webp").strip()[:500],
+            "img_light": str(pb.get("img_light") or pb.get("img_dark") or "/assets/promo_light.webp").strip()[:500],
+            "target_cat": str(pb.get("target_cat") or "شاشة VIP").strip()[:120],
+            "active": bool(pb.get("active", True))
+        }
+    if "category_images" in new_data and isinstance(new_data["category_images"], dict):
+        cur["category_images"] = {str(k)[:100]: str(v).strip()[:500] for k, v in new_data["category_images"].items() if str(v).strip()}
+    if "suppliers" in new_data and isinstance(new_data["suppliers"], list):
+        clean_s = []
+        for s in new_data["suppliers"][:20]:
+            if isinstance(s, dict):
+                clean_s.append({
+                    "id": str(s.get("id") or secrets.token_hex(4))[:40],
+                    "name": str(s.get("name") or "مزود جديد").strip()[:80],
+                    "type": str(s.get("type") or "smm").strip()[:20],
+                    "api_url": str(s.get("api_url") or "").strip()[:300],
+                    "api_key": str(s.get("api_key") or "").strip()[:300],
+                    "margin_pct": round(min(500.0, max(0.0, float(s.get("margin_pct", 15)))), 2),
+                    "active": bool(s.get("active", True))
+                })
+        cur["suppliers"] = clean_s
 
     payload_str = json.dumps(cur, ensure_ascii=False)
     res = sb_request("GET", f"/rest/v1/products?sku=eq.{SETTINGS_SKU}&select=id&limit=1")
@@ -227,9 +326,16 @@ def save_store_settings(new_data):
             "icon": "⚙️",
             "active": False
         })
+    invalidate_cache("settings")
     return cur
 
 def fetch_all_products(active_only=True, full_fields=False):
+    now = time.time()
+    if active_only and not full_fields:
+        with _CACHE_LOCK:
+            c = _CACHE["products_active"]
+            if c["data"] is not None and (now - c["ts"]) < CACHE_TTL_SEC:
+                return c["data"]
     all_p = []
     select = "id,game,pack,price_usd,supplier_cost_usd,sku,icon,active" if (not active_only or full_fields) else "id,game,pack,price_usd,icon"
     filt = "active=eq.true&" if active_only else ""
@@ -243,28 +349,37 @@ def fetch_all_products(active_only=True, full_fields=False):
                 break
         if isinstance(chunk, list):
             for item in chunk:
-                if item.get("sku") != SETTINGS_SKU and item.get("game") != "__SYSTEM__":
+                if item.get("sku") != SETTINGS_SKU and item.get("game") not in ("__SYSTEM__", "__MEDIA__"):
                     all_p.append(item)
             if len(chunk) < 1000:
                 break
             offset += 1000
         else:
             break
+    if active_only and not full_fields:
+        with _CACHE_LOCK:
+            _CACHE["products_active"] = {"ts": now, "data": all_p}
     return all_p
 
 def load_catalog_tree():
+    with _CACHE_LOCK:
+        if _CACHE["catalog_tree"] is not None:
+            return _CACHE["catalog_tree"]
+    tree = {"main_categories": [], "sub_categories": [], "level3_categories": []}
     if os.path.exists(CATALOG_FILE):
         try:
             with open(CATALOG_FILE, "r", encoding="utf-8") as f:
                 c = json.load(f)
-            return {
+            tree = {
                 "main_categories": c.get("main_categories", []),
                 "sub_categories": c.get("sub_categories", []),
                 "level3_categories": c.get("level3_categories", [])
             }
         except Exception:
             pass
-    return {"main_categories": [], "sub_categories": [], "level3_categories": []}
+    with _CACHE_LOCK:
+        _CACHE["catalog_tree"] = tree
+    return tree
 
 def verify_user_session(token):
     if not token or len(token) > 4096:
@@ -311,7 +426,7 @@ def _parse_local_pay_text(text, source=""):
     tx = ""
     tx_patterns = [
         r"(?:رقم العملية|عملية رقم|معرف العملية|المرجع|رقم الحوالة|رقم التحويل|tx|ref|id|transaction)\s*[:#\-]?\s*([A-Za-z0-9\-]{5,40})",
-        r"(\d{7,16})",
+        r"\b(\d{7,16})\b",
     ]
     for pat in tx_patterns:
         m = re.search(pat, t, flags=re.I)
@@ -394,27 +509,49 @@ class CloudHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
             self.send_header("Pragma", "no-cache")
 
+    def _accepts_gzip(self):
+        return "gzip" in (self.headers.get("Accept-Encoding") or "").lower()
+
     def _json(self, data, code=200, extra_headers=None):
-        raw = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        raw = json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        use_gz = self._accepts_gzip() and len(raw) > 512
+        payload = gzip.compress(raw, compresslevel=5) if use_gz else raw
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(raw)))
+        if use_gz:
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Vary", "Accept-Encoding")
+        self.send_header("Content-Length", str(len(payload)))
         self._sec_headers(no_store=True)
         if extra_headers:
             for k, v in extra_headers:
                 self.send_header(k, v)
         self.end_headers()
-        self.wfile.write(raw)
+        self.wfile.write(payload)
 
     def _html(self, path, no_store=False):
-        with open(path, "rb") as f:
-            b = f.read()
+        mtime = os.path.getmtime(path)
+        with _CACHE_LOCK:
+            cached = _CACHE["html_files"].get(path)
+        if cached and cached["mtime"] == mtime:
+            raw, gz = cached["raw"], cached["gz"]
+        else:
+            with open(path, "rb") as f:
+                raw = f.read()
+            gz = gzip.compress(raw, compresslevel=5)
+            with _CACHE_LOCK:
+                _CACHE["html_files"][path] = {"mtime": mtime, "raw": raw, "gz": gz}
+        use_gz = self._accepts_gzip()
+        payload = gz if use_gz else raw
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(b)))
+        if use_gz:
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Vary", "Accept-Encoding")
+        self.send_header("Content-Length", str(len(payload)))
         self._sec_headers(no_store=no_store)
         self.end_headers()
-        self.wfile.write(b)
+        self.wfile.write(payload)
 
     def _body(self):
         try:
@@ -436,12 +573,13 @@ class CloudHandler(BaseHTTPRequestHandler):
             return None
 
     def _check_origin(self):
-        origin = self.headers.get("Origin", "").strip()
-        if not origin:
+        origin = (self.headers.get("Origin") or "").strip()
+        if not origin or origin.lower() == "null":
             return True
-        host = self.headers.get("Host", "").strip()
-        parsed = urlparse(origin)
-        return parsed.netloc == host
+        raw_host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "").split(",")[0].strip().lower()
+        host_no_port = raw_host.split(":")[0]
+        orig_host = (urlparse(origin).netloc or "").strip().lower().split(":")[0]
+        return (orig_host == host_no_port) or (orig_host == "boostix-store.onrender.com")
 
     def _get_admin_cookie(self):
         raw_cookie = self.headers.get("Cookie", "")
@@ -466,6 +604,41 @@ class CloudHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         p = urlparse(self.path).path.rstrip("/") or "/"
         ip = self._client_ip()
+
+        if p == "/ping" or p == "/health":
+            self._json({"ok": True, "status": "awake", "ts": int(time.time())})
+            return
+
+        if p.startswith("/api/media/"):
+            fname = p[len("/api/media/"):].strip("/")
+            sku_key = fname.rsplit(".", 1)[0]
+            if not re.match(r"^MEDIA_[a-zA-Z0-9_-]{4,40}$", sku_key):
+                self._json({"ok": False, "msg": "Not Found"}, 404); return
+            with _CACHE_LOCK:
+                m_cached = _CACHE["media"].get(sku_key)
+            if not m_cached:
+                rows = sb_request("GET", f"/rest/v1/products?sku=eq.{quote(sku_key)}&game=eq.__MEDIA__&select=pack&limit=1")
+                if not isinstance(rows, list) or not rows:
+                    self._json({"ok": False, "msg": "Media not found"}, 404); return
+                data_url = rows[0].get("pack") or ""
+                m = re.match(r"^data:(image/[a-zA-Z0-9.+-]+);base64,(.+)$", data_url, re.S)
+                if not m:
+                    self._json({"ok": False, "msg": "Invalid media"}, 404); return
+                try:
+                    m_cached = (m.group(1), base64.b64decode(m.group(2)))
+                except Exception:
+                    self._json({"ok": False, "msg": "Decode error"}, 500); return
+                with _CACHE_LOCK:
+                    _CACHE["media"][sku_key] = m_cached
+            mime, raw_img = m_cached
+            self.send_response(200)
+            self._sec_headers(no_store=False)
+            self.send_header("Content-Type", mime)
+            self.send_header("Cache-Control", "public, max-age=2592000, immutable")
+            self.send_header("Content-Length", str(len(raw_img)))
+            self.end_headers()
+            self.wfile.write(raw_img)
+            return
 
         if p == "/" or p == "/index.html":
             self._html(STORE_HTML)
@@ -546,7 +719,8 @@ class CloudHandler(BaseHTTPRequestHandler):
             u = self._auth_user()
             prods = fetch_all_products(active_only=True)
             cat_tree = load_catalog_tree()
-            pay_info = get_store_settings()
+            pay_info = dict(get_store_settings())
+            pay_info.pop("suppliers", None)
             my_ords, my_deps, u_dict = [], [], None
             if u:
                 uid_q = quote(str(u["id"]))
@@ -604,7 +778,8 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "catalogTree": cat_tree,
                 "payInfo": pay_info,
                 "deposits": deps,
-                "orders": ords
+                "orders": ords,
+                "incomingTransfers": [dict({"tx_id": k}, **v) for k, v in sorted(INCOMING_TRANSFERS.items(), key=lambda x: x[1].get("ts", 0), reverse=True)[:50]]
             })
             return
 
@@ -692,6 +867,18 @@ class CloudHandler(BaseHTTPRequestHandler):
             if isinstance(dup, list) and len(dup) > 0:
                 self._json({"ok": False, "msg": "رقم عملية التحويل هذا مسجل مسبقاً!"}, 400); return
 
+            is_local_auto = any(k in method for k in ["شام كاش", "سيريتل", "سيرياتيل"])
+            if is_local_auto:
+                if tx not in INCOMING_TRANSFERS:
+                    self._json({"ok": False, "msg": "لا يوجد رقم عملية مطابق حالياً! تأكد من الرقم أو انتظر دقيقة بعد التحويل وأعد المحاولة."}, 400)
+                    return
+                tr = INCOMING_TRANSFERS[tx]
+                syp_rate = float(os.environ.get("SYP_RATE", "15000"))
+                paid_usd = tr["amount"] if tr["currency"] == "USD" else (tr["amount"] / syp_rate)
+                if tr["amount"] > 0 and amt > 0 and paid_usd < amt * 0.97:
+                    self._json({"ok": False, "msg": f"المبلغ المستلم (${paid_usd:.2f}) أقل من قيمة الفاتورة (${amt:.2f})!"}, 400)
+                    return
+
             sb_request("POST", "/rest/v1/deposits", {
                 "user_id": u["id"],
                 "user_name": str(u["name"])[:100],
@@ -733,7 +920,10 @@ class CloudHandler(BaseHTTPRequestHandler):
                     INCOMING_TRANSFERS.pop(k, None)
             INCOMING_TRANSFERS[tx] = {"amount": amt, "currency": currency, "method": method, "ts": now}
 
-            ok_app, info = _auto_approve_deposit_by_tx(tx, amt, currency)
+            try:
+                ok_app, info = _auto_approve_deposit_by_tx(tx, amt, currency)
+            except Exception as e:
+                self._json({"ok": False, "msg": "webhook_error", "error": str(e)}, 500); return
             if ok_app:
                 INCOMING_TRANSFERS.pop(tx, None)
             self._json({"ok": True, "tx_id": tx, "amount": amt, "currency": currency, "method": method, "auto_approved": ok_app, "info": info})
@@ -778,6 +968,45 @@ class CloudHandler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "msg": "تم تحديث رصيدك في عملية أخرى، أعد المحاولة"}, 409)
                 return
 
+            sup_order_id = None
+            sup_note = "تم استلام الطلب وإرساله للمورد للشحن الفوري"
+            sku_str = str(prod.get("sku") or "")
+            if sku_str.upper().startswith("SMM:"):
+                parts = sku_str.split(":")
+                if len(parts) >= 3:
+                    st = get_store_settings()
+                    sup = _find_supplier_by_id(st, parts[1])
+                    if sup and sup.get("api_url") and sup.get("api_key"):
+                        try:
+                            if len(parts) >= 4 and parts[-1].isdigit():
+                                qty = int(parts[-1])
+                                svc_id = ":".join(parts[2:-1])
+                            else:
+                                qty = 100
+                                svc_id = ":".join(parts[2:])
+                            payload = {
+                                "key": sup["api_key"],
+                                "action": "add",
+                                "service": svc_id,
+                            }
+                            is_serva = "serva-s.com" in str(sup.get("api_url", "")).lower()
+                            is_social = "تواصل اجتماعي" in str(prod.get("game", "")) or str(player_id).strip().lower().startswith(("http://", "https://"))
+                            if is_serva and not is_social:
+                                payload["player_id"] = player_id
+                                if qty > 1:
+                                    payload["quantity"] = qty
+                            else:
+                                payload["link"] = player_id
+                                payload["quantity"] = qty
+                            sr = _supplier_http_post(sup["api_url"], payload)
+                            if isinstance(sr, dict) and sr.get("order"):
+                                sup_order_id = str(sr["order"])
+                                sup_note = f"تم الإرسال التلقائي للمزود ({sup['name']}) رقم #{sup_order_id}"
+                            else:
+                                sup_note = f"رد المزود: {str(sr)[:140]}"
+                        except Exception as ex:
+                            sup_note = f"تعذر الإرسال التلقائي للمزود: {str(ex)[:120]}"
+
             sb_request("POST", "/rest/v1/orders", {
                 "user_id": u["id"],
                 "user_name": str(u["name"])[:100],
@@ -790,7 +1019,8 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "supplier_cost_usd": cost,
                 "admin_profit_usd": profit,
                 "status": "قيد التنفيذ",
-                "supplier_note": "تم استلام الطلب وإرساله للمورد للشحن الفوري"
+                "supplier_order_id": sup_order_id,
+                "supplier_note": sup_note
             }, prefer_rep=True)
             self._json({"ok": True})
             return
@@ -853,10 +1083,11 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "pack": str(body["pack"]).strip()[:150],
                 "price_usd": round(max(0.01, float(body["price_usd"])), 2),
                 "supplier_cost_usd": round(max(0.0, float(body.get("supplier_cost_usd", 0))), 2),
-                "sku": str(body.get("sku") or "BX-CUSTOM").strip()[:60],
-                "icon": str(body.get("icon") or "🎮").strip()[:16],
+                "sku": str(body.get("sku") or "BX-CUSTOM").strip()[:80],
+                "icon": str(body.get("icon") or "🎮").strip()[:500],
                 "active": True
             })
+            invalidate_cache("products")
             self._json({"ok": True})
             return
 
@@ -869,16 +1100,90 @@ class CloudHandler(BaseHTTPRequestHandler):
             if "supplier_cost_usd" in body: patch["supplier_cost_usd"] = round(max(0.0, float(body["supplier_cost_usd"])), 2)
             if "pack" in body: patch["pack"] = str(body["pack"]).strip()[:150]
             if "game" in body: patch["game"] = str(body["game"]).strip()[:150]
-            if "sku" in body: patch["sku"] = str(body["sku"]).strip()[:60]
+            if "sku" in body: patch["sku"] = str(body["sku"]).strip()[:80]
+            if "icon" in body: patch["icon"] = str(body["icon"]).strip()[:500]
             if "active" in body: patch["active"] = bool(body["active"])
             sb_request("PATCH", f"/rest/v1/products?id=eq.{pid}", patch)
+            invalidate_cache("products")
             self._json({"ok": True})
+            return
+
+        if p == "/api/admin/sub-icon-update":
+            target_game = str(body.get("game", "")).strip()[:150]
+            icon_url = str(body.get("icon", "")).strip()[:500]
+            if not target_game or not icon_url:
+                self._json({"ok": False, "msg": "حدد القسم والرابط/الصورة أولاً"}, 400); return
+            sb_request("PATCH", f"/rest/v1/products?game=eq.{quote(target_game)}", {"icon": icon_url})
+            invalidate_cache("products")
+            self._json({"ok": True})
+            return
+
+        if p == "/api/admin/upload-image":
+            data_url = str(body.get("data_url", "")).strip()
+            m = re.match(r"^data:(image/(?:webp|png|jpeg|jpg));base64,(.+)$", data_url, re.S)
+            if not m:
+                self._json({"ok": False, "msg": "صيغة الصورة غير مدعومة (استخدم WebP/PNG/JPG)"}, 400); return
+            try:
+                raw_bytes = base64.b64decode(m.group(2))
+            except Exception:
+                self._json({"ok": False, "msg": "فشل فك تشفير الصورة"}, 400); return
+            if len(raw_bytes) > 950 * 1024:
+                self._json({"ok": False, "msg": "حجم الصورة بعد الضغط كبير جداً (الحد 950KB)"}, 400); return
+            sku_key = "MEDIA_" + secrets.token_hex(6)
+            res = sb_request("POST", "/rest/v1/products", {
+                "game": "__MEDIA__",
+                "pack": data_url,
+                "price_usd": 1.00,
+                "supplier_cost_usd": 0.00,
+                "sku": sku_key,
+                "icon": "🖼️",
+                "active": False
+            })
+            if isinstance(res, dict) and "error" in res:
+                self._json({"ok": False, "msg": "فشل حفظ الصورة في Supabase"}, 500); return
+            with _CACHE_LOCK:
+                _CACHE["media"][sku_key] = (m.group(1), raw_bytes)
+            ext = "webp" if "webp" in m.group(1) else ("png" if "png" in m.group(1) else "jpg")
+            self._json({"ok": True, "url": f"/api/media/{sku_key}.{ext}", "sku": sku_key})
+            return
+
+        if p == "/api/admin/supplier-test":
+            api_url = str(body.get("api_url", "")).strip()
+            api_key = str(body.get("api_key", "")).strip()
+            stype = str(body.get("type", "smm")).strip().lower()
+            if not api_url or not api_key:
+                self._json({"ok": False, "msg": "أدخل رابط API ومفتاح المزود أولاً"}, 400); return
+            try:
+                if stype == "smm":
+                    resp = _supplier_http_post(api_url, {"key": api_key, "action": "balance"})
+                    self._json({"ok": True, "result": resp})
+                else:
+                    req = urllib.request.Request(api_url, headers={"Authorization": f"Bearer {api_key}", "User-Agent": "BoostixStore/2.0"})
+                    with urllib.request.urlopen(req, timeout=15) as r:
+                        txt = r.read().decode("utf-8", errors="ignore")[:500]
+                    self._json({"ok": True, "result": {"status": 200, "preview": txt}})
+            except Exception as e:
+                self._json({"ok": False, "msg": f"فشل الاتصال بالمزود: {str(e)[:180]}"}, 400)
+            return
+
+        if p == "/api/admin/supplier-services":
+            api_url = str(body.get("api_url", "")).strip()
+            api_key = str(body.get("api_key", "")).strip()
+            if not api_url or not api_key:
+                self._json({"ok": False, "msg": "أدخل رابط API ومفتاح المزود"}, 400); return
+            try:
+                resp = _supplier_http_post(api_url, {"key": api_key, "action": "services"}, timeout=25)
+                services = resp[:250] if isinstance(resp, list) else []
+                self._json({"ok": True, "total": len(resp) if isinstance(resp, list) else 0, "services": services})
+            except Exception as e:
+                self._json({"ok": False, "msg": f"تعذر جلب الخدمات: {str(e)[:180]}"}, 400)
             return
 
         if p == "/api/admin/product-del":
             pid = int(body.get("id", 0))
             if pid > 0:
                 sb_request("DELETE", f"/rest/v1/products?id=eq.{pid}")
+                invalidate_cache("products")
             self._json({"ok": True})
             return
 
@@ -932,6 +1237,7 @@ class CloudHandler(BaseHTTPRequestHandler):
                 if not (isinstance(res, dict) and "error" in res):
                     updated_count += len(chunk)
 
+            invalidate_cache("products")
             self._json({"ok": True, "updated": updated_count})
             return
 
