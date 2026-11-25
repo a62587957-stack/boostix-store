@@ -484,6 +484,251 @@ def _auto_approve_deposit_by_tx(tx_id, paid_amt, currency):
             return True, f"approved_deposit_{d['id']}_new_balance_{nb}"
     return False, "race_or_update_failed"
 
+
+# ==================== Telegram Bot Notifications & Webhook ====================
+def _tg_cfg():
+    token = str(os.environ.get("TG_BOT_TOKEN", "")).strip()
+    chat_id = str(os.environ.get("TG_CHAT_ID", "")).strip()
+    return token, chat_id
+
+def _tg_api(method, payload):
+    token, _ = _tg_cfg()
+    if not token:
+        return None
+    try:
+        import urllib.request
+        url = f"https://api.telegram.org/bot{token}/{method}"
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return json.loads(resp.read().decode("utf-8", errors="ignore"))
+    except Exception:
+        return None
+
+TG_AUDIT_LOG = []
+
+def _short_uid(uid):
+    import hashlib
+    s = str(uid or "").strip()
+    if not s:
+        return "BX-000000"
+    h = int(hashlib.sha256(s.encode("utf-8")).hexdigest()[:8], 16)
+    return f"BX-{100000 + (h % 899999)}"
+
+def _tg_staff_ids():
+    raw = str(os.environ.get("TG_STAFF_CHAT_ID") or "").strip()
+    return [x.strip() for x in raw.split(",") if x.strip()]
+
+def _tg_allowed_ids():
+    _, admin_chat = _tg_cfg()
+    ids = []
+    if admin_chat:
+        ids.append(str(admin_chat).strip())
+    for s in _tg_staff_ids():
+        if s not in ids:
+            ids.append(s)
+    return ids
+
+def _tg_menu_markup():
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "✅ الإيداعات المقبولة", "callback_data": "rep:deps_ok"},
+                {"text": "❌ الإيداعات المرفوضة", "callback_data": "rep:deps_no"}
+            ],
+            [
+                {"text": "⏳ الإيداعات المعلقة", "callback_data": "rep:deps_wait"},
+                {"text": "🛒 آخر المشتريات", "callback_data": "rep:orders"}
+            ],
+            [
+                {"text": "📊 الملخص المالي", "callback_data": "rep:summary"},
+                {"text": "🛡️ سجل الرقابة", "callback_data": "rep:audit"}
+            ]
+        ]
+    }
+
+def _tg_notify(text, reply_markup=None, owner_only=False):
+    token, admin_chat = _tg_cfg()
+    if not token or not admin_chat:
+        return
+    targets = [admin_chat] if owner_only else _tg_allowed_ids()
+    import threading
+    for cid in targets:
+        payload = {"chat_id": cid, "text": text, "parse_mode": "HTML"}
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
+        threading.Thread(target=_tg_api, args=("sendMessage", payload), daemon=True).start()
+
+def _tg_register_webhook():
+    token, _ = _tg_cfg()
+    if not token:
+        return
+    base = str(os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("PUBLIC_URL") or "https://boostix-store.onrender.com").rstrip("/")
+    _tg_api("setWebhook", {"url": f"{base}/api/telegram/webhook", "allowed_updates": ["callback_query", "message"]})
+
+def _tg_build_report(rep_type):
+    if rep_type == "audit":
+        if not TG_AUDIT_LOG:
+            return "🛡️ <b>سجل رقابة العمليات</b>\nلا توجد عمليات مسجّلة منذ آخر تشغيل للسيرفر."
+        lines = ["🛡️ <b>سجل رقابة الإيداعات (آخر 15 عملية):</b>\n"]
+        for item in TG_AUDIT_LOG[:15]:
+            lines.append(f"• [{item['time']}] {item['action']} #{item['dep_id']} (${item['amount']:.2f})\n   👤 العميل: {item['user_id']} | 👮 المنفّذ: {item['actor']}")
+        return "\n".join(lines)
+
+    if rep_type == "summary":
+        deps = sb_request("GET", "/rest/v1/deposits?select=amount_usd,status") or []
+        ords = sb_request("GET", "/rest/v1/orders?select=price_usd,status") or []
+        ok_deps = [float(d.get("amount_usd") or 0) for d in deps if d.get("status") == "مقبول"]
+        no_deps = [float(d.get("amount_usd") or 0) for d in deps if d.get("status") == "مرفوض"]
+        wt_deps = [float(d.get("amount_usd") or 0) for d in deps if d.get("status") == "معلق"]
+        tot_ords = [float(o.get("price_usd") or 0) for o in ords if o.get("status") != "مرفوض من المورد"]
+        return (
+            "📊 <b>الملخص المالي العام لمتجر Boostix</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"✅ إيداعات مقبولة: <b>{len(ok_deps)}</b> (${sum(ok_deps):.2f})\n"
+            f"⏳ إيداعات معلقة: <b>{len(wt_deps)}</b> (${sum(wt_deps):.2f})\n"
+            f"❌ إيداعات مرفوضة: <b>{len(no_deps)}</b> (${sum(no_deps):.2f})\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"🛒 إجمالي المشتريات: <b>{len(tot_ords)}</b> (${sum(tot_ords):.2f})"
+        )
+
+    if rep_type == "orders":
+        ords = sb_request("GET", "/rest/v1/orders?select=id,user_id,game,pack_name,price_usd,status,created_at&order=id.desc&limit=12") or []
+        if not ords:
+            return "🛒 لا توجد عمليات شراء مسجلة حالياً."
+        lines = ["🛒 <b>آخر 12 عملية شراء:</b>\n"]
+        for o in ords:
+            suid = _short_uid(o.get("user_id"))
+            lines.append(f"• #{o.get('id')} | <code>{suid}</code> | <b>${float(o.get('price_usd') or 0):.2f}</b>\n   🎮 {o.get('pack_name') or o.get('game')} ({o.get('status')})")
+        return "\n".join(lines)
+
+    status_map = {"deps_ok": ("مقبول", "✅ الإيداعات المقبولة"), "deps_no": ("مرفوض", "❌ الإيداعات المرفوضة"), "deps_wait": ("معلق", "⏳ الإيداعات المعلقة")}
+    if rep_type in status_map:
+        st, title = status_map[rep_type]
+        deps = sb_request("GET", f"/rest/v1/deposits?status=eq.{quote(st)}&select=id,user_id,method,amount_usd,tx_id,created_at&order=id.desc&limit=12") or []
+        if not deps:
+            return f"{title}\nلا توجد عمليات بهذه الحالة حالياً."
+        lines = [f"<b>{title} (آخر 12 عملية):</b>\n"]
+        for d in deps:
+            suid = _short_uid(d.get("user_id"))
+            lines.append(f"• #{d.get('id')} | <code>{suid}</code> | <b>${float(d.get('amount_usd') or 0):.2f}</b>\n   🏦 {d.get('method')} | TX: <code>{d.get('tx_id')}</code>")
+        return "\n".join(lines)
+
+    return "اختر تقريراً من القائمة."
+
+def _tg_handle_webhook(body):
+    token, admin_chat = _tg_cfg()
+    if not token or not admin_chat:
+        return
+    allowed = _tg_allowed_ids()
+
+    # 1. معالجة الأوامر النصية (/start, /menu, /report)
+    msg_in = body.get("message")
+    if isinstance(msg_in, dict):
+        from_id = str((msg_in.get("from") or {}).get("id", ""))
+        chat_id = (msg_in.get("chat") or {}).get("id")
+        txt = str(msg_in.get("text") or "").strip().lower()
+        if from_id not in allowed:
+            return
+        if txt in ("/start", "/menu", "/report", "تقرير", "القائمة", "كشف"):
+            _tg_api("sendMessage", {
+                "chat_id": chat_id,
+                "text": "🎛️ <b>لوحة إدارة وتقارير Boostix Store</b>\nاختر الكشف المطلوب من الأزرار أدناه:",
+                "parse_mode": "HTML",
+                "reply_markup": _tg_menu_markup()
+            })
+        return
+
+    # 2. معالجة أزرار الإنلاين (القبول/الرفض + التقارير)
+    cq = body.get("callback_query")
+    if not isinstance(cq, dict):
+        return
+    from_user = cq.get("from") or {}
+    from_id = str(from_user.get("id", ""))
+    actor_name = (from_user.get("first_name") or "") + (" @" + from_user["username"] if from_user.get("username") else "")
+    actor_name = actor_name.strip() or from_id
+
+    if from_id not in allowed:
+        _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "غير مصرح لك", "show_alert": True})
+        return
+
+    data = str(cq.get("data") or "")
+    msg = cq.get("message") or {}
+    chat_id = (msg.get("chat") or {}).get("id")
+    msg_id = msg.get("message_id")
+    orig_text = msg.get("text") or ""
+
+    if data.startswith("rep:"):
+        rep_type = data.split(":", 1)[1]
+        _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "جاري جلب الكشف..."})
+        rep_text = _tg_build_report(rep_type)
+        _tg_api("sendMessage", {
+            "chat_id": chat_id,
+            "text": rep_text,
+            "parse_mode": "HTML",
+            "reply_markup": _tg_menu_markup()
+        })
+        return
+
+    if data.startswith("dep_ok:") or data.startswith("dep_no:"):
+        dec = "مقبول" if data.startswith("dep_ok:") else "مرفوض"
+        try:
+            did = int(data.split(":", 1)[1])
+        except Exception:
+            return
+        updated = sb_request(
+            "PATCH",
+            f"/rest/v1/deposits?id=eq.{did}&status=eq.{quote('معلق')}",
+            {"status": dec},
+            prefer_rep=True
+        )
+        if isinstance(updated, list) and len(updated) == 1:
+            d = updated[0]
+            amt = float(d["amount_usd"])
+            suid = _short_uid(d.get("user_id"))
+            now_str = time.strftime("%H:%M:%S")
+            TG_AUDIT_LOG.insert(0, {
+                "time": now_str,
+                "action": "✅ قبول" if dec == "مقبول" else "❌ رفض",
+                "dep_id": did,
+                "amount": amt,
+                "user_id": suid,
+                "actor": f"{actor_name} ({from_id})"
+            })
+            del TG_AUDIT_LOG[50:]
+
+            if dec == "مقبول":
+                uid_q = quote(str(d["user_id"]))
+                usrs = sb_request("GET", f"/rest/v1/users?id=eq.{uid_q}&select=balance")
+                if isinstance(usrs, list) and usrs:
+                    nb = round(float(usrs[0]["balance"]) + amt, 2)
+                    sb_request("PATCH", f"/rest/v1/users?id=eq.{uid_q}", {"balance": nb})
+                status_line = f"\n\n✅ <b>تم القبول وشحن الرصيد (+${amt:.2f})</b>\n👮 بواسطة: {actor_name} | 🕒 {now_str}"
+                alert = "تم قبول الإيداع وشحن الرصيد بنجاح"
+            else:
+                status_line = f"\n\n❌ <b>تم رفض طلب الإيداع</b>\n👮 بواسطة: {actor_name} | 🕒 {now_str}"
+                alert = "تم رفض الإيداع"
+
+            _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": alert})
+            if chat_id and msg_id:
+                _tg_api("editMessageText", {"chat_id": chat_id, "message_id": msg_id, "text": orig_text + status_line, "parse_mode": "HTML"})
+
+            # إشعار رقابة فوري للمالك إذا كان المنفّذ موظفاً
+            if from_id != str(admin_chat).strip():
+                _tg_notify(
+                    f"🛡️ <b>تنبيه رقابة موظف</b>\n"
+                    f"الإجراء: {'✅ قبول إيداع' if dec == 'مقبول' else '❌ رفض إيداع'} #{did}\n"
+                    f"👤 العميل: <code>{suid}</code>\n"
+                    f"💵 المبلغ: <b>${amt:.2f}</b>\n"
+                    f"👮 المنفّذ: {actor_name} (<code>{from_id}</code>)",
+                    owner_only=True
+                )
+        else:
+            _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "تمت معالجة هذا الطلب مسبقاً", "show_alert": True})
+            if chat_id and msg_id:
+                _tg_api("editMessageReplyMarkup", {"chat_id": chat_id, "message_id": msg_id, "reply_markup": {"inline_keyboard": []}})
+# ==============================================================================
+
 class CloudHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         return
@@ -746,7 +991,7 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "ok": True,
                 "supabaseUrl": SUPABASE_URL,
                 "supabaseAnonKey": SUPABASE_PUB,
-                "user": u_dict,
+                "user": (dict(u_dict, short_id=_short_uid(u_dict.get("id"))) if isinstance(u_dict, dict) else u_dict),
                 "products": prods,
                 "catalogTree": cat_tree,
                 "myOrders": my_ords,
@@ -759,6 +1004,10 @@ class CloudHandler(BaseHTTPRequestHandler):
             if not self._is_admin():
                 self._json({"ok": False, "requires_totp": bool(ADMIN_TOTP_SECRET)}, 401); return
             users = sb_request("GET", "/rest/v1/users?select=*&order=created_at.desc")
+            if isinstance(users, list):
+                for _u in users:
+                    if isinstance(_u, dict):
+                        _u["short_id"] = _short_uid(_u.get("id"))
             if not isinstance(users, list): users = []
             for u in users: u["created_at"] = fmt_date(u.get("created_at"))
             prods = fetch_all_products(active_only=False)
@@ -868,10 +1117,11 @@ class CloudHandler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "msg": "رقم عملية التحويل هذا مسجل مسبقاً!"}, 400); return
 
             is_local_auto = any(k in method for k in ["شام كاش", "سيريتل", "سيرياتيل"])
-            if is_local_auto:
+            if is_local_auto and not _tg_cfg()[0]:
                 if tx not in INCOMING_TRANSFERS:
                     self._json({"ok": False, "msg": "لا يوجد رقم عملية مطابق حالياً! تأكد من الرقم أو انتظر دقيقة بعد التحويل وأعد المحاولة."}, 400)
                     return
+            if is_local_auto and tx in INCOMING_TRANSFERS:
                 tr = INCOMING_TRANSFERS[tx]
                 syp_rate = float(os.environ.get("SYP_RATE", "15000"))
                 paid_usd = tr["amount"] if tr["currency"] == "USD" else (tr["amount"] / syp_rate)
@@ -879,7 +1129,7 @@ class CloudHandler(BaseHTTPRequestHandler):
                     self._json({"ok": False, "msg": f"المبلغ المستلم (${paid_usd:.2f}) أقل من قيمة الفاتورة (${amt:.2f})!"}, 400)
                     return
 
-            sb_request("POST", "/rest/v1/deposits", {
+            created_dep = sb_request("POST", "/rest/v1/deposits", {
                 "user_id": u["id"],
                 "user_name": str(u["name"])[:100],
                 "amount_usd": amt,
@@ -887,13 +1137,24 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "tx_id": tx,
                 "status": "معلق"
             }, prefer_rep=True)
+            dep_id = created_dep[0]["id"] if isinstance(created_dep, list) and created_dep else None
             auto_ok = False
             if tx in INCOMING_TRANSFERS:
                 tr = INCOMING_TRANSFERS[tx]
                 auto_ok, _ = _auto_approve_deposit_by_tx(tx, tr["amount"], tr["currency"])
                 if auto_ok:
                     INCOMING_TRANSFERS.pop(tx, None)
+            if auto_ok:
+                _tg_notify(f"💰 <b>إيداع تلقائي مقبول</b>\n👤 العميل: {u['name']}\n💵 المبلغ: <b>${amt:.2f}</b>\n🏦 الطريقة: {method}\n🔢 رقم العملية: <code>{tx}</code>")
+            elif dep_id:
+                kb = {"inline_keyboard": [[{"text": "✅ قبول وشحن", "callback_data": f"dep_ok:{dep_id}"}, {"text": "❌ رفض", "callback_data": f"dep_no:{dep_id}"}]]}
+                _tg_notify(f"🔔 <b>طلب إيداع جديد #{dep_id}</b>\n👤 العميل: {u['name']}\n💵 المبلغ: <b>${amt:.2f}</b>\n🏦 الطريقة: {method}\n🔢 رقم العملية: <code>{tx}</code>", reply_markup=kb)
             self._json({"ok": True, "auto_approved": auto_ok})
+            return
+
+        if p == "/api/telegram/webhook":
+            _tg_handle_webhook(body)
+            self._json({"ok": True})
             return
 
         if p == "/api/webhook/local-pay":
@@ -1022,6 +1283,14 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "supplier_order_id": sup_order_id,
                 "supplier_note": sup_note
             }, prefer_rep=True)
+            _tg_notify(
+                f"🛒 <b>طلب شراء جديد</b>\n"
+                f"👤 العميل: {u['name']}\n"
+                f"🎮 الباقة: {prod['pack']}\n"
+                f"🆔 المعرف: <code>{player_id}</code>\n"
+                f"💵 السعر: <b>${price:.2f}</b> (ربح: ${profit:.2f})\n"
+                f"📡 الحالة: {sup_note}"
+            )
             self._json({"ok": True})
             return
 
@@ -1317,5 +1586,7 @@ class CloudHandler(BaseHTTPRequestHandler):
         self._json({"ok": False, "msg": "Not Found"}, 404)
 
 if __name__ == "__main__":
+    import threading
+    threading.Thread(target=_tg_register_webhook, daemon=True).start()
     ThreadingHTTPServer.allow_reuse_address = True
     ThreadingHTTPServer(("0.0.0.0", PORT), CloudHandler).serve_forever()
