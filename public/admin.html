@@ -228,7 +228,7 @@
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
         <h3 style="color:var(--cyan); margin:0;">👥 المستخدمون وكشف الحساب بالـ ID</h3>
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-          <input type="text" id="usr-search-inp" oninput="filterAdminUsers()" placeholder="🔍 ابحث بـ ID (مثل BX-123456) أو الاسم أو الإيميل..." style="min-width:250px; padding:8px 12px; border-radius:10px; border:1px solid var(--cyan); background:var(--input-bg, #0f172a); color:#fff; font-size:13px;">
+          <input type="text" id="usr-search-inp" oninput="filterAdminUsers()" placeholder="🔍 ابحث بـ ID (مثل #12345) أو الاسم أو الإيميل..." style="min-width:250px; padding:8px 12px; border-radius:10px; border:1px solid var(--cyan); background:var(--input-bg, #0f172a); color:#fff; font-size:13px;">
           <button class="btn btn-cyan btn-sm" onclick="openUserStatementBySearch()">📋 كشف حساب</button>
         </div>
       </div>
@@ -1290,7 +1290,7 @@ function filterAdminUsers() {
 function openUserStatementBySearch() {
   const q = (document.getElementById("usr-search-inp")?.value || "").trim().toLowerCase();
   const all = window._ALL_ADM_USERS || [];
-  if (!q) return alert("أدخل رقم الـ ID (مثل BX-123456) أو الاسم أو الإيميل أولاً");
+  if (!q) return alert("أدخل رقم الـ ID (مثل #12345) أو الاسم أو الإيميل أولاً");
   const u = all.find(x =>
     String(x.short_id || "").toLowerCase() === q ||
     String(x.id || "").toLowerCase() === q ||
