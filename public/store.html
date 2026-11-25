@@ -1158,17 +1158,25 @@
     if (!sbClient || !sbClient.auth) return alert("مكتبة تسجيل الدخول قيد التحميل، يرجى المحاولة بعد ثانية.");
     const { error } = await sbClient.auth.signInWithOAuth({
       provider: "google",
+      options: { queryParams: { prompt: "select_account" }, redirectTo: window.location.origin },
       options: { redirectTo: window.location.origin + "/" }
     });
     if (error) alert("خطأ في الاتصال بـ Google OAuth: " + error.message);
   }
 
   async function logoutGoogle() {
-    try { if (sbClient && sbClient.auth) await sbClient.auth.signOut(); } catch (e) {}
+    try { if (sbClient && sbClient.auth) await sbClient.auth.signOut({ scope: "local" }); } catch (e) {}
     ACCESS_TOKEN = "";
-    localStorage.removeItem("saker_oauth_token");
+    try {
+      localStorage.removeItem("saker_oauth_token");
+      Object.keys(localStorage).forEach(k => { if (k.startsWith("sb-") || k.includes("supabase") || k.includes("auth")) localStorage.removeItem(k); });
+      Object.keys(sessionStorage).forEach(k => { if (k.startsWith("sb-") || k.includes("supabase") || k.includes("auth")) sessionStorage.removeItem(k); });
+    } catch (e) {}
+    try { history.replaceState(null, "", window.location.pathname); } catch (e) {}
+    DATA.user = null;
     goHome();
     await loadStore();
+    window.location.replace(window.location.pathname);
   }
 
   async function loadStore() {
@@ -1528,7 +1536,13 @@
       document.getElementById("ui-balance").textContent = fmtPriceMain(DATA.user.balance);
       document.getElementById("dr-balance").textContent = fmtPriceMain(DATA.user.balance);
       (function(){
-        const sid = DATA.user.short_id || "#00000";
+        let sid = (DATA.user.short_id && DATA.user.short_id !== "#00000") ? DATA.user.short_id : "";
+        if (!sid) {
+          const rawKey = String(DATA.user.id || DATA.user.email || DATA.user.name || "");
+          let h = 0;
+          for (let i = 0; i < rawKey.length; i++) { h = ((h << 5) - h + rawKey.charCodeAt(i)) | 0; }
+          sid = "#" + (10000 + (Math.abs(h) % 89999));
+        }
         const uidEl = document.getElementById("dr-uid");
         if (uidEl) {
           uidEl.textContent = sid;
