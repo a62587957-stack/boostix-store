@@ -1134,7 +1134,7 @@ class CloudHandler(BaseHTTPRequestHandler):
             ids = [
                 str(pr["id"]) for pr in prods
                 if str(pr.get("sku", "")) != str(SETTINGS_SKU)
-                and (str(pr.get("game", "")).strip() == target_cat or str(pr.get("game", "")).strip().startswith(target_cat + " | "))
+                and str(pr.get("game", "")).split("|")[0].strip() == target_cat
             ]
             for i in range(0, len(ids), 100):
                 chunk = ",".join(ids[i:i+100])
