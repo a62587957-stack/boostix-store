@@ -579,6 +579,54 @@
 }
 </style>
 
+
+<style id="bx-buy-meta-css">
+.bx-meta-card {
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.bx-meta-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.bx-badge {
+  background: rgba(0, 229, 255, 0.12);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  color: #67e8f9;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.bx-badge.gold {
+  background: rgba(250, 204, 21, 0.12);
+  border-color: rgba(250, 204, 21, 0.35);
+  color: #fde047;
+}
+.bx-meta-row {
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+.bx-meta-row:last-child { margin-bottom: 0; }
+.bx-meta-row b { color: #f8fafc; }
+.bx-meta-warn {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.12);
+  border-right: 3px solid #f59e0b;
+  color: #fcd34d;
+  font-size: 12px;
+}
+</style>
+
 </head>
 <body>
 <div id="bxSplash">
@@ -998,10 +1046,11 @@
       <button class="btn btn-rose" style="padding:5px 10px;" onclick="document.getElementById('buy-modal').classList.remove('open')">✖</button>
     </div>
     <div class="modal-body">
-      <div id="bm-summary" style="background:var(--input-bg); border:1px solid var(--gold); padding:12px; border-radius:12px; margin-bottom:14px;"></div>
+      <div id="bm-summary" style="background:var(--input-bg); border:1px solid var(--gold); padding:12px; border-radius:12px; margin-bottom:12px;"></div>
+      <div id="bm-details"></div>
       <div class="inp-g">
-        <label style="font-size:14px; color:var(--gold);">🎮 أدخل رقم الـ ID أو الحساب المطلوب:</label>
-        <input type="text" id="bm-player-id" placeholder="مثال: 5123456789" dir="ltr" style="font-size:16px; text-align:center; border-color:var(--cyan);">
+        <label id="bm-input-label" style="font-size:14px; color:var(--gold);">🎮 أدخل رقم الـ ID أو الحساب المطلوب:</label>
+        <input type="text" id="bm-player-id" placeholder="مثال: 5123456789" dir="ltr" style="font-size:15px; text-align:center; border-color:var(--cyan);">
       </div>
       <button class="btn btn-green" style="width:100%; padding:12px; font-size:15px;" onclick="confirmBuy()">✅ تأكيد الشراء وخصم المبلغ</button>
     </div>
@@ -1207,12 +1256,76 @@
     return { main: (parts[0] || "الألعاب").trim(), sub: (parts.slice(1).join("|") || parts[0] || "الألعاب").trim() };
   }
 
+  function getServiceMeta(p, info) {
+    const txt = ((p.game || "") + " " + (p.pack || "")).toLowerCase();
+    // 1. خدمات السوشيال ميديا (تحتاج رابط)
+    if (/(تيك|tiktok|انست|insta|يوتيوب|youtube|فيس|facebook|تلي|telegram|تويتر|twitter|متابع|لايك|مشاهد|تعليق|شير|smm|followers|likes|views)/.test(txt)) {
+      return {
+        label: "🔗 أدخل رابط الحساب أو المنشور المطلوب:",
+        placeholder: "https://...",
+        time: "⚡ البدء خلال 1 - 15 دقيقة",
+        method: "🚀 تنفيذ تلقائي عبر الرابط",
+        desc: "زيادة وتفاعل آمن لحسابك أو منشورك عبر السيرفر المباشر.",
+        usage: "انسخ رابط الحساب أو المنشور بشكل صحيح وتأكد أن الحساب عام (Public) وليس خاصاً.",
+        warn: "تأكد من عدم تغيير اسم المستخدم أو جعل الحساب خاصاً أثناء تنفيذ الطلب."
+      };
+    }
+    // 2. الاشتراكات والتطبيقات (تحتاج إيميل)
+    if (/(نتفلكس|netflix|سبوتيفاي|spotify|كانفا|canva|شاهد|shahid|chatgpt|gpt|اشتراك|تفعيل|بريميوم|premium|adobe|office|icloud|vpn)/.test(txt)) {
+      return {
+        label: "📧 أدخل البريد الإلكتروني (الإيميل) للتفعيل:",
+        placeholder: "example@gmail.com",
+        time: "⚡ التسليم خلال 5 - 30 دقيقة",
+        method: "📩 تفعيل رسمي أو إرسال بيانات الحساب",
+        desc: "اشتراك رقمي مضمون طوال مدة الباقة المختارة.",
+        usage: "أدخل بريدك الإلكتروني الصحيح وسيصلك التفعيل أو تفاصيل الدخول في قسم (طلباتي).",
+        warn: "يرجى التأكد من كتابة البريد الإلكتروني بدون أخطاء إملائية."
+      };
+    }
+    // 3. البطاقات الرقمية والأكواد الفورية
+    if (/(بطاق|كود|قسيم|ايتونز|itunes|جوجل بلاي|google play|ستيم|steam|بلايستيشن|playstation|psn|اكس بوكس|xbox|razer|ريزر|gift|card|voucher)/.test(txt)) {
+      return {
+        label: "📱 أدخل رقم الواتساب أو الإيميل لاستلام الكود:",
+        placeholder: "مثال: 09xxxxxxxx أو email@gmail.com",
+        time: "⚡ تسليم فوري (1 - 5 دقائق)",
+        method: "🎟️ كود رقمي جاهز للاسترداد",
+        desc: "بطاقة شحن رقمية أصلية تظهر مباشرة في سجل (طلباتي) فور التأكيد.",
+        usage: "بعد استلام الكود، انسخه وقم باسترداده (Redeem) داخل المتجر المخصص للبطاقة.",
+        warn: "انتبه لريجون/دولة البطاقة قبل الشراء؛ الأكواد الرقمية لا تُسترد بعد التسليم."
+      };
+    }
+    // 4. الألعاب التي تحتاج ID + سيرفر (مثل Mobile Legends / Genshin)
+    if (/(mobile legends|موبايل ليجند|genshin|قنشن|bigo|بيقو|yalla|يلا لودو)/.test(txt)) {
+      return {
+        label: "🎮 أدخل رقم الـ ID (والسيرفر إن وجد):",
+        placeholder: "مثال: 123456789 (1234)",
+        time: "⚡ شحن فوري (1 - 5 دقائق)",
+        method: "🎯 شحن مباشر إلى الحساب",
+        desc: "شحن رسمي وسريع مباشرة إلى حسابك داخل اللعبة بدون الحاجة لكلمة مرور.",
+        usage: "انسخ الـ ID من ملفك الشخصي داخل اللعبة، وإذا كانت اللعبة تطلب Zone/Server ID اكتبه بجانبه.",
+        warn: "تأكد من صحة الـ ID؛ الشحن يتم آلياً ولا يمكن التراجع عنه بعد التنفيذ."
+      };
+    }
+    // 5. الافتراضي: شحن الألعاب المباشر بالـ ID
+    return {
+      label: "🎮 أدخل رقم الـ ID (معرّف اللاعب):",
+      placeholder: "مثال: 5123456789",
+      time: "⚡ شحن فوري (1 - 5 دقائق)",
+      method: "🎯 شحن مباشر بالـ ID فقط",
+      desc: "شحن رسمي ومضمون مباشرة لحسابك داخل اللعبة بدون الحاجة لأي كلمة مرور.",
+      usage: "افتح اللعبة ← ادخل إلى ملفك الشخصي ← انسخ رقم الـ ID والصقه في الخانة أدناه.",
+      warn: "تأكد من مطابقة رقم الـ ID تماماً قبل الضغط على تأكيد الشراء."
+    };
+  }
+
   function openBuy(id) {
     if (!DATA.user) { signInWithGoogleOfficial(); return; }
     buyProdId = id;
     const p = DATA.products.find(x => x.id === id);
     if (!p) return;
     const info = splitGameField(p.game);
+    const meta = getServiceMeta(p, info);
+
     document.getElementById("bm-summary").innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
         <div style="display:flex; align-items:center; gap:10px;">
@@ -1221,7 +1334,25 @@
         </div>
         <div style="font-size:18px; font-weight:900; color:var(--gold); direction:ltr;">${fmtPriceMain(p.price_usd)}</div>
       </div>`;
-    document.getElementById("bm-player-id").value = "";
+
+    document.getElementById("bm-details").innerHTML = `
+      <div class="bx-meta-card">
+        <div class="bx-meta-badges">
+          <span class="bx-badge">${meta.time}</span>
+          <span class="bx-badge gold">${meta.method}</span>
+        </div>
+        <div class="bx-meta-row"><b>📋 الوصف:</b> ${meta.desc}</div>
+        <div class="bx-meta-row"><b>💡 طريقة الاستخدام:</b> ${meta.usage}</div>
+        <div class="bx-meta-warn">⚠️ ${meta.warn}</div>
+      </div>`;
+
+    const lbl = document.getElementById("bm-input-label");
+    if (lbl) lbl.textContent = meta.label;
+    const inp = document.getElementById("bm-player-id");
+    if (inp) {
+      inp.value = "";
+      inp.placeholder = meta.placeholder;
+    }
     document.getElementById("buy-modal").classList.add("open");
   }
 
