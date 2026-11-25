@@ -1541,7 +1541,7 @@
     document.getElementById("dr-currency-btn").textContent = showSYPPrimary ? "🔄 العملة الحالية: ليرة سورية (SYP)" : "🔄 العملة الحالية: دولار (USD)";
 
     const orderedMains = ["الألعاب", "بطاقات شحن", "تطبيقات دردشة", "تواصل اجتماعي", "قسم الأرقام", "شاشة VIP", "ذكاء اصطناعي Ai", "توثيق حسابات", "برامج تصميم", "عملات و أرصدة", "Vpn مدفوع"];
-    const products = DATA.products || [];
+    const products = (DATA.products || []).slice().sort((a, b) => (parseFloat(a.price_usd) || 0) - (parseFloat(b.price_usd) || 0));
     const existingMains = [...new Set(products.map(p => splitGameField(p.game).main))];
     const mainCats = orderedMains.filter(m => existingMains.includes(m));
     existingMains.forEach(m => { if (!mainCats.includes(m)) mainCats.push(m); });
