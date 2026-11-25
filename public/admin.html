@@ -786,16 +786,204 @@
     drawHeroBannersList();
   }
 
+  let _catNav = { level: 1, cat: null, game: null };
+
+  function _getActiveProds() {
+    return (ADM_DATA && Array.isArray(ADM_DATA.products) ? ADM_DATA.products : []).filter(p => p.active !== false);
+  }
+
   function drawCatImagesGrid() {
-    document.getElementById("cat-images-grid").innerHTML = MAIN_CATS_DEFAULT.map((c, idx) => {
-      const def = `/assets/categories/cat_${String(idx + 1).padStart(2, '0')}.webp`;
-      const cur = _editCatImages[c] || def;
-      return `<div class="cat-img-box">
-        <img src="${esc(cur)}" onerror="this.src='${def}'">
-        <div style="font-size:12px; font-weight:900; margin-bottom:6px;">${esc(c)}</div>
-        <button class="btn btn-cyan btn-sm" style="width:100%;" onclick='pickAndUploadImage(u => { _editCatImages[${JSON.stringify(c)}]=u; drawCatImagesGrid(); })'>📤 تغيير الصورة</button>
+    const grid = document.getElementById("cat-images-grid");
+    if (!grid) return;
+    const prods = _getActiveProds();
+
+    if (_catNav.level === 1) {
+      grid.className = "cat-img-grid";
+      const catMap = {};
+      prods.forEach(p => {
+        const g = String(p.game || "").trim();
+        const c = g.includes("|") ? g.split("|")[0].trim() : g;
+        if (c) catMap[c] = (catMap[c] || 0) + 1;
+      });
+      const cats = Object.keys(catMap).sort((a, b) => catMap[b] - catMap[a]);
+      if (!cats.length) { grid.innerHTML = `<div style="grid-column:1/-1;color:var(--muted);">لا توجد أقسام مفعّلة.</div>`; return; }
+      grid.innerHTML = cats.map((c, idx) => {
+        const def = `/assets/categories/cat_${String((idx % 12) + 1).padStart(2, '0')}.webp`;
+        const cur = _editCatImages[c] || def;
+        const cj = JSON.stringify(c);
+        return `<div class="cat-img-box">
+          <img src="${esc(cur)}" onerror="this.src='${def}'" style="cursor:pointer;" onclick='_catNav={level:2,cat:${cj},game:null};drawCatImagesGrid();'>
+          <div style="font-size:12px; font-weight:900; margin-bottom:2px;">${esc(c)}</div>
+          <div style="font-size:11px; color:var(--muted); margin-bottom:8px;">${catMap[c]} باقة</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">
+            <button class="btn btn-grad btn-sm" onclick='_catNav={level:2,cat:${cj},game:null};drawCatImagesGrid();'>📂 فتح</button>
+            <button class="btn btn-cyan btn-sm" onclick='pickAndUploadImage(u => { _editCatImages[${cj}]=u; drawCatImagesGrid(); showToast("تم تحديث الصورة - اضغط حفظ صور الأقسام"); })'>📤 صورة</button>
+            <button class="btn btn-gold btn-sm" onclick='adminRenameCat(${cj})'>✏️ اسم</button>
+            <button class="btn btn-rose btn-sm" onclick='adminDeleteCat(${cj})'>🗑️ حذف</button>
+          </div>
+        </div>`;
+      }).join("");
+      return;
+    }
+
+    if (_catNav.level === 2) {
+      grid.className = "cat-img-grid";
+      const subMap = {};
+      prods.forEach(p => {
+        const g = String(p.game || "").trim();
+        const c = g.includes("|") ? g.split("|")[0].trim() : g;
+        if (c !== _catNav.cat) return;
+        if (!subMap[g]) subMap[g] = { count: 0, icon: p.icon || "" };
+        subMap[g].count++;
+        if (!subMap[g].icon && p.icon) subMap[g].icon = p.icon;
+      });
+      const games = Object.keys(subMap).sort();
+      const header = `<div style="grid-column:1/-1; display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; padding:8px 10px; background:rgba(255,255,255,0.04); border-radius:10px;">
+        <div style="font-weight:900; font-size:13px;">📂 ${esc(_catNav.cat)} (${games.length} فئة)</div>
+        <button class="btn btn-cyan btn-sm" onclick="_catNav={level:1,cat:null,game:null};drawCatImagesGrid();">⬅️ رجوع للأقسام</button>
       </div>`;
-    }).join("");
+      grid.innerHTML = header + games.map(g => {
+        const subName = g.includes("|") ? g.split("|").slice(1).join("|").trim() : g;
+        const gj = JSON.stringify(g);
+        const curImg = subMap[g].icon || "/assets/categories/cat_01.webp";
+        return `<div class="cat-img-box">
+          <img src="${esc(curImg)}" style="cursor:pointer;" onclick='_catNav={level:3,cat:${JSON.stringify(_catNav.cat)},game:${gj}};drawCatImagesGrid();'>
+          <div style="font-size:12px; font-weight:900; margin-bottom:2px;">${esc(subName)}</div>
+          <div style="font-size:11px; color:var(--muted); margin-bottom:8px;">${subMap[g].count} خدمة</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">
+            <button class="btn btn-grad btn-sm" onclick='_catNav={level:3,cat:${JSON.stringify(_catNav.cat)},game:${gj}};drawCatImagesGrid();'>📦 خدمات</button>
+            <button class="btn btn-cyan btn-sm" onclick='adminSubIcon(${gj})'>📤 صورة</button>
+            <button class="btn btn-gold btn-sm" onclick='adminRenameSub(${gj})'>✏️ اسم</button>
+            <button class="btn btn-rose btn-sm" onclick='adminDeleteSub(${gj})'>🗑️ حذف</button>
+          </div>
+        </div>`;
+      }).join("");
+      return;
+    }
+
+    grid.className = "";
+    const items = prods.filter(p => String(p.game || "").trim() === _catNav.game);
+    const subTitle = _catNav.game.includes("|") ? _catNav.game.split("|").slice(1).join("|").trim() : _catNav.game;
+    const header = `<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:10px; padding:8px 10px; background:rgba(255,255,255,0.04); border-radius:10px;">
+      <div style="font-weight:900; font-size:13px;">📦 ${esc(_catNav.cat)} / ${esc(subTitle)} (${items.length} خدمة)</div>
+      <button class="btn btn-cyan btn-sm" onclick="_catNav={level:2,cat:${JSON.stringify(_catNav.cat)},game:null};drawCatImagesGrid();">⬅️ رجوع للفئات</button>
+    </div>`;
+    grid.innerHTML = header + items.map(p => `
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px; margin-bottom:8px;">
+        <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+          <img id="svc-img-${p.id}" src="${esc(p.icon || '/assets/categories/cat_01.webp')}" style="width:48px; height:48px; border-radius:8px; object-fit:cover; background:#0b1120;">
+          <div style="flex:1; min-width:0;">
+            <input type="text" id="svc-pack-${p.id}" value="${esc(p.pack || '')}" placeholder="اسم الخدمة" style="margin-bottom:4px; font-weight:800;">
+            <div style="display:grid; grid-template-columns:1fr 2fr; gap:6px;">
+              <input type="number" step="0.01" id="svc-price-${p.id}" value="${p.price_usd || 0}" placeholder="السعر $">
+              <input type="text" id="svc-sku-${p.id}" value="${esc(p.sku || '')}" placeholder="رمز الربط (SKU)" dir="ltr">
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="btn btn-grad btn-sm" onclick="adminSaveSvc(${p.id})">💾 حفظ التعديل</button>
+          <button class="btn btn-cyan btn-sm" onclick="adminSvcIcon(${p.id})">📤 صورة</button>
+          <button class="btn btn-rose btn-sm" onclick="adminDelSvc(${p.id})">🗑️ حذف</button>
+        </div>
+      </div>`).join("");
+  }
+
+  async function adminRenameCat(oldCat) {
+    const newCat = prompt("أدخل الاسم الجديد للقسم:", oldCat);
+    if (!newCat || newCat.trim() === oldCat) return;
+    const { data } = await apiFetch("/api/admin/cat-rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ old_cat: oldCat, new_cat: newCat.trim() }) });
+    if (data.ok) {
+      if (_editCatImages[oldCat]) { _editCatImages[newCat.trim()] = _editCatImages[oldCat]; delete _editCatImages[oldCat]; }
+      ADM_DATA.products.forEach(p => {
+        const g = String(p.game || "").trim();
+        if (g === oldCat) p.game = newCat.trim();
+        else if (g.startsWith(oldCat + " | ")) p.game = newCat.trim() + g.slice(oldCat.length);
+      });
+      drawCatImagesGrid();
+      showToast("✅ تم تعديل اسم القسم بنجاح!");
+    }
+  }
+
+  async function adminDeleteCat(cat) {
+    if (!confirm("هل أنت متأكد من إخفاء/حذف قسم (" + cat + ") وجميع باقاته؟")) return;
+    const { data } = await apiFetch("/api/admin/cat-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cat }) });
+    if (data.ok) {
+      ADM_DATA.products.forEach(p => {
+        const g = String(p.game || "").trim();
+        if (g === cat || g.startsWith(cat + " | ")) p.active = false;
+      });
+      drawCatImagesGrid();
+      showToast("✅ تم إخفاء القسم بالكامل!");
+    }
+  }
+
+  function adminSubIcon(game) {
+    pickAndUploadImage(async u => {
+      const { data } = await apiFetch("/api/admin/sub-icon-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ game, icon: u }) });
+      if (data.ok) {
+        ADM_DATA.products.forEach(p => { if (String(p.game || "").trim() === game) p.icon = u; });
+        drawCatImagesGrid();
+        showToast("✅ تم تحديث صورة الفئة لجميع باقاتها!");
+      }
+    });
+  }
+
+  async function adminRenameSub(oldGame) {
+    const oldSub = oldGame.includes("|") ? oldGame.split("|").slice(1).join("|").trim() : oldGame;
+    const newSub = prompt("أدخل الاسم الجديد للفئة/اللعبة:", oldSub);
+    if (!newSub || newSub.trim() === oldSub) return;
+    const newGame = _catNav.cat + " | " + newSub.trim();
+    const { data } = await apiFetch("/api/admin/sub-rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ old_game: oldGame, new_game: newGame }) });
+    if (data.ok) {
+      ADM_DATA.products.forEach(p => { if (String(p.game || "").trim() === oldGame) p.game = newGame; });
+      drawCatImagesGrid();
+      showToast("✅ تم تعديل اسم الفئة بنجاح!");
+    }
+  }
+
+  async function adminDeleteSub(game) {
+    if (!confirm("هل أنت متأكد من إخفاء/حذف (" + game + ")؟")) return;
+    const { data } = await apiFetch("/api/admin/sub-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ game }) });
+    if (data.ok) {
+      ADM_DATA.products.forEach(p => { if (String(p.game || "").trim() === game) p.active = false; });
+      drawCatImagesGrid();
+      showToast("✅ تم إخفاء الفئة بالكامل!");
+    }
+  }
+
+  async function adminSaveSvc(pid) {
+    const pack = document.getElementById("svc-pack-" + pid).value.trim();
+    const price_usd = parseFloat(document.getElementById("svc-price-" + pid).value || "0");
+    const sku = document.getElementById("svc-sku-" + pid).value.trim();
+    const { data } = await apiFetch("/api/admin/product-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: pid, pack, price_usd, sku }) });
+    if (data.ok) {
+      const pr = ADM_DATA.products.find(x => x.id === pid);
+      if (pr) { pr.pack = pack; pr.price_usd = price_usd; pr.sku = sku; }
+      showToast("✅ تم حفظ بيانات الخدمة ورمز الربط!");
+    }
+  }
+
+  function adminSvcIcon(pid) {
+    pickAndUploadImage(async u => {
+      const { data } = await apiFetch("/api/admin/product-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: pid, icon: u }) });
+      if (data.ok) {
+        const pr = ADM_DATA.products.find(x => x.id === pid);
+        if (pr) pr.icon = u;
+        const im = document.getElementById("svc-img-" + pid);
+        if (im) im.src = u;
+        showToast("✅ تم تحديث صورة الخدمة!");
+      }
+    });
+  }
+
+  async function adminDelSvc(pid) {
+    if (!confirm("هل أنت متأكد من حذف هذه الخدمة نهائياً؟")) return;
+    const { data } = await apiFetch("/api/admin/product-del", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: pid }) });
+    if (data.ok) {
+      ADM_DATA.products = ADM_DATA.products.filter(x => x.id !== pid);
+      drawCatImagesGrid();
+      showToast("✅ تم حذف الخدمة!");
+    }
   }
 
   async function saveBannersSettings() {
