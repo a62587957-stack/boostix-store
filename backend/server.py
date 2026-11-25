@@ -978,14 +978,27 @@ class CloudHandler(BaseHTTPRequestHandler):
                     sup = _find_supplier_by_id(st, parts[1])
                     if sup and sup.get("api_url") and sup.get("api_key"):
                         try:
-                            qty = int(parts[3]) if len(parts) >= 4 and parts[3].isdigit() else 100
-                            sr = _supplier_http_post(sup["api_url"], {
+                            if len(parts) >= 4 and parts[-1].isdigit():
+                                qty = int(parts[-1])
+                                svc_id = ":".join(parts[2:-1])
+                            else:
+                                qty = 100
+                                svc_id = ":".join(parts[2:])
+                            payload = {
                                 "key": sup["api_key"],
                                 "action": "add",
-                                "service": parts[2],
-                                "link": player_id,
-                                "quantity": qty
-                            })
+                                "service": svc_id,
+                            }
+                            is_serva = "serva-s.com" in str(sup.get("api_url", "")).lower()
+                            is_social = "تواصل اجتماعي" in str(prod.get("game", "")) or str(player_id).strip().lower().startswith(("http://", "https://"))
+                            if is_serva and not is_social:
+                                payload["player_id"] = player_id
+                                if qty > 1:
+                                    payload["quantity"] = qty
+                            else:
+                                payload["link"] = player_id
+                                payload["quantity"] = qty
+                            sr = _supplier_http_post(sup["api_url"], payload)
                             if isinstance(sr, dict) and sr.get("order"):
                                 sup_order_id = str(sr["order"])
                                 sup_note = f"تم الإرسال التلقائي للمزود ({sup['name']}) رقم #{sup_order_id}"
@@ -1091,6 +1104,60 @@ class CloudHandler(BaseHTTPRequestHandler):
             if "icon" in body: patch["icon"] = str(body["icon"]).strip()[:500]
             if "active" in body: patch["active"] = bool(body["active"])
             sb_request("PATCH", f"/rest/v1/products?id=eq.{pid}", patch)
+            invalidate_cache("products")
+            self._json({"ok": True})
+            return
+
+        if p == "/api/admin/cat-rename":
+            old_cat = str(body.get("old_cat", "")).strip()[:100]
+            new_cat = str(body.get("new_cat", "")).strip()[:100]
+            if not old_cat or not new_cat or old_cat == new_cat:
+                self._json({"ok": False, "msg": "اسم القسم غير صالح"}, 400); return
+            prods = fetch_all_products(active_only=False)
+            for pr in prods:
+                if str(pr.get("sku", "")) == str(SETTINGS_SKU): continue
+                g = str(pr.get("game", "")).strip()
+                if g == old_cat:
+                    sb_request("PATCH", f"/rest/v1/products?id=eq.{pr['id']}", {"game": new_cat})
+                elif g.startswith(old_cat + " | "):
+                    ng = new_cat + g[len(old_cat):]
+                    sb_request("PATCH", f"/rest/v1/products?id=eq.{pr['id']}", {"game": ng[:150]})
+            invalidate_cache("products")
+            self._json({"ok": True})
+            return
+
+        if p == "/api/admin/cat-delete":
+            target_cat = str(body.get("cat", "")).strip()[:100]
+            if not target_cat:
+                self._json({"ok": False, "msg": "حدد القسم أولاً"}, 400); return
+            prods = fetch_all_products(active_only=False)
+            ids = [
+                str(pr["id"]) for pr in prods
+                if str(pr.get("sku", "")) != str(SETTINGS_SKU)
+                and (str(pr.get("game", "")).strip() == target_cat or str(pr.get("game", "")).strip().startswith(target_cat + " | "))
+            ]
+            for i in range(0, len(ids), 100):
+                chunk = ",".join(ids[i:i+100])
+                sb_request("PATCH", f"/rest/v1/products?id=in.({chunk})", {"active": False})
+            invalidate_cache("products")
+            self._json({"ok": True, "count": len(ids)})
+            return
+
+        if p == "/api/admin/sub-rename":
+            old_game = str(body.get("old_game", "")).strip()[:150]
+            new_game = str(body.get("new_game", "")).strip()[:150]
+            if not old_game or not new_game or old_game == new_game:
+                self._json({"ok": False, "msg": "الاسم غير صالح"}, 400); return
+            sb_request("PATCH", f"/rest/v1/products?game=eq.{quote(old_game)}", {"game": new_game})
+            invalidate_cache("products")
+            self._json({"ok": True})
+            return
+
+        if p == "/api/admin/sub-delete":
+            target_game = str(body.get("game", "")).strip()[:150]
+            if not target_game:
+                self._json({"ok": False, "msg": "حدد الفئة أولاً"}, 400); return
+            sb_request("PATCH", f"/rest/v1/products?game=eq.{quote(target_game)}", {"active": False})
             invalidate_cache("products")
             self._json({"ok": True})
             return
