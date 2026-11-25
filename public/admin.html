@@ -891,7 +891,8 @@
   async function adminRenameCat(oldCat) {
     const newCat = prompt("أدخل الاسم الجديد للقسم:", oldCat);
     if (!newCat || newCat.trim() === oldCat) return;
-    const { data } = await apiFetch("/api/admin/cat-rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ old_cat: oldCat, new_cat: newCat.trim() }) });
+    const { status, data } = await apiFetch("/api/admin/cat-rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ old_cat: oldCat, new_cat: newCat.trim() }) });
+    if (!data.ok) { showToast("❌ فشل التعديل (" + status + "): " + (data.msg || "خطأ في السيرفر"), true); return; }
     if (data.ok) {
       if (_editCatImages[oldCat]) { _editCatImages[newCat.trim()] = _editCatImages[oldCat]; delete _editCatImages[oldCat]; }
       ADM_DATA.products.forEach(p => {
@@ -906,7 +907,8 @@
 
   async function adminDeleteCat(cat) {
     if (!confirm("هل أنت متأكد من إخفاء/حذف قسم (" + cat + ") وجميع باقاته؟")) return;
-    const { data } = await apiFetch("/api/admin/cat-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cat }) });
+    const { status, data } = await apiFetch("/api/admin/cat-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cat }) });
+    if (!data.ok) { showToast("❌ فشل الحذف (" + status + "): " + (data.msg || "تأكد من رفع server.py وتحديث Render"), true); return; }
     if (data.ok) {
       ADM_DATA.products.forEach(p => {
         const g = String(p.game || "").trim();
@@ -933,7 +935,8 @@
     const newSub = prompt("أدخل الاسم الجديد للفئة/اللعبة:", oldSub);
     if (!newSub || newSub.trim() === oldSub) return;
     const newGame = _catNav.cat + " | " + newSub.trim();
-    const { data } = await apiFetch("/api/admin/sub-rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ old_game: oldGame, new_game: newGame }) });
+    const { status, data } = await apiFetch("/api/admin/sub-rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ old_game: oldGame, new_game: newGame }) });
+    if (!data.ok) { showToast("❌ فشل تعديل الفئة (" + status + "): " + (data.msg || "خطأ في السيرفر"), true); return; }
     if (data.ok) {
       ADM_DATA.products.forEach(p => { if (String(p.game || "").trim() === oldGame) p.game = newGame; });
       drawCatImagesGrid();
@@ -943,7 +946,8 @@
 
   async function adminDeleteSub(game) {
     if (!confirm("هل أنت متأكد من إخفاء/حذف (" + game + ")؟")) return;
-    const { data } = await apiFetch("/api/admin/sub-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ game }) });
+    const { status, data } = await apiFetch("/api/admin/sub-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ game }) });
+    if (!data.ok) { showToast("❌ فشل حذف الفئة (" + status + "): " + (data.msg || "خطأ في السيرفر"), true); return; }
     if (data.ok) {
       ADM_DATA.products.forEach(p => { if (String(p.game || "").trim() === game) p.active = false; });
       drawCatImagesGrid();
