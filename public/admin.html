@@ -225,10 +225,16 @@
     </div>
 
     <div class="panel">
-      <h3 style="color:var(--cyan);">👥 المستخدمون وإدارة الأرصدة</h3>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+        <h3 style="color:var(--cyan); margin:0;">👥 المستخدمون وكشف الحساب بالـ ID</h3>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <input type="text" id="usr-search-inp" oninput="filterAdminUsers()" placeholder="🔍 ابحث بـ ID (مثل BX-123456) أو الاسم أو الإيميل..." style="min-width:250px; padding:8px 12px; border-radius:10px; border:1px solid var(--cyan); background:var(--input-bg, #0f172a); color:#fff; font-size:13px;">
+          <button class="btn btn-cyan btn-sm" onclick="openUserStatementBySearch()">📋 كشف حساب</button>
+        </div>
+      </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>الاسم</th><th>البريد الإلكتروني</th><th>الرصيد</th><th>تاريخ التسجيل</th><th>إجراء</th></tr></thead>
+          <thead><tr><th>الـ ID</th><th>الاسم</th><th>البريد الإلكتروني</th><th>الرصيد</th><th>تاريخ التسجيل</th><th>إجراء</th></tr></thead>
           <tbody id="adm-usrs-tb"></tbody>
         </table>
       </div>
@@ -615,14 +621,8 @@
     document.getElementById("bdg-deps").textContent = pendDeps;
 
     // Users
-    document.getElementById("adm-usrs-tb").innerHTML = usrs.map(u => `
-      <tr>
-        <td><b>${esc(u.name)}</b></td>
-        <td dir="ltr" style="font-size:11.5px; color:var(--muted);">${esc(u.email)}</td>
-        <td style="color:#22c55e; font-weight:900; direction:ltr;">$${Number(u.balance || 0).toFixed(2)}</td>
-        <td dir="ltr" style="font-size:11px;">${esc(u.created_at)}</td>
-        <td><button class="btn btn-gold btn-sm" onclick='adjustUserBalance(${JSON.stringify(u.id)}, ${JSON.stringify(u.name)})'>💰 تعديل الرصيد</button></td>
-      </tr>`).join("") || `<tr><td colspan="5" style="text-align:center; color:var(--muted);">لا يوجد مستخدمون بعد</td></tr>`;
+    window._ALL_ADM_USERS = usrs;
+    renderAdminUsersTable(usrs);
 
     // Incoming webhook transfers
     const trs = ADM_DATA.incomingTransfers || [];
@@ -1244,5 +1244,133 @@
 
   loadOverview(true);
 </script>
+
+<!-- User Statement Modal -->
+<div id="usr-stmt-modal" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(3,7,18,0.82); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:14px;">
+  <div style="background:#0f172a; border:1px solid rgba(0,229,255,0.4); border-radius:16px; width:min(96vw, 860px); max-height:90vh; overflow-y:auto; padding:18px; box-shadow:0 20px 50px rgba(0,0,0,0.65);">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px; margin-bottom:14px;">
+      <h3 id="stmt-title" style="margin:0; color:var(--cyan);">📋 كشف حساب المستخدم</h3>
+      <button class="btn btn-rose btn-sm" onclick="document.getElementById('usr-stmt-modal').style.display='none'">✖ إغلاق</button>
+    </div>
+    <div id="stmt-body"></div>
+  </div>
+</div>
+
+<script id="bx-admin-stmt-js">
+function renderAdminUsersTable(list) {
+  const tb = document.getElementById("adm-usrs-tb");
+  if (!tb) return;
+  tb.innerHTML = (list || []).map(u => `
+    <tr>
+      <td><code style="color:var(--cyan); font-weight:900; font-size:12px;">${esc(u.short_id || u.id)}</code></td>
+      <td><b>${esc(u.name)}</b></td>
+      <td dir="ltr" style="font-size:11.5px; color:var(--muted);">${esc(u.email)}</td>
+      <td style="color:#22c55e; font-weight:900; direction:ltr;">$${Number(u.balance || 0).toFixed(2)}</td>
+      <td dir="ltr" style="font-size:11px;">${esc(u.created_at)}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-cyan btn-sm" onclick='openUserStatement(${JSON.stringify(u.id)})'>📋 كشف حساب</button>
+        <button class="btn btn-gold btn-sm" onclick='adjustUserBalance(${JSON.stringify(u.id)}, ${JSON.stringify(u.name)})'>💰 رصيد</button>
+      </td>
+    </tr>`).join("") || `<tr><td colspan="6" style="text-align:center; color:var(--muted);">لا توجد نتائج مطابقة</td></tr>`;
+}
+
+function filterAdminUsers() {
+  const q = (document.getElementById("usr-search-inp")?.value || "").trim().toLowerCase();
+  const all = window._ALL_ADM_USERS || [];
+  if (!q) return renderAdminUsersTable(all);
+  const filtered = all.filter(u =>
+    String(u.short_id || "").toLowerCase().includes(q) ||
+    String(u.id || "").toLowerCase().includes(q) ||
+    String(u.name || "").toLowerCase().includes(q) ||
+    String(u.email || "").toLowerCase().includes(q)
+  );
+  renderAdminUsersTable(filtered);
+}
+
+function openUserStatementBySearch() {
+  const q = (document.getElementById("usr-search-inp")?.value || "").trim().toLowerCase();
+  const all = window._ALL_ADM_USERS || [];
+  if (!q) return alert("أدخل رقم الـ ID (مثل BX-123456) أو الاسم أو الإيميل أولاً");
+  const u = all.find(x =>
+    String(x.short_id || "").toLowerCase() === q ||
+    String(x.id || "").toLowerCase() === q ||
+    String(x.short_id || "").toLowerCase().includes(q) ||
+    String(x.name || "").toLowerCase().includes(q) ||
+    String(x.email || "").toLowerCase().includes(q)
+  );
+  if (!u) return alert("❌ لم يتم العثور على مستخدم مطابق لهذا الـ ID");
+  openUserStatement(u.id);
+}
+
+function openUserStatement(uid) {
+  const all = window._ALL_ADM_USERS || [];
+  const u = all.find(x => String(x.id) === String(uid));
+  if (!u) return;
+
+  const deps = (ADM_DATA.deposits || []).filter(d => String(d.user_id || "") === String(u.id) || (d.user_name && d.user_name === u.name));
+  const ords = (ADM_DATA.orders || []).filter(o => String(o.user_id || "") === String(u.id) || (o.user_name && o.user_name === u.name));
+
+  const sumOkDeps = deps.filter(d => d.status === "مقبول").reduce((a, b) => a + Number(b.amount_usd || 0), 0);
+  const sumOrds = ords.filter(o => o.status !== "مرفوض من المورد").reduce((a, b) => a + Number(b.price_usd || 0), 0);
+
+  document.getElementById("stmt-title").innerHTML = `📋 كشف حساب: ${esc(u.name)} <code style="color:var(--gold); margin-right:8px;">${esc(u.short_id || u.id)}</code>`;
+  document.getElementById("stmt-body").innerHTML = `
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; margin-bottom:16px;">
+      <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:12px;">
+        <div style="font-size:12px; color:var(--muted);">💰 الرصيد الحالي</div>
+        <div style="font-size:20px; font-weight:900; color:#22c55e; direction:ltr;">$${Number(u.balance || 0).toFixed(2)}</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:12px;">
+        <div style="font-size:12px; color:var(--muted);">💳 إجمالي الإيداعات المقبولة</div>
+        <div style="font-size:20px; font-weight:900; color:var(--gold); direction:ltr;">$${sumOkDeps.toFixed(2)}</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:12px;">
+        <div style="font-size:12px; color:var(--muted);">🛒 إجمالي المشتريات</div>
+        <div style="font-size:20px; font-weight:900; color:var(--cyan); direction:ltr;">$${sumOrds.toFixed(2)}</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:12px;">
+        <div style="font-size:12px; color:var(--muted);">📧 البريد الإلكتروني</div>
+        <div style="font-size:12px; color:#e2e8f0; word-break:break-all; direction:ltr;">${esc(u.email)}</div>
+      </div>
+    </div>
+
+    <h4 style="color:var(--gold); margin:12px 0 8px;">💳 سجل الإيداعات (${deps.length})</h4>
+    <div class="tbl-wrap" style="margin-bottom:16px;">
+      <table>
+        <thead><tr><th>#</th><th>الوسيلة</th><th>المبلغ</th><th>رقم العملية (TX)</th><th>الحالة</th><th>التاريخ</th></tr></thead>
+        <tbody>
+          ${deps.map(d => `<tr>
+            <td>#${d.id}</td>
+            <td>${esc(d.method)}</td>
+            <td dir="ltr" style="color:var(--gold); font-weight:900;">$${Number(d.amount_usd || 0).toFixed(2)}</td>
+            <td><code style="color:var(--cyan);">${esc(d.tx_id)}</code></td>
+            <td><span class="badge ${d.status==='مقبول'?'b-ok':(d.status==='معلق'?'b-wait':'b-err')}">${esc(d.status)}</span></td>
+            <td dir="ltr" style="font-size:11px;">${esc(d.date || d.created_at || '')}</td>
+          </tr>`).join("") || '<tr><td colspan="6" style="text-align:center; color:var(--muted);">لا توجد إيداعات لهذا المستخدم</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+
+    <h4 style="color:var(--cyan); margin:12px 0 8px;">📦 سجل المشتريات والطلبات (${ords.length})</h4>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>#</th><th>الخدمة / الباقة</th><th>الـ ID / الحساب</th><th>السعر</th><th>الحالة</th><th>التاريخ</th></tr></thead>
+        <tbody>
+          ${ords.map(o => `<tr>
+            <td>#${o.id}</td>
+            <td><b>${esc(o.game)}</b><br><small>${esc(o.pack_name)}</small></td>
+            <td><code style="color:var(--cyan);">${esc(o.player_id)}</code></td>
+            <td dir="ltr" style="font-weight:900;">$${Number(o.price_usd || 0).toFixed(2)}</td>
+            <td><span class="badge ${o.status==='مكتمل'?'b-ok':(o.status==='قيد التنفيذ'?'b-wait':'b-err')}">${esc(o.status)}</span></td>
+            <td dir="ltr" style="font-size:11px;">${esc(o.date || o.created_at || '')}</td>
+          </tr>`).join("") || '<tr><td colspan="6" style="text-align:center; color:var(--muted);">لا توجد مشتريات لهذا المستخدم</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  `;
+  document.getElementById("usr-stmt-modal").style.display = "flex";
+}
+</script>
+
 </body>
 </html>
