@@ -484,6 +484,95 @@ def _auto_approve_deposit_by_tx(tx_id, paid_amt, currency):
             return True, f"approved_deposit_{d['id']}_new_balance_{nb}"
     return False, "race_or_update_failed"
 
+
+# ==================== Telegram Bot Notifications & Webhook ====================
+def _tg_cfg():
+    token = str(os.environ.get("TG_BOT_TOKEN", "")).strip()
+    chat_id = str(os.environ.get("TG_CHAT_ID", "")).strip()
+    return token, chat_id
+
+def _tg_api(method, payload):
+    token, _ = _tg_cfg()
+    if not token:
+        return None
+    try:
+        import urllib.request
+        url = f"https://api.telegram.org/bot{token}/{method}"
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return json.loads(resp.read().decode("utf-8", errors="ignore"))
+    except Exception:
+        return None
+
+def _tg_notify(text, reply_markup=None):
+    token, chat_id = _tg_cfg()
+    if not token or not chat_id:
+        return
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    import threading
+    threading.Thread(target=_tg_api, args=("sendMessage", payload), daemon=True).start()
+
+def _tg_register_webhook():
+    token, _ = _tg_cfg()
+    if not token:
+        return
+    base = str(os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("PUBLIC_URL") or "https://boostix-store.onrender.com").rstrip("/")
+    _tg_api("setWebhook", {"url": f"{base}/api/telegram/webhook", "allowed_updates": ["callback_query", "message"]})
+
+def _tg_handle_webhook(body):
+    token, admin_chat = _tg_cfg()
+    if not token or not admin_chat:
+        return
+    cq = body.get("callback_query")
+    if not isinstance(cq, dict):
+        return
+    from_id = str((cq.get("from") or {}).get("id", ""))
+    if from_id != admin_chat:
+        _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "غير مصرح لك", "show_alert": True})
+        return
+    data = str(cq.get("data") or "")
+    msg = cq.get("message") or {}
+    chat_id = (msg.get("chat") or {}).get("id")
+    msg_id = msg.get("message_id")
+    orig_text = msg.get("text") or ""
+
+    if data.startswith("dep_ok:") or data.startswith("dep_no:"):
+        dec = "مقبول" if data.startswith("dep_ok:") else "مرفوض"
+        try:
+            did = int(data.split(":", 1)[1])
+        except Exception:
+            return
+        updated = sb_request(
+            "PATCH",
+            f"/rest/v1/deposits?id=eq.{did}&status=eq.{quote('معلق')}",
+            {"status": dec},
+            prefer_rep=True
+        )
+        if isinstance(updated, list) and len(updated) == 1:
+            d = updated[0]
+            if dec == "مقبول":
+                uid_q = quote(str(d["user_id"]))
+                usrs = sb_request("GET", f"/rest/v1/users?id=eq.{uid_q}&select=balance")
+                if isinstance(usrs, list) and usrs:
+                    nb = round(float(usrs[0]["balance"]) + float(d["amount_usd"]), 2)
+                    sb_request("PATCH", f"/rest/v1/users?id=eq.{uid_q}", {"balance": nb})
+                status_line = f"\n\n✅ <b>تم القبول وشحن الرصيد (+${float(d['amount_usd']):.2f})</b>"
+                alert = "تم قبول الإيداع وشحن الرصيد بنجاح"
+            else:
+                status_line = "\n\n❌ <b>تم رفض طلب الإيداع</b>"
+                alert = "تم رفض الإيداع"
+            _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": alert})
+            if chat_id and msg_id:
+                _tg_api("editMessageText", {"chat_id": chat_id, "message_id": msg_id, "text": orig_text + status_line, "parse_mode": "HTML"})
+        else:
+            _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "تمت معالجة هذا الطلب مسبقاً", "show_alert": True})
+            if chat_id and msg_id:
+                _tg_api("editMessageReplyMarkup", {"chat_id": chat_id, "message_id": msg_id, "reply_markup": {"inline_keyboard": []}})
+# ==============================================================================
+
 class CloudHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         return
@@ -868,10 +957,11 @@ class CloudHandler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "msg": "رقم عملية التحويل هذا مسجل مسبقاً!"}, 400); return
 
             is_local_auto = any(k in method for k in ["شام كاش", "سيريتل", "سيرياتيل"])
-            if is_local_auto:
+            if is_local_auto and not _tg_cfg()[0]:
                 if tx not in INCOMING_TRANSFERS:
                     self._json({"ok": False, "msg": "لا يوجد رقم عملية مطابق حالياً! تأكد من الرقم أو انتظر دقيقة بعد التحويل وأعد المحاولة."}, 400)
                     return
+            if is_local_auto and tx in INCOMING_TRANSFERS:
                 tr = INCOMING_TRANSFERS[tx]
                 syp_rate = float(os.environ.get("SYP_RATE", "15000"))
                 paid_usd = tr["amount"] if tr["currency"] == "USD" else (tr["amount"] / syp_rate)
@@ -879,7 +969,7 @@ class CloudHandler(BaseHTTPRequestHandler):
                     self._json({"ok": False, "msg": f"المبلغ المستلم (${paid_usd:.2f}) أقل من قيمة الفاتورة (${amt:.2f})!"}, 400)
                     return
 
-            sb_request("POST", "/rest/v1/deposits", {
+            created_dep = sb_request("POST", "/rest/v1/deposits", {
                 "user_id": u["id"],
                 "user_name": str(u["name"])[:100],
                 "amount_usd": amt,
@@ -887,13 +977,24 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "tx_id": tx,
                 "status": "معلق"
             }, prefer_rep=True)
+            dep_id = created_dep[0]["id"] if isinstance(created_dep, list) and created_dep else None
             auto_ok = False
             if tx in INCOMING_TRANSFERS:
                 tr = INCOMING_TRANSFERS[tx]
                 auto_ok, _ = _auto_approve_deposit_by_tx(tx, tr["amount"], tr["currency"])
                 if auto_ok:
                     INCOMING_TRANSFERS.pop(tx, None)
+            if auto_ok:
+                _tg_notify(f"💰 <b>إيداع تلقائي مقبول</b>\n👤 العميل: {u['name']}\n💵 المبلغ: <b>${amt:.2f}</b>\n🏦 الطريقة: {method}\n🔢 رقم العملية: <code>{tx}</code>")
+            elif dep_id:
+                kb = {"inline_keyboard": [[{"text": "✅ قبول وشحن", "callback_data": f"dep_ok:{dep_id}"}, {"text": "❌ رفض", "callback_data": f"dep_no:{dep_id}"}]]}
+                _tg_notify(f"🔔 <b>طلب إيداع جديد #{dep_id}</b>\n👤 العميل: {u['name']}\n💵 المبلغ: <b>${amt:.2f}</b>\n🏦 الطريقة: {method}\n🔢 رقم العملية: <code>{tx}</code>", reply_markup=kb)
             self._json({"ok": True, "auto_approved": auto_ok})
+            return
+
+        if p == "/api/telegram/webhook":
+            _tg_handle_webhook(body)
+            self._json({"ok": True})
             return
 
         if p == "/api/webhook/local-pay":
@@ -1022,6 +1123,14 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "supplier_order_id": sup_order_id,
                 "supplier_note": sup_note
             }, prefer_rep=True)
+            _tg_notify(
+                f"🛒 <b>طلب شراء جديد</b>\n"
+                f"👤 العميل: {u['name']}\n"
+                f"🎮 الباقة: {prod['pack']}\n"
+                f"🆔 المعرف: <code>{player_id}</code>\n"
+                f"💵 السعر: <b>${price:.2f}</b> (ربح: ${profit:.2f})\n"
+                f"📡 الحالة: {sup_note}"
+            )
             self._json({"ok": True})
             return
 
@@ -1317,5 +1426,7 @@ class CloudHandler(BaseHTTPRequestHandler):
         self._json({"ok": False, "msg": "Not Found"}, 404)
 
 if __name__ == "__main__":
+    import threading
+    threading.Thread(target=_tg_register_webhook, daemon=True).start()
     ThreadingHTTPServer.allow_reuse_address = True
     ThreadingHTTPServer(("0.0.0.0", PORT), CloudHandler).serve_forever()
