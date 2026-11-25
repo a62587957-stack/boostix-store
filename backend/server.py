@@ -991,7 +991,7 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "ok": True,
                 "supabaseUrl": SUPABASE_URL,
                 "supabaseAnonKey": SUPABASE_PUB,
-                "user": (dict(u_dict, short_id=_short_uid(u_dict.get("id"))) if isinstance(u_dict, dict) else u_dict),
+                "user": (dict(u_dict, short_id=_short_uid(u_dict.get("id") or u_dict.get("email"))) if isinstance(u_dict, dict) else u_dict),
                 "products": prods,
                 "catalogTree": cat_tree,
                 "myOrders": my_ords,
