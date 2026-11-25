@@ -511,9 +511,9 @@ def _short_uid(uid):
     import hashlib
     s = str(uid or "").strip()
     if not s:
-        return "BX-000000"
+        return "#00000"
     h = int(hashlib.sha256(s.encode("utf-8")).hexdigest()[:8], 16)
-    return f"BX-{100000 + (h % 899999)}"
+    return f"#{10000 + (h % 89999)}"
 
 def _tg_staff_ids():
     raw = str(os.environ.get("TG_STAFF_CHAT_ID") or "").strip()
