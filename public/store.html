@@ -484,8 +484,129 @@
     .inv-copy-pill { background:var(--input-bg); border:1.5px dashed var(--cyan); border-radius:14px; padding:12px 14px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:8px; cursor:pointer; }
 
   </style>
+
+<style id="bx-custom-ui">
+/* 1. شاشة التحميل باللوجو الدائري المتحرك */
+.bx-loader-box {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 46px 16px;
+  gap: 14px;
+}
+.bx-logo-ring {
+  position: relative;
+  width: 112px;
+  height: 112px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bx-logo-ring::before {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #00e5ff, #a855f7, #00e5ff 40%, transparent 65%, transparent);
+  animation: bxSpin 1.1s linear infinite;
+  filter: drop-shadow(0 0 10px rgba(0, 229, 255, 0.55));
+}
+.bx-logo-ring::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background: #0b1020;
+}
+.bx-logo-ring img {
+  position: relative;
+  z-index: 2;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  animation: bxPulse 1.8s ease-in-out infinite;
+  box-shadow: 0 0 18px rgba(168, 85, 247, 0.35);
+}
+@keyframes bxSpin { to { transform: rotate(360deg); } }
+@keyframes bxPulse {
+  0%, 100% { transform: scale(0.96); opacity: 0.92; }
+  50% { transform: scale(1.03); opacity: 1; }
+}
+
+/* 2. إشعارات المتجر الداخلية (بديل alert) */
+#bxToastWrap {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(92vw, 410px);
+  pointer-events: none;
+}
+.bx-toast {
+  pointer-events: auto;
+  background: rgba(13, 19, 38, 0.96);
+  backdrop-filter: blur(12px);
+  color: #f1f5f9;
+  border: 1px solid rgba(0, 229, 255, 0.38);
+  border-right: 4px solid #00e5ff;
+  border-radius: 14px;
+  padding: 13px 16px;
+  font-size: 14px;
+  line-height: 1.55;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  white-space: pre-line;
+  animation: bxToastIn 0.22s ease-out;
+  cursor: pointer;
+}
+.bx-toast.ok { border-color: rgba(34, 197, 94, 0.45); border-right-color: #22c55e; }
+.bx-toast.err { border-color: rgba(239, 68, 68, 0.45); border-right-color: #ef4444; }
+@keyframes bxToastIn {
+  from { opacity: 0; transform: translateY(-12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+</style>
+
 </head>
 <body>
+
+<script id="bx-custom-toast-js">
+(function(){
+  function showBxToast(msg) {
+    let wrap = document.getElementById("bxToastWrap");
+    if (!wrap) {
+      wrap = document.createElement("div");
+      wrap.id = "bxToastWrap";
+      document.body.appendChild(wrap);
+    }
+    const text = String(msg ?? "").trim();
+    if (!text) return;
+    const el = document.createElement("div");
+    let cls = "bx-toast";
+    if (text.includes("✅")) cls += " ok";
+    else if (text.includes("⚠️") || text.includes("❌") || text.includes("خطأ") || text.includes("يرجى")) cls += " err";
+    el.className = cls;
+    el.textContent = text;
+    el.onclick = () => el.remove();
+    wrap.appendChild(el);
+    setTimeout(() => {
+      el.style.transition = "opacity 0.25s ease, transform 0.25s ease";
+      el.style.opacity = "0";
+      el.style.transform = "translateY(-8px)";
+      setTimeout(() => el.remove(), 260);
+    }, 3600);
+  }
+  window.showBxToast = showBxToast;
+  window.alert = showBxToast;
+})();
+</script>
+
 
 <!-- Top Header -->
 <header class="topbar">
@@ -576,7 +697,7 @@
         <div class="sec-line"></div>
       </div>
       <div class="cat-grid" id="main-cats-grid">
-        <div class="panel" style="grid-column:1/-1; text-align:center; color:var(--cyan);">⏳ جاري تحميل أقسام Boostix Store...</div>
+        <div class="bx-loader-box"><div class="bx-logo-ring"><img src="/boostix-loader.png" alt="Boostix Store"></div></div>
       </div>
 
       <div class="promo-wrap" id="promo-banner-box" onclick="onPromoBannerClick()">
