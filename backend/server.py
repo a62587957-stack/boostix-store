@@ -1132,6 +1132,8 @@ class CloudHandler(BaseHTTPRequestHandler):
                     "id": u["id"],
                     "name": u["name"],
                     "email": u["email"],
+                    "phone": u.get("phone") or "",
+                    "avatar_url": u.get("avatar_url") or "",
                     "balance": float(u["balance"]),
                     "role": u.get("role", "customer")
                 }
@@ -1257,6 +1259,40 @@ class CloudHandler(BaseHTTPRequestHandler):
             return
 
         # 2. مسارات الزبائن (مع Rate Limit وقفل مالي ضد الشراء المتزامن)
+        if p == "/api/customer/profile":
+            if not check_rate_limit(ip, "profile", 20, 60):
+                self._json({"ok": False, "msg": "طلبات كثيرة، انتظر لحظة"}, 429); return
+            u = self._auth_user()
+            if not u:
+                self._json({"ok": False, "msg": "Unauthorized"}, 401); return
+            body = self._read_json() or {}
+            patch = {}
+            if "name" in body:
+                nm = str(body.get("name") or "").strip()[:60]
+                if len(nm) < 2:
+                    self._json({"ok": False, "msg": "الاسم قصير جداً"}, 400); return
+                patch["name"] = nm
+            if "phone" in body:
+                ph = str(body.get("phone") or "").strip()[:25]
+                if ph and len(ph) < 7:
+                    self._json({"ok": False, "msg": "يرجى إدخال رقم اتصال صحيح"}, 400); return
+                patch["phone"] = ph
+            if "avatar_url" in body:
+                av = str(body.get("avatar_url") or "").strip()
+                if av and not (av.startswith("data:image/") or av.startswith("https://")):
+                    self._json({"ok": False, "msg": "صيغة الصورة غير مدعومة"}, 400); return
+                if len(av) > 350000:
+                    self._json({"ok": False, "msg": "حجم الصورة كبير جداً"}, 400); return
+                patch["avatar_url"] = av
+            if not patch:
+                self._json({"ok": False, "msg": "لا توجد بيانات للتحديث"}, 400); return
+            uid_q = quote(str(u["id"]))
+            res = sb_request("PATCH", f"/rest/v1/users?id=eq.{uid_q}", patch)
+            if isinstance(res, dict) and res.get("error"):
+                self._json({"ok": False, "msg": "تعذر الحفظ — تأكد من إضافة أعمدة phone و avatar_url في Supabase"}, 500); return
+            self._json({"ok": True, "updated": patch})
+            return
+
         if p == "/api/customer/deposit":
             if not check_rate_limit(ip, "deposit", 10, 300):
                 self._json({"ok": False, "msg": "تم إرسال طلبات كثيرة، انتظر قليلاً"}, 429); return
