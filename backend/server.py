@@ -101,6 +101,28 @@ def invalidate_cache(kind="all"):
         if kind in ("all", "settings"):
             _CACHE["settings"] = {"ts": 0, "data": None}
 
+
+def _is_sonic8(api_url):
+    return "sonic8store.com" in str(api_url or "").lower()
+
+def _sonic8_get(api_url, api_key, endpoint_path, timeout=15):
+    import urllib.parse
+    p = urllib.parse.urlparse(str(api_url).strip())
+    base = f"{p.scheme or 'https'}://{p.netloc or 'api.sonic8store.com'}"
+    full_url = base.rstrip("/") + endpoint_path
+    req = urllib.request.Request(
+        full_url,
+        headers={
+            "api-token": str(api_key).strip(),
+            "Accept": "application/json",
+            "User-Agent": "BoostixStore/2.0",
+        },
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        raw = r.read().decode("utf-8", errors="ignore")
+    return json.loads(raw)
+
 def _supplier_http_post(url, form_data, timeout=15):
     data = urlencode(form_data).encode("utf-8")
     req = urllib.request.Request(url, data=data, method="POST")
@@ -648,7 +670,7 @@ def _tg_build_report(rep_type):
                 lines.append(f"⚙️ <b>{name}</b>: بيانات API غير مكتملة")
                 continue
             try:
-                res = _supplier_http_post(api_url, {"key": api_key, "action": "balance"}, timeout=8)
+                res = _sonic8_get(api_url, api_key, "/client/api/profile", timeout=8) if _is_sonic8(api_url) else _supplier_http_post(api_url, {"key": api_key, "action": "balance"}, timeout=8)
                 if isinstance(res, dict) and "balance" in res:
                     bal_val = float(str(res.get("balance")).replace(",", "").strip())
                     cur = str(res.get("currency") or "USD").strip()
@@ -1351,6 +1373,21 @@ class CloudHandler(BaseHTTPRequestHandler):
             self._json({"ok": True})
             return
 
+        if p == "/api/webhook/sonic8":
+            try:
+                d = body.get("data") if isinstance(body.get("data"), dict) else body
+                oid = str(d.get("order_id") or body.get("order_id") or "").strip()
+                st_raw = str(d.get("status") or body.get("status") or "").strip().lower()
+                if oid and st_raw in ("accept", "reject"):
+                    new_st = "مكتمل" if st_raw == "accept" else "مرفوض"
+                    note = f"تحديث تلقائي من Sonic8Store: {st_raw}"
+                    sb_request("PATCH", f"/rest/v1/orders?supplier_order_id=eq.{urllib.parse.quote(oid)}", {"status": new_st, "supplier_note": note})
+                    _tg_notify(f"🔔 <b>تحديث طلب Sonic8Store</b>\n🆔 رقم المورد: <code>{oid}</code>\n📌 الحالة: <b>{new_st}</b>")
+                self._json({"ok": True})
+            except Exception as e:
+                self._json({"ok": False, "error": str(e)[:120]}, 500)
+            return
+
         if p == "/api/webhook/local-pay":
             sec = str(body.get("secret") or self.headers.get("X-Webhook-Secret") or "").strip()
             if sec != LOCAL_PAY_SECRET:
@@ -1439,26 +1476,39 @@ class CloudHandler(BaseHTTPRequestHandler):
                             else:
                                 qty = 100
                                 svc_id = ":".join(parts[2:])
-                            payload = {
-                                "key": sup["api_key"],
-                                "action": "add",
-                                "service": svc_id,
-                            }
-                            is_serva = "serva-s.com" in str(sup.get("api_url", "")).lower()
-                            is_social = "تواصل اجتماعي" in str(prod.get("game", "")) or str(player_id).strip().lower().startswith(("http://", "https://"))
-                            if is_serva and not is_social:
-                                payload["player_id"] = player_id
-                                if qty > 1:
+                            if _is_sonic8(sup["api_url"]):
+                                import uuid as _uuid, urllib.parse as _up
+                                s_qty = int(parts[-1]) if (len(parts) >= 4 and parts[-1].isdigit()) else 1
+                                o_uuid = str(_uuid.uuid4())
+                                q_str = _up.urlencode({"qty": s_qty, "playerId": str(player_id).strip(), "order_uuid": o_uuid})
+                                sr = _sonic8_get(sup["api_url"], sup["api_key"], f"/client/api/newOrder/{svc_id}/params?{q_str}", timeout=20)
+                                if isinstance(sr, dict) and str(sr.get("status", "")).upper() == "OK" and isinstance(sr.get("data"), dict):
+                                    sup_order_id = str(sr["data"].get("order_id") or o_uuid)
+                                    s_st = sr["data"].get("status", "wait")
+                                    sup_note = f"تم الإرسال التلقائي إلى Sonic8Store رقم #{sup_order_id} ({s_st})"
+                                else:
+                                    sup_note = f"رد Sonic8Store: {str(sr)[:140]}"
+                            else:
+                                payload = {
+                                    "key": sup["api_key"],
+                                    "action": "add",
+                                    "service": svc_id,
+                                }
+                                is_serva = "serva-s.com" in str(sup.get("api_url", "")).lower()
+                                is_social = "تواصل اجتماعي" in str(prod.get("game", "")) or str(player_id).strip().lower().startswith(("http://", "https://"))
+                                if is_serva and not is_social:
+                                    payload["player_id"] = player_id
+                                    if qty > 1:
+                                        payload["quantity"] = qty
+                                else:
+                                    payload["link"] = player_id
                                     payload["quantity"] = qty
-                            else:
-                                payload["link"] = player_id
-                                payload["quantity"] = qty
-                            sr = _supplier_http_post(sup["api_url"], payload)
-                            if isinstance(sr, dict) and sr.get("order"):
-                                sup_order_id = str(sr["order"])
-                                sup_note = f"تم الإرسال التلقائي للمزود ({sup['name']}) رقم #{sup_order_id}"
-                            else:
-                                sup_note = f"رد المزود: {str(sr)[:140]}"
+                                sr = _supplier_http_post(sup["api_url"], payload)
+                                if isinstance(sr, dict) and sr.get("order"):
+                                    sup_order_id = str(sr["order"])
+                                    sup_note = f"تم الإرسال التلقائي للمزود ({sup['name']}) رقم #{sup_order_id}"
+                                else:
+                                    sup_note = f"رد المزود: {str(sr)[:140]}"
                         except Exception as ex:
                             sup_note = f"تعذر الإرسال التلقائي للمزود: {str(ex)[:120]}"
 
@@ -1671,7 +1721,10 @@ class CloudHandler(BaseHTTPRequestHandler):
             if not api_url or not api_key:
                 self._json({"ok": False, "msg": "أدخل رابط API ومفتاح المزود أولاً"}, 400); return
             try:
-                if stype == "smm":
+                if _is_sonic8(api_url):
+                    resp = _sonic8_get(api_url, api_key, "/client/api/profile", timeout=15)
+                    self._json({"ok": True, "result": resp})
+                elif stype == "smm":
                     resp = _supplier_http_post(api_url, {"key": api_key, "action": "balance"})
                     self._json({"ok": True, "result": resp})
                 else:
@@ -1689,9 +1742,20 @@ class CloudHandler(BaseHTTPRequestHandler):
             if not api_url or not api_key:
                 self._json({"ok": False, "msg": "أدخل رابط API ومفتاح المزود"}, 400); return
             try:
-                resp = _supplier_http_post(api_url, {"key": api_key, "action": "services"}, timeout=25)
-                services = resp[:250] if isinstance(resp, list) else []
-                self._json({"ok": True, "total": len(resp) if isinstance(resp, list) else 0, "services": services})
+                if _is_sonic8(api_url):
+                    resp = _sonic8_get(api_url, api_key, "/client/api/products", timeout=25)
+                    mapped = []
+                    if isinstance(resp, list):
+                        for it in resp:
+                            if not isinstance(it, dict): continue
+                            qv = it.get("qty_values")
+                            mn, mx = (qv.get("min", 1), qv.get("max", 1)) if isinstance(qv, dict) else ((qv[0], qv[-1]) if isinstance(qv, list) and qv else (1, 1))
+                            mapped.append({"service": it.get("id"), "name": it.get("name", ""), "category": it.get("category_name", "Sonic8Store"), "rate": it.get("price", "0"), "min": mn, "max": mx, "available": it.get("available", True)})
+                    self._json({"ok": True, "total": len(mapped), "services": mapped[:250]})
+                else:
+                    resp = _supplier_http_post(api_url, {"key": api_key, "action": "services"}, timeout=25)
+                    services = resp[:250] if isinstance(resp, list) else []
+                    self._json({"ok": True, "total": len(resp) if isinstance(resp, list) else 0, "services": services})
             except Exception as e:
                 self._json({"ok": False, "msg": f"تعذر جلب الخدمات: {str(e)[:180]}"}, 400)
             return
