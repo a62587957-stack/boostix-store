@@ -1265,7 +1265,6 @@ class CloudHandler(BaseHTTPRequestHandler):
             u = self._auth_user()
             if not u:
                 self._json({"ok": False, "msg": "Unauthorized"}, 401); return
-            body = self._read_json() or {}
             patch = {}
             if "name" in body:
                 nm = str(body.get("name") or "").strip()[:60]
