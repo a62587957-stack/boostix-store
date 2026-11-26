@@ -529,26 +529,29 @@ def _tg_allowed_ids():
             ids.append(s)
     return ids
 
-def _tg_menu_markup():
-    return {
-        "inline_keyboard": [
-            [
-                {"text": "✅ الإيداعات المقبولة", "callback_data": "rep:deps_ok"},
-                {"text": "❌ الإيداعات المرفوضة", "callback_data": "rep:deps_no"}
-            ],
-            [
-                {"text": "⏳ الإيداعات المعلقة", "callback_data": "rep:deps_wait"},
-                {"text": "🛒 آخر المشتريات", "callback_data": "rep:orders"}
-            ],
+def _tg_menu_markup(is_owner=True):
+    rows = [
+        [
+            {"text": "✅ الإيداعات المقبولة", "callback_data": "rep:deps_ok"},
+            {"text": "❌ الإيداعات المرفوضة", "callback_data": "rep:deps_no"}
+        ],
+        [
+            {"text": "⏳ الإيداعات المعلقة", "callback_data": "rep:deps_wait"},
+            {"text": "🛒 آخر المشتريات", "callback_data": "rep:orders"}
+        ]
+    ]
+    if is_owner:
+        rows.extend([
             [
                 {"text": "📊 الملخص المالي", "callback_data": "rep:summary"},
                 {"text": "🛡️ سجل الرقابة", "callback_data": "rep:audit"}
             ],
             [
-                {"text": "🏦 أرصدة المزودين", "callback_data": "rep:suppliers"}
+                {"text": "🏦 أرصدة المزودين", "callback_data": "rep:suppliers"},
+                {"text": "📈 الأرباح والمزودين", "callback_data": "rep:pnl_menu"}
             ]
-        ]
-    }
+        ])
+    return {"inline_keyboard": rows}
 
 def _tg_notify(text, reply_markup=None, owner_only=False):
     token, admin_chat = _tg_cfg()
@@ -569,7 +572,64 @@ def _tg_register_webhook():
     base = str(os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("PUBLIC_URL") or "https://boostix-store.onrender.com").rstrip("/")
     _tg_api("setWebhook", {"url": f"{base}/api/telegram/webhook", "allowed_updates": ["callback_query", "message"]})
 
+def _tg_pnl_markup():
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "📅 اليوم", "callback_data": "rep:pnl_day"},
+                {"text": "🗓️ آخر 7 أيام", "callback_data": "rep:pnl_week"}
+            ],
+            [
+                {"text": "📆 هذا الشهر", "callback_data": "rep:pnl_month"},
+                {"text": "📊 هذه السنة", "callback_data": "rep:pnl_year"}
+            ],
+            [
+                {"text": "🔙 القائمة الرئيسية", "callback_data": "rep:main_menu"}
+            ]
+        ]
+    }
+
+def _tg_build_pnl(start_dt, end_dt, title):
+    from urllib.parse import quote as _q
+    s_iso = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    e_iso = end_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    ords = sb_request("GET", f"/rest/v1/orders?created_at=gte.{_q(s_iso)}&created_at=lt.{_q(e_iso)}&select=price_usd,supplier_cost_usd,status") or []
+    deps = sb_request("GET", f"/rest/v1/deposits?created_at=gte.{_q(s_iso)}&created_at=lt.{_q(e_iso)}&select=amount_usd,status") or []
+    valid_ords = [o for o in ords if o.get("status") != "مرفوض من المورد"]
+    sales = sum(float(o.get("price_usd") or 0) for o in valid_ords)
+    sup_paid = sum(float(o.get("supplier_cost_usd") or 0) for o in valid_ords)
+    profit = sales - sup_paid
+    margin = (profit / sales * 100.0) if sales > 0 else 0.0
+    ok_deps = [float(d.get("amount_usd") or 0) for d in deps if d.get("status") == "مقبول"]
+    return (
+        f"📈 <b>{title}</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        f"🛒 الطلبات المنفّذة: <b>{len(valid_ords)}</b>\n"
+        f"💵 إجمالي المبيعات: <b>${sales:.2f}</b>\n"
+        f"🏦 المدفوع للمزودين: <b>${sup_paid:.2f}</b>\n"
+        f"💰 صافي الربح: <b>${profit:.2f}</b> ({margin:.1f}%)\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        f"✅ الإيداعات المقبولة: <b>{len(ok_deps)}</b> (${sum(ok_deps):.2f})\n"
+        "💡 لتاريخ محدد أرسل:\n"
+        "<code>/pnl 2026-11-26</code> أو <code>/pnl 2026-11-01 2026-11-26</code>"
+    )
+
 def _tg_build_report(rep_type):
+    if rep_type in ("pnl_day", "pnl_week", "pnl_month", "pnl_year"):
+        from datetime import datetime, timedelta, timezone
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        tomorrow_start = today_start + timedelta(days=1)
+        if rep_type == "pnl_day":
+            return _tg_build_pnl(today_start, tomorrow_start, f"جرد اليوم ({today_start.strftime('%Y-%m-%d')})")
+        if rep_type == "pnl_week":
+            return _tg_build_pnl(today_start - timedelta(days=6), tomorrow_start, "جرد آخر 7 أيام")
+        if rep_type == "pnl_month":
+            m_start = today_start.replace(day=1)
+            return _tg_build_pnl(m_start, tomorrow_start, f"جرد هذا الشهر ({m_start.strftime('%Y-%m')})")
+        y_start = today_start.replace(month=1, day=1)
+        return _tg_build_pnl(y_start, tomorrow_start, f"جرد هذه السنة ({y_start.strftime('%Y')})")
+
     if rep_type == "suppliers":
         st = get_store_settings(use_cache=False) or {}
         sups = st.get("suppliers") or []
@@ -673,15 +733,37 @@ def _tg_handle_webhook(body):
     if isinstance(msg_in, dict):
         from_id = str((msg_in.get("from") or {}).get("id", ""))
         chat_id = (msg_in.get("chat") or {}).get("id")
-        txt = str(msg_in.get("text") or "").strip().lower().split("@")[0]
+        raw_txt = str(msg_in.get("text") or "").strip()
+        parts = raw_txt.split()
+        txt = (parts[0].lower().split("@")[0]) if parts else ""
         if from_id not in allowed and str(chat_id) not in allowed:
+            return
+        is_owner = (from_id == str(admin_chat) or str(chat_id) == str(admin_chat))
+        if txt in ("/pnl", "جرد", "ارباح", "أرباح"):
+            if not is_owner:
+                _tg_api("sendMessage", {"chat_id": chat_id, "text": "⛔ هذا التقرير مخصص للمالك فقط."})
+                return
+            from datetime import datetime, timedelta, timezone
+            try:
+                if len(parts) == 2:
+                    d1 = datetime.strptime(parts[1], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    rep_txt = _tg_build_pnl(d1, d1 + timedelta(days=1), f"جرد يوم {parts[1]}")
+                elif len(parts) >= 3:
+                    d1 = datetime.strptime(parts[1], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    d2 = datetime.strptime(parts[2], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    rep_txt = _tg_build_pnl(d1, d2 + timedelta(days=1), f"جرد من {parts[1]} إلى {parts[2]}")
+                else:
+                    rep_txt = "📅 <b>كشف الأرباح والمزودين</b>\nاختر الفترة من الأزرار أو أرسل:\n<code>/pnl 2026-11-26</code>\n<code>/pnl 2026-11-01 2026-11-26</code>"
+            except Exception:
+                rep_txt = "⚠️ صيغة التاريخ غير صحيحة. استخدم:\n<code>/pnl 2026-11-26</code> أو <code>/pnl 2026-11-01 2026-11-26</code>"
+            _tg_api("sendMessage", {"chat_id": chat_id, "text": rep_txt, "parse_mode": "HTML", "reply_markup": _tg_pnl_markup()})
             return
         if txt in ("/start", "/menu", "/report", "تقرير", "القائمة", "كشف"):
             _tg_api("sendMessage", {
                 "chat_id": chat_id,
                 "text": "🎛️ <b>لوحة إدارة وتقارير Boostix Store</b>\nاختر الكشف المطلوب من الأزرار أدناه:",
                 "parse_mode": "HTML",
-                "reply_markup": _tg_menu_markup()
+                "reply_markup": _tg_menu_markup(is_owner=is_owner)
             })
         return
 
@@ -706,13 +788,36 @@ def _tg_handle_webhook(body):
 
     if data.startswith("rep:"):
         rep_type = data.split(":", 1)[1]
+        is_owner = (from_id == str(admin_chat) or str(chat_id) == str(admin_chat))
+        owner_only_reps = {"summary", "audit", "suppliers", "pnl_menu", "pnl_day", "pnl_week", "pnl_month", "pnl_year"}
+        if rep_type in owner_only_reps and not is_owner:
+            _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "⛔ هذا التقرير مخصص للمالك فقط", "show_alert": True})
+            return
+        if rep_type == "pnl_menu":
+            _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id")})
+            _tg_api("sendMessage", {
+                "chat_id": chat_id,
+                "text": "📈 <b>كشف الأرباح والمدفوع للمزودين</b>\nاختر الفترة المطلوبة، أو أرسل تاريخاً محدداً مثل:\n<code>/pnl 2026-11-26</code> أو <code>/pnl 2026-11-01 2026-11-26</code>",
+                "parse_mode": "HTML",
+                "reply_markup": _tg_pnl_markup()
+            })
+            return
+        if rep_type == "main_menu":
+            _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id")})
+            _tg_api("sendMessage", {
+                "chat_id": chat_id,
+                "text": "🎛️ <b>لوحة إدارة وتقارير Boostix Store</b>\nاختر الكشف المطلوب من الأزرار أدناه:",
+                "parse_mode": "HTML",
+                "reply_markup": _tg_menu_markup(is_owner=is_owner)
+            })
+            return
         _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "جاري جلب الكشف..."})
         rep_text = _tg_build_report(rep_type)
         _tg_api("sendMessage", {
             "chat_id": chat_id,
             "text": rep_text,
             "parse_mode": "HTML",
-            "reply_markup": _tg_menu_markup()
+            "reply_markup": _tg_menu_markup(is_owner=is_owner)
         })
         return
 
