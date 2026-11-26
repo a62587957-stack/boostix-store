@@ -543,6 +543,9 @@ def _tg_menu_markup():
             [
                 {"text": "📊 الملخص المالي", "callback_data": "rep:summary"},
                 {"text": "🛡️ سجل الرقابة", "callback_data": "rep:audit"}
+            ],
+            [
+                {"text": "🏦 أرصدة المزودين", "callback_data": "rep:suppliers"}
             ]
         ]
     }
@@ -567,6 +570,49 @@ def _tg_register_webhook():
     _tg_api("setWebhook", {"url": f"{base}/api/telegram/webhook", "allowed_updates": ["callback_query", "message"]})
 
 def _tg_build_report(rep_type):
+    if rep_type == "suppliers":
+        st = get_store_settings(use_cache=False) or {}
+        sups = st.get("suppliers") or []
+        if not sups:
+            return "🏦 <b>أرصدة المزودين</b>\nلا يوجد مزودون مضافون في إعدادات المتجر حالياً."
+        lines = ["🏦 <b>كشف أرصدة حساباتك عند المزودين:</b>\n━━━━━━━━━━━━━━━━━━━━"]
+        low_count = 0
+        for s in sups:
+            name = str(s.get("name") or "مزود").strip()
+            if not s.get("active", True):
+                lines.append(f"⏸️ <b>{name}</b>: متوقف (غير مفعّل)")
+                continue
+            api_url = str(s.get("api_url") or "").strip()
+            api_key = str(s.get("api_key") or "").strip()
+            if not api_url or not api_key:
+                lines.append(f"⚙️ <b>{name}</b>: بيانات API غير مكتملة")
+                continue
+            try:
+                res = _supplier_http_post(api_url, {"key": api_key, "action": "balance"}, timeout=8)
+                if isinstance(res, dict) and "balance" in res:
+                    bal_val = float(str(res.get("balance")).replace(",", "").strip())
+                    cur = str(res.get("currency") or "USD").strip()
+                    if bal_val <= 0:
+                        icon, note = "🔴", " (نفد الرصيد!)"
+                        low_count += 1
+                    elif bal_val < 10:
+                        icon, note = "⚠️", " (رصيد منخفض)"
+                        low_count += 1
+                    else:
+                        icon, note = "🟢", ""
+                    lines.append(f"{icon} <b>{name}</b>: <code>{bal_val:.2f} {cur}</code>{note}")
+                else:
+                    err = res.get("error") if isinstance(res, dict) else str(res)[:80]
+                    lines.append(f"❌ <b>{name}</b>: رد غير متوقع ({err})")
+            except Exception as ex:
+                lines.append(f"❌ <b>{name}</b>: تعذر الاتصال ({str(ex)[:60]})")
+        lines.append("━━━━━━━━━━━━━━━━━━━━")
+        if low_count > 0:
+            lines.append(f"⚠️ تنبيه: يوجد <b>{low_count}</b> مزود بحاجة لتعبئة رصيد.")
+        else:
+            lines.append("✅ جميع المزودين المفعّلين بأرصدة جيدة.")
+        return "\n".join(lines)
+
     if rep_type == "audit":
         if not TG_AUDIT_LOG:
             return "🛡️ <b>سجل رقابة العمليات</b>\nلا توجد عمليات مسجّلة منذ آخر تشغيل للسيرفر."
