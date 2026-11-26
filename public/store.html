@@ -839,12 +839,7 @@
       <div class="total-badge" id="w-filtered-total">إجمالي: $0.00</div>
 
       <div style="overflow-x:auto;">
-        <table>
-          <thead>
-            <tr><th>#</th><th>التاريخ</th><th>النوع</th><th>التفاصيل</th><th>المبلغ</th><th>الحالة</th></tr>
-          </thead>
-          <tbody id="wallet-tx-tbody"></tbody>
-        </table>
+        <div id="wallet-tx-cards" style="display:flex; flex-direction:column; gap:12px; margin-top:12px;"></div>
       </div>
     </div>
   </div>
@@ -1861,6 +1856,24 @@
     return "pending";
   }
 
+  function _renderWalletCard(t) {
+    const st = _classifyStatus(t.status);
+    const stColor = st === "done" ? "#10b981" : (st === "rejected" ? "#ef4444" : "#f59e0b");
+    const stBg = st === "done" ? "rgba(16,185,129,0.14)" : (st === "rejected" ? "rgba(239,68,68,0.14)" : "rgba(245,158,11,0.14)");
+    const icon = t.type === "deposits" ? "💳" : (t.type === "refunds" ? "↩️" : "🛒");
+    const amtColor = t.type === "deposits" ? "#10b981" : (t.type === "refunds" ? "#38bdf8" : "var(--gold, #f59e0b)");
+    const sign = t.type === "deposits" ? "+" : (t.type === "orders" ? "-" : "");
+    return `
+      <div style="background:var(--card, #fff); border:1px solid var(--border, rgba(148,163,184,0.22)); border-radius:16px; padding:14px 16px; box-shadow:0 4px 14px rgba(0,0,0,0.06); text-align:right;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
+          <div style="font-weight:900; font-size:14px; color:${amtColor};">${icon} ${t.label} ${t.id} — ${sign}${fmtPriceMain(t.amount)}</div>
+          <span style="font-size:11px; font-weight:800; color:${stColor}; background:${stBg}; padding:3px 10px; border-radius:999px;">${t.status || "قيد المراجعة"}</span>
+        </div>
+        <div style="font-weight:700; font-size:13px; color:var(--text, inherit); margin-bottom:6px;">${t.desc || ""}</div>
+        <div style="font-size:12px; color:var(--muted); text-align:left;" dir="ltr">${t.date || ""}</div>
+      </div>`;
+  }
+
   function renderWalletView() {
     const u = DATA.user;
     const ords = DATA.myOrders || [];
@@ -1900,17 +1913,9 @@
     const sumShown = shown.reduce((s, t) => s + t.amount, 0);
     if (document.getElementById("w-filtered-total")) document.getElementById("w-filtered-total").textContent = "إجمالي: " + fmtPriceMain(sumShown);
 
-    const tb = document.getElementById("wallet-tx-tbody");
-    if (tb) {
-      tb.innerHTML = shown.map(t => `
-        <tr>
-          <td><b>${t.id}</b></td>
-          <td>${t.date}</td>
-          <td style="color:var(--cyan);">${t.label}</td>
-          <td>${t.desc}</td>
-          <td style="color:${t.type === 'deposits' ? 'var(--green)' : 'var(--gold)'}; font-weight:900;">${t.type === 'deposits' ? '+' : '-'}${fmtPriceMain(t.amount)}</td>
-          <td>${t.status}</td>
-        </tr>`).join("") || `<tr><td colspan="6" style="padding:18px; color:var(--muted); text-align:center;">لا توجد عمليات خلال هذه الفترة.</td></tr>`;
+    const cardsBox = document.getElementById("wallet-tx-cards");
+    if (cardsBox) {
+      cardsBox.innerHTML = shown.map(_renderWalletCard).join("") || `<div style="padding:22px; color:var(--muted); text-align:center; background:var(--card, #fff); border-radius:16px; border:1px solid var(--border, rgba(148,163,184,0.2));">لا توجد حركات مالية ضمن النطاق المحدد.</div>`;
     }
   }
 
