@@ -505,15 +505,62 @@ def _tg_api(method, payload):
     except Exception:
         return None
 
-def _tg_notify(text, reply_markup=None):
-    token, chat_id = _tg_cfg()
-    if not token or not chat_id:
+TG_AUDIT_LOG = []
+
+def _short_uid(uid):
+    import hashlib
+    s = str(uid or "").strip()
+    if not s:
+        return "#00000"
+    h = int(hashlib.sha256(s.encode("utf-8")).hexdigest()[:8], 16)
+    return f"#{10000 + (h % 89999)}"
+
+def _tg_staff_ids():
+    raw = str(os.environ.get("TG_STAFF_CHAT_ID") or "").strip()
+    return [x.strip() for x in raw.split(",") if x.strip()]
+
+def _tg_allowed_ids():
+    _, admin_chat = _tg_cfg()
+    ids = []
+    if admin_chat:
+        ids.append(str(admin_chat).strip())
+    for s in _tg_staff_ids():
+        if s not in ids:
+            ids.append(s)
+    return ids
+
+def _tg_menu_markup():
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "✅ الإيداعات المقبولة", "callback_data": "rep:deps_ok"},
+                {"text": "❌ الإيداعات المرفوضة", "callback_data": "rep:deps_no"}
+            ],
+            [
+                {"text": "⏳ الإيداعات المعلقة", "callback_data": "rep:deps_wait"},
+                {"text": "🛒 آخر المشتريات", "callback_data": "rep:orders"}
+            ],
+            [
+                {"text": "📊 الملخص المالي", "callback_data": "rep:summary"},
+                {"text": "🛡️ سجل الرقابة", "callback_data": "rep:audit"}
+            ],
+            [
+                {"text": "🏦 أرصدة المزودين", "callback_data": "rep:suppliers"}
+            ]
+        ]
+    }
+
+def _tg_notify(text, reply_markup=None, owner_only=False):
+    token, admin_chat = _tg_cfg()
+    if not token or not admin_chat:
         return
-    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
+    targets = [admin_chat] if owner_only else _tg_allowed_ids()
     import threading
-    threading.Thread(target=_tg_api, args=("sendMessage", payload), daemon=True).start()
+    for cid in targets:
+        payload = {"chat_id": cid, "text": text, "parse_mode": "HTML"}
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
+        threading.Thread(target=_tg_api, args=("sendMessage", payload), daemon=True).start()
 
 def _tg_register_webhook():
     token, _ = _tg_cfg()
@@ -522,22 +569,152 @@ def _tg_register_webhook():
     base = str(os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("PUBLIC_URL") or "https://boostix-store.onrender.com").rstrip("/")
     _tg_api("setWebhook", {"url": f"{base}/api/telegram/webhook", "allowed_updates": ["callback_query", "message"]})
 
+def _tg_build_report(rep_type):
+    if rep_type == "suppliers":
+        st = get_store_settings(use_cache=False) or {}
+        sups = st.get("suppliers") or []
+        if not sups:
+            return "🏦 <b>أرصدة المزودين</b>\nلا يوجد مزودون مضافون في إعدادات المتجر حالياً."
+        lines = ["🏦 <b>كشف أرصدة حساباتك عند المزودين:</b>\n━━━━━━━━━━━━━━━━━━━━"]
+        low_count = 0
+        for s in sups:
+            name = str(s.get("name") or "مزود").strip()
+            if not s.get("active", True):
+                lines.append(f"⏸️ <b>{name}</b>: متوقف (غير مفعّل)")
+                continue
+            api_url = str(s.get("api_url") or "").strip()
+            api_key = str(s.get("api_key") or "").strip()
+            if not api_url or not api_key:
+                lines.append(f"⚙️ <b>{name}</b>: بيانات API غير مكتملة")
+                continue
+            try:
+                res = _supplier_http_post(api_url, {"key": api_key, "action": "balance"}, timeout=8)
+                if isinstance(res, dict) and "balance" in res:
+                    bal_val = float(str(res.get("balance")).replace(",", "").strip())
+                    cur = str(res.get("currency") or "USD").strip()
+                    if bal_val <= 0:
+                        icon, note = "🔴", " (نفد الرصيد!)"
+                        low_count += 1
+                    elif bal_val < 10:
+                        icon, note = "⚠️", " (رصيد منخفض)"
+                        low_count += 1
+                    else:
+                        icon, note = "🟢", ""
+                    lines.append(f"{icon} <b>{name}</b>: <code>{bal_val:.2f} {cur}</code>{note}")
+                else:
+                    err = res.get("error") if isinstance(res, dict) else str(res)[:80]
+                    lines.append(f"❌ <b>{name}</b>: رد غير متوقع ({err})")
+            except Exception as ex:
+                lines.append(f"❌ <b>{name}</b>: تعذر الاتصال ({str(ex)[:60]})")
+        lines.append("━━━━━━━━━━━━━━━━━━━━")
+        if low_count > 0:
+            lines.append(f"⚠️ تنبيه: يوجد <b>{low_count}</b> مزود بحاجة لتعبئة رصيد.")
+        else:
+            lines.append("✅ جميع المزودين المفعّلين بأرصدة جيدة.")
+        return "\n".join(lines)
+
+    if rep_type == "audit":
+        if not TG_AUDIT_LOG:
+            return "🛡️ <b>سجل رقابة العمليات</b>\nلا توجد عمليات مسجّلة منذ آخر تشغيل للسيرفر."
+        lines = ["🛡️ <b>سجل رقابة الإيداعات (آخر 15 عملية):</b>\n"]
+        for item in TG_AUDIT_LOG[:15]:
+            lines.append(f"• [{item['time']}] {item['action']} #{item['dep_id']} (${item['amount']:.2f})\n   👤 العميل: {item['user_id']} | 👮 المنفّذ: {item['actor']}")
+        return "\n".join(lines)
+
+    if rep_type == "summary":
+        deps = sb_request("GET", "/rest/v1/deposits?select=amount_usd,status") or []
+        ords = sb_request("GET", "/rest/v1/orders?select=price_usd,status") or []
+        ok_deps = [float(d.get("amount_usd") or 0) for d in deps if d.get("status") == "مقبول"]
+        no_deps = [float(d.get("amount_usd") or 0) for d in deps if d.get("status") == "مرفوض"]
+        wt_deps = [float(d.get("amount_usd") or 0) for d in deps if d.get("status") == "معلق"]
+        tot_ords = [float(o.get("price_usd") or 0) for o in ords if o.get("status") != "مرفوض من المورد"]
+        return (
+            "📊 <b>الملخص المالي العام لمتجر Boostix</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"✅ إيداعات مقبولة: <b>{len(ok_deps)}</b> (${sum(ok_deps):.2f})\n"
+            f"⏳ إيداعات معلقة: <b>{len(wt_deps)}</b> (${sum(wt_deps):.2f})\n"
+            f"❌ إيداعات مرفوضة: <b>{len(no_deps)}</b> (${sum(no_deps):.2f})\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"🛒 إجمالي المشتريات: <b>{len(tot_ords)}</b> (${sum(tot_ords):.2f})"
+        )
+
+    if rep_type == "orders":
+        ords = sb_request("GET", "/rest/v1/orders?select=id,user_id,game,pack_name,price_usd,status,created_at&order=id.desc&limit=12") or []
+        if not ords:
+            return "🛒 لا توجد عمليات شراء مسجلة حالياً."
+        lines = ["🛒 <b>آخر 12 عملية شراء:</b>\n"]
+        for o in ords:
+            suid = _short_uid(o.get("user_id"))
+            lines.append(f"• #{o.get('id')} | <code>{suid}</code> | <b>${float(o.get('price_usd') or 0):.2f}</b>\n   🎮 {o.get('pack_name') or o.get('game')} ({o.get('status')})")
+        return "\n".join(lines)
+
+    status_map = {"deps_ok": ("مقبول", "✅ الإيداعات المقبولة"), "deps_no": ("مرفوض", "❌ الإيداعات المرفوضة"), "deps_wait": ("معلق", "⏳ الإيداعات المعلقة")}
+    if rep_type in status_map:
+        st, title = status_map[rep_type]
+        deps = sb_request("GET", f"/rest/v1/deposits?status=eq.{quote(st)}&select=id,user_id,method,amount_usd,tx_id,created_at&order=id.desc&limit=12") or []
+        if not deps:
+            return f"{title}\nلا توجد عمليات بهذه الحالة حالياً."
+        lines = [f"<b>{title} (آخر 12 عملية):</b>\n"]
+        for d in deps:
+            suid = _short_uid(d.get("user_id"))
+            lines.append(f"• #{d.get('id')} | <code>{suid}</code> | <b>${float(d.get('amount_usd') or 0):.2f}</b>\n   🏦 {d.get('method')} | TX: <code>{d.get('tx_id')}</code>")
+        return "\n".join(lines)
+
+    return "اختر تقريراً من القائمة."
+
 def _tg_handle_webhook(body):
     token, admin_chat = _tg_cfg()
     if not token or not admin_chat:
         return
+    allowed = _tg_allowed_ids()
+
+    # 1. معالجة الأوامر النصية (/start, /menu, /report)
+    msg_in = body.get("message")
+    if isinstance(msg_in, dict):
+        from_id = str((msg_in.get("from") or {}).get("id", ""))
+        chat_id = (msg_in.get("chat") or {}).get("id")
+        txt = str(msg_in.get("text") or "").strip().lower().split("@")[0]
+        if from_id not in allowed and str(chat_id) not in allowed:
+            return
+        if txt in ("/start", "/menu", "/report", "تقرير", "القائمة", "كشف"):
+            _tg_api("sendMessage", {
+                "chat_id": chat_id,
+                "text": "🎛️ <b>لوحة إدارة وتقارير Boostix Store</b>\nاختر الكشف المطلوب من الأزرار أدناه:",
+                "parse_mode": "HTML",
+                "reply_markup": _tg_menu_markup()
+            })
+        return
+
+    # 2. معالجة أزرار الإنلاين (القبول/الرفض + التقارير)
     cq = body.get("callback_query")
     if not isinstance(cq, dict):
         return
-    from_id = str((cq.get("from") or {}).get("id", ""))
-    if from_id != admin_chat:
+    from_user = cq.get("from") or {}
+    from_id = str(from_user.get("id", ""))
+    actor_name = (from_user.get("first_name") or "") + (" @" + from_user["username"] if from_user.get("username") else "")
+    actor_name = actor_name.strip() or from_id
+
+    if from_id not in allowed:
         _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "غير مصرح لك", "show_alert": True})
         return
+
     data = str(cq.get("data") or "")
     msg = cq.get("message") or {}
     chat_id = (msg.get("chat") or {}).get("id")
     msg_id = msg.get("message_id")
     orig_text = msg.get("text") or ""
+
+    if data.startswith("rep:"):
+        rep_type = data.split(":", 1)[1]
+        _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "جاري جلب الكشف..."})
+        rep_text = _tg_build_report(rep_type)
+        _tg_api("sendMessage", {
+            "chat_id": chat_id,
+            "text": rep_text,
+            "parse_mode": "HTML",
+            "reply_markup": _tg_menu_markup()
+        })
+        return
 
     if data.startswith("dep_ok:") or data.startswith("dep_no:"):
         dec = "مقبول" if data.startswith("dep_ok:") else "مرفوض"
@@ -553,20 +730,45 @@ def _tg_handle_webhook(body):
         )
         if isinstance(updated, list) and len(updated) == 1:
             d = updated[0]
+            amt = float(d["amount_usd"])
+            suid = _short_uid(d.get("user_id"))
+            now_str = time.strftime("%H:%M:%S")
+            TG_AUDIT_LOG.insert(0, {
+                "time": now_str,
+                "action": "✅ قبول" if dec == "مقبول" else "❌ رفض",
+                "dep_id": did,
+                "amount": amt,
+                "user_id": suid,
+                "actor": f"{actor_name} ({from_id})"
+            })
+            del TG_AUDIT_LOG[50:]
+
             if dec == "مقبول":
                 uid_q = quote(str(d["user_id"]))
                 usrs = sb_request("GET", f"/rest/v1/users?id=eq.{uid_q}&select=balance")
                 if isinstance(usrs, list) and usrs:
-                    nb = round(float(usrs[0]["balance"]) + float(d["amount_usd"]), 2)
+                    nb = round(float(usrs[0]["balance"]) + amt, 2)
                     sb_request("PATCH", f"/rest/v1/users?id=eq.{uid_q}", {"balance": nb})
-                status_line = f"\n\n✅ <b>تم القبول وشحن الرصيد (+${float(d['amount_usd']):.2f})</b>"
+                status_line = f"\n\n✅ <b>تم القبول وشحن الرصيد (+${amt:.2f})</b>\n👮 بواسطة: {actor_name} | 🕒 {now_str}"
                 alert = "تم قبول الإيداع وشحن الرصيد بنجاح"
             else:
-                status_line = "\n\n❌ <b>تم رفض طلب الإيداع</b>"
+                status_line = f"\n\n❌ <b>تم رفض طلب الإيداع</b>\n👮 بواسطة: {actor_name} | 🕒 {now_str}"
                 alert = "تم رفض الإيداع"
+
             _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": alert})
             if chat_id and msg_id:
                 _tg_api("editMessageText", {"chat_id": chat_id, "message_id": msg_id, "text": orig_text + status_line, "parse_mode": "HTML"})
+
+            # إشعار رقابة فوري للمالك إذا كان المنفّذ موظفاً
+            if from_id != str(admin_chat).strip():
+                _tg_notify(
+                    f"🛡️ <b>تنبيه رقابة موظف</b>\n"
+                    f"الإجراء: {'✅ قبول إيداع' if dec == 'مقبول' else '❌ رفض إيداع'} #{did}\n"
+                    f"👤 العميل: <code>{suid}</code>\n"
+                    f"💵 المبلغ: <b>${amt:.2f}</b>\n"
+                    f"👮 المنفّذ: {actor_name} (<code>{from_id}</code>)",
+                    owner_only=True
+                )
         else:
             _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "تمت معالجة هذا الطلب مسبقاً", "show_alert": True})
             if chat_id and msg_id:
@@ -693,6 +895,14 @@ class CloudHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         p = urlparse(self.path).path.rstrip("/") or "/"
         ip = self._client_ip()
+
+        if p == "/api/telegram/sync":
+            base = str(os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("PUBLIC_URL") or "https://boostix-store.onrender.com").rstrip("/")
+            r_set = _tg_api("setWebhook", {"url": f"{base}/api/telegram/webhook", "allowed_updates": ["callback_query", "message"]})
+            r_cmd = _tg_api("setMyCommands", {"commands": [{"command": "menu", "description": "لوحة الكشوفات والتقارير"}, {"command": "report", "description": "تقرير سريع"}]})
+            r_info = _tg_api("getWebhookInfo", {})
+            self._json({"ok": True, "base": base, "setWebhook": r_set, "setMyCommands": r_cmd, "webhookInfo": r_info})
+            return
 
         if p == "/ping" or p == "/health":
             self._json({"ok": True, "status": "awake", "ts": int(time.time())})
@@ -835,7 +1045,7 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "ok": True,
                 "supabaseUrl": SUPABASE_URL,
                 "supabaseAnonKey": SUPABASE_PUB,
-                "user": u_dict,
+                "user": (dict(u_dict, short_id=_short_uid(u_dict.get("id") or u_dict.get("email"))) if isinstance(u_dict, dict) else u_dict),
                 "products": prods,
                 "catalogTree": cat_tree,
                 "myOrders": my_ords,
@@ -848,6 +1058,10 @@ class CloudHandler(BaseHTTPRequestHandler):
             if not self._is_admin():
                 self._json({"ok": False, "requires_totp": bool(ADMIN_TOTP_SECRET)}, 401); return
             users = sb_request("GET", "/rest/v1/users?select=*&order=created_at.desc")
+            if isinstance(users, list):
+                for _u in users:
+                    if isinstance(_u, dict):
+                        _u["short_id"] = _short_uid(_u.get("id"))
             if not isinstance(users, list): users = []
             for u in users: u["created_at"] = fmt_date(u.get("created_at"))
             prods = fetch_all_products(active_only=False)
