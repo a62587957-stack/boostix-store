@@ -1257,12 +1257,49 @@
 </div>
 
 <script id="bx-admin-stmt-js">
+function calcShortId5(u) {
+  if (u && typeof u.short_id === "string" && /^#\d{5}$/.test(u.short_id.trim())) {
+    return u.short_id.trim();
+  }
+  const raw = String((u && (u.id || u.email || u.name)) || "");
+  let h = 2166136261;
+  for (let i = 0; i < raw.length; i++) {
+    h ^= raw.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return "#" + (10000 + (Math.abs(h) % 89999));
+}
+
+function calcShortId5(u) {
+  if (u && typeof u.short_id === "string" && /^#\d{5}$/.test(u.short_id.trim())) {
+    return u.short_id.trim();
+  }
+  const raw = String((u && (u.id || u.email || u.name)) || "");
+  let h = 2166136261;
+  for (let i = 0; i < raw.length; i++) {
+    h ^= raw.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return "#" + (10000 + (Math.abs(h) % 89999));
+}
+
+function getShortUid(u) {
+  if (u && u.short_id && u.short_id !== "#00000") return u.short_id;
+  const rawKey = String((u && (u.id || u.email || u.name)) || "");
+  if (!rawKey) return "#00000";
+  let h = 0;
+  for (let i = 0; i < rawKey.length; i++) { h = ((h << 5) - h + rawKey.charCodeAt(i)) | 0; }
+  return "#" + (10000 + (Math.abs(h) % 89999));
+}
+
 function renderAdminUsersTable(list) {
   const tb = document.getElementById("adm-usrs-tb");
   if (!tb) return;
-  tb.innerHTML = (list || []).map(u => `
+  tb.innerHTML = (list || []).map(u => {
+    const sid = calcShortId5(u);
+    return `
     <tr>
-      <td><code style="color:var(--cyan); font-weight:900; font-size:12px;">${esc(u.short_id || u.id)}</code></td>
+      <td><code style="color:var(--cyan); font-weight:900; font-size:13px; cursor:pointer;" title="اضغط لنسخ الـ ID" onclick='copyPayText(${JSON.stringify(sid)})'>${esc(sid)}</code></td>
       <td><b>${esc(u.name)}</b></td>
       <td dir="ltr" style="font-size:11.5px; color:var(--muted);">${esc(u.email)}</td>
       <td style="color:#22c55e; font-weight:900; direction:ltr;">$${Number(u.balance || 0).toFixed(2)}</td>
@@ -1271,7 +1308,8 @@ function renderAdminUsersTable(list) {
         <button class="btn btn-cyan btn-sm" onclick='openUserStatement(${JSON.stringify(u.id)})'>📋 كشف حساب</button>
         <button class="btn btn-gold btn-sm" onclick='adjustUserBalance(${JSON.stringify(u.id)}, ${JSON.stringify(u.name)})'>💰 رصيد</button>
       </td>
-    </tr>`).join("") || `<tr><td colspan="6" style="text-align:center; color:var(--muted);">لا توجد نتائج مطابقة</td></tr>`;
+    </tr>`;
+  }).join("") || `<tr><td colspan="6" style="text-align:center; color:var(--muted);">لا توجد نتائج مطابقة</td></tr>`;
 }
 
 function filterAdminUsers() {
@@ -1279,7 +1317,7 @@ function filterAdminUsers() {
   const all = window._ALL_ADM_USERS || [];
   if (!q) return renderAdminUsersTable(all);
   const filtered = all.filter(u =>
-    String(u.short_id || "").toLowerCase().includes(q) ||
+    calcShortId5(u).toLowerCase().includes(q) ||
     String(u.id || "").toLowerCase().includes(q) ||
     String(u.name || "").toLowerCase().includes(q) ||
     String(u.email || "").toLowerCase().includes(q)
@@ -1292,9 +1330,9 @@ function openUserStatementBySearch() {
   const all = window._ALL_ADM_USERS || [];
   if (!q) return alert("أدخل رقم الـ ID (مثل #12345) أو الاسم أو الإيميل أولاً");
   const u = all.find(x =>
-    String(x.short_id || "").toLowerCase() === q ||
+    String(getShortUid(x)).toLowerCase() === q ||
     String(x.id || "").toLowerCase() === q ||
-    String(x.short_id || "").toLowerCase().includes(q) ||
+    String(getShortUid(x)).toLowerCase().includes(q) ||
     String(x.name || "").toLowerCase().includes(q) ||
     String(x.email || "").toLowerCase().includes(q)
   );
@@ -1313,7 +1351,7 @@ function openUserStatement(uid) {
   const sumOkDeps = deps.filter(d => d.status === "مقبول").reduce((a, b) => a + Number(b.amount_usd || 0), 0);
   const sumOrds = ords.filter(o => o.status !== "مرفوض من المورد").reduce((a, b) => a + Number(b.price_usd || 0), 0);
 
-  document.getElementById("stmt-title").innerHTML = `📋 كشف حساب: ${esc(u.name)} <code style="color:var(--gold); margin-right:8px;">${esc(u.short_id || u.id)}</code>`;
+  document.getElementById("stmt-title").innerHTML = `📋 كشف حساب: ${esc(u.name)} <code style="color:var(--gold); margin-right:8px;">${esc(getShortUid(u))}</code>`;
   document.getElementById("stmt-body").innerHTML = `
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; margin-bottom:16px;">
       <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:12px;">
