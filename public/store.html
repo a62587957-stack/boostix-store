@@ -839,6 +839,150 @@
       <div class="total-badge" id="w-filtered-total">إجمالي: $0.00</div>
 
       <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr><th>#</th><th>التاريخ</th><th>النوع</th><th>التفاصيل</th><th>المبلغ</th><th>الحالة</th></tr>
+          </thead>
+          <tbody id="wallet-tx-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECHARGE SECTION (إضافة رصيد - نظام الفواتير بـ 3 خطوات) -->
+  <div id="sec-recharge" style="display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 style="color:var(--gold); margin:0;" id="rec-header-title">➕ إضافة رصيد</h3>
+      <button class="btn btn-rose" style="padding:7px 14px; font-size:12px;" id="rec-back-btn" onclick="recGoBack()">💼 محفظتي</button>
+    </div>
+
+    <!-- الخطوة 1: شبكة بطاقات طرق الدفع -->
+    <div id="rec-step-1">
+      <div class="pay-grid" id="pay-cards-grid">
+        <div class="pay-card" onclick="openPayAmountStep('شام كاش', 'شام كاش دولار', 'USD')">
+          <div class="pay-ico" style="background:linear-gradient(135deg,#0284c7,#38bdf8);">💎</div>
+          <div class="pay-title">شام كاش دولار</div>
+          <span class="pay-tag">معتمد</span>
+        </div>
+        <div class="pay-card" onclick="openPayAmountStep('شام كاش', 'شام كاش ليرة', 'SYP')">
+          <div class="pay-ico" style="background:linear-gradient(135deg,#2563eb,#60a5fa);">💵</div>
+          <div class="pay-title">شام كاش ليرة</div>
+          <span class="pay-tag">يدوي</span>
+        </div>
+        <div class="pay-card" onclick="openPayAmountStep('سيريتل كاش', 'سيريتل كاش', 'SYP')">
+          <div class="pay-ico" style="background:linear-gradient(135deg,#b91c1c,#ef4444);">📲</div>
+          <div class="pay-title">سيريتل كاش</div>
+          <span class="pay-tag">معتمد</span>
+        </div>
+        <div class="pay-card" onclick="openPayAmountStep('USDT', 'USDT-TRC20', 'USD')">
+          <div class="pay-ico" style="background:linear-gradient(135deg,#0d9488,#14b8a6);">₮</div>
+          <div class="pay-title">USDT-TRC20</div>
+          <span class="pay-tag">فوري</span>
+        </div>
+        <div class="pay-card" onclick="openPayAmountStep('USDT', 'USDT-BEP20', 'USD')">
+          <div class="pay-ico" style="background:linear-gradient(135deg,#059669,#34d399);">₮</div>
+          <div class="pay-title">USDT-BEP20</div>
+          <span class="pay-tag">بدون عمولة</span>
+        </div>
+        <div class="pay-card" onclick="openPayAmountStep('USDT', 'Binance Pay', 'USD')">
+          <div class="pay-ico" style="background:linear-gradient(135deg,#ca8a04,#facc15);">◈</div>
+          <div class="pay-title">Binance Pay</div>
+          <span class="pay-tag">سريع</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- الخطوة 2: إدخال المبلغ وإنشاء الفاتورة -->
+    <div id="rec-step-2" style="display:none; max-width:560px; margin:0 auto;">
+      <div class="panel">
+        <h3 id="rec-s2-title" style="color:var(--cyan); margin:0 0 6px 0;">شام كاش</h3>
+        <div id="rec-s2-min" style="font-size:12px; color:var(--muted); margin-bottom:16px;">أقل مبلغ: $1.00</div>
+
+        <div class="inv-box">
+          <div style="flex:1;">
+            <div id="rec-s2-inp-lbl" style="font-size:11px; color:var(--muted); font-weight:800; margin-bottom:4px;">المبلغ الذي ستدفعه</div>
+            <input type="number" step="any" id="rec-pay-input" placeholder="مثال: 10" oninput="calcInvoiceCredit()" style="width:100%; border:none; background:transparent; color:var(--text); font-size:18px; font-weight:900; outline:none; padding:0;">
+          </div>
+          <div id="rec-s2-unit" style="font-size:14px; font-weight:900; color:var(--cyan); white-space:nowrap;">USD</div>
+        </div>
+
+        <div class="inv-credit">
+          <span style="font-size:13px; color:var(--text);">المبلغ الذي سيُضاف إلى رصيدك</span>
+          <span id="rec-s2-credit" style="font-size:18px; color:#22c55e; direction:ltr;">$ 0.00</span>
+        </div>
+
+        <button class="btn btn-cyan" style="width:100%; padding:13px; font-size:15px; border-radius:999px;" onclick="createPayInvoice()">📄 إنشاء فاتورة</button>
+      </div>
+    </div>
+
+    <!-- الخطوة 3: شاشة الفاتورة التفاعلية بالعداد -->
+    <div id="rec-step-3" style="display:none; max-width:560px; margin:0 auto;">
+      <div class="panel" style="text-align:center;">
+        <h3 id="rec-s3-title" style="color:var(--gold); margin:0 0 6px 0;">فاتورة الدفع</h3>
+        <p style="font-size:12px; color:var(--muted); margin:0 0 14px 0;">يرجى عدم مغادرة الصفحة وإرسال كامل المبلغ المطلوب إلى بيانات التحويل التالية:</p>
+
+        <div id="rec-s3-account-wrap"></div>
+
+        <div class="inv-copy-pill" onclick="copyPayText(document.getElementById('rec-s3-req-raw').textContent)">
+          <span style="font-size:12px; color:var(--muted); font-weight:800;">المبلغ المطلوب</span>
+          <span style="font-size:16px; font-weight:900; color:var(--gold); direction:ltr;">📋 <span id="rec-s3-req-raw"></span></span>
+        </div>
+
+        <div style="font-size:14px; font-weight:900; color:#22c55e; margin-bottom:8px;">
+          المبلغ الذي سيُضاف إلى رصيدك: <span id="rec-s3-credit-usd" dir="ltr">$0.00</span>
+        </div>
+        <div style="font-size:11px; color:var(--muted);">بعد إتمام التحويل، أدخل رقم العملية قبل انتهاء الوقت.</div>
+
+        <div class="inv-timer-ring">
+          <span class="t-lbl">الوقت المتبقي</span>
+          <span class="t-val" id="rec-timer-txt">30:00</span>
+        </div>
+
+        <div class="inp-g" style="text-align:right;">
+          <input type="text" id="dep-tx" placeholder="رقم عملية التحويل (من الإشعار)..." dir="ltr" style="text-align:center; font-weight:900;">
+        </div>
+
+        <button class="btn btn-green" style="width:100%; padding:13px; font-size:15px; border-radius:999px; margin-bottom:10px;" onclick="submitDeposit()">🛡️ إتمام الطلب</button>
+        <button class="btn btn-rose" style="width:100%; padding:10px; font-size:13px; border-radius:999px; opacity:0.9;" onclick="cancelPayInvoice()">✖ إلغاء المعاملة</button>
+      </div>
+    </div>
+
+    <!-- حقول مخفية للتوافق المباشر مع submitDeposit() -->
+    <select id="dep-method" style="display:none;">
+      <option value="شام كاش">شام كاش</option>
+      <option value="سيريتل كاش">سيريتل كاش</option>
+      <option value="USDT">USDT</option>
+    </select>
+    <input type="hidden" id="dep-amount" value="0">
+    <div id="pay-account-box" style="display:none;"></div>
+    <small id="dep-syp-hint" style="display:none;"></small>
+  </div>
+
+  <!-- ORDERS SECTION (طلباتي مع البحث والفلاتر والعدادات) -->
+  <div id="sec-orders" style="display:none;">
+    <h3 style="color:var(--cyan); margin-bottom:12px;">🛒 طلباتي</h3>
+
+    <div class="panel">
+      <div class="filter-bar">
+        <div class="date-pill"><span>من</span><input type="date" id="o-date-from" onchange="renderOrdersView()"></div>
+        <div class="date-pill"><span>إلى</span><input type="date" id="o-date-to" onchange="renderOrdersView()"></div>
+      </div>
+
+      <div class="search-box" style="margin-bottom:12px;">
+        <span class="s-ico">🔍</span>
+        <input type="text" id="o-search-inp" placeholder="بحث برقم الطلب، اسم اللعبة أو المعرف (ID)..." oninput="renderOrdersView()">
+      </div>
+
+      <div class="pill-tabs" id="o-filter-pills">
+        <button class="f-pill active" data-of="all" onclick="setOrderFilter('all')">الكل <span class="cnt" id="oc-all">0</span></button>
+        <button class="f-pill" data-of="done" onclick="setOrderFilter('done')">✅ مقبول <span class="cnt" id="oc-done">0</span></button>
+        <button class="f-pill" data-of="pending" onclick="setOrderFilter('pending')">⏳ انتظار <span class="cnt" id="oc-pend">0</span></button>
+        <button class="f-pill" data-of="rejected" onclick="setOrderFilter('rejected')">❌ مرفوض <span class="cnt" id="oc-rej">0</span></button>
+      </div>
+
+      <div class="total-badge" id="o-filtered-total">إجمالي: $0.00</div>
+
+      <div style="overflow-x:auto;">
         <div id="my-orders-cards" style="display:flex; flex-direction:column; gap:12px; margin-top:12px;"></div>
       </div>
     </div>
