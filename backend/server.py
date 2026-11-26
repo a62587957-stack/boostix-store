@@ -627,8 +627,8 @@ def _tg_handle_webhook(body):
     if isinstance(msg_in, dict):
         from_id = str((msg_in.get("from") or {}).get("id", ""))
         chat_id = (msg_in.get("chat") or {}).get("id")
-        txt = str(msg_in.get("text") or "").strip().lower()
-        if from_id not in allowed:
+        txt = str(msg_in.get("text") or "").strip().lower().split("@")[0]
+        if from_id not in allowed and str(chat_id) not in allowed:
             return
         if txt in ("/start", "/menu", "/report", "تقرير", "القائمة", "كشف"):
             _tg_api("sendMessage", {
@@ -849,6 +849,14 @@ class CloudHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         p = urlparse(self.path).path.rstrip("/") or "/"
         ip = self._client_ip()
+
+        if p == "/api/telegram/sync":
+            base = str(os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("PUBLIC_URL") or "https://boostix-store.onrender.com").rstrip("/")
+            r_set = _tg_api("setWebhook", {"url": f"{base}/api/telegram/webhook", "allowed_updates": ["callback_query", "message"]})
+            r_cmd = _tg_api("setMyCommands", {"commands": [{"command": "menu", "description": "لوحة الكشوفات والتقارير"}, {"command": "report", "description": "تقرير سريع"}]})
+            r_info = _tg_api("getWebhookInfo", {})
+            self._json({"ok": True, "base": base, "setWebhook": r_set, "setMyCommands": r_cmd, "webhookInfo": r_info})
+            return
 
         if p == "/ping" or p == "/health":
             self._json({"ok": True, "status": "awake", "ts": int(time.time())})
