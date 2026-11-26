@@ -529,17 +529,19 @@ def _tg_allowed_ids():
             ids.append(s)
     return ids
 
-def _tg_menu_markup():
-    return {
-        "inline_keyboard": [
-            [
-                {"text": "✅ الإيداعات المقبولة", "callback_data": "rep:deps_ok"},
-                {"text": "❌ الإيداعات المرفوضة", "callback_data": "rep:deps_no"}
-            ],
-            [
-                {"text": "⏳ الإيداعات المعلقة", "callback_data": "rep:deps_wait"},
-                {"text": "🛒 آخر المشتريات", "callback_data": "rep:orders"}
-            ],
+def _tg_menu_markup(is_owner=True):
+    rows = [
+        [
+            {"text": "✅ الإيداعات المقبولة", "callback_data": "rep:deps_ok"},
+            {"text": "❌ الإيداعات المرفوضة", "callback_data": "rep:deps_no"}
+        ],
+        [
+            {"text": "⏳ الإيداعات المعلقة", "callback_data": "rep:deps_wait"},
+            {"text": "🛒 آخر المشتريات", "callback_data": "rep:orders"}
+        ]
+    ]
+    if is_owner:
+        rows.extend([
             [
                 {"text": "📊 الملخص المالي", "callback_data": "rep:summary"},
                 {"text": "🛡️ سجل الرقابة", "callback_data": "rep:audit"}
@@ -548,8 +550,8 @@ def _tg_menu_markup():
                 {"text": "🏦 أرصدة المزودين", "callback_data": "rep:suppliers"},
                 {"text": "📈 الأرباح والمزودين", "callback_data": "rep:pnl_menu"}
             ]
-        ]
-    }
+        ])
+    return {"inline_keyboard": rows}
 
 def _tg_notify(text, reply_markup=None, owner_only=False):
     token, admin_chat = _tg_cfg()
@@ -736,7 +738,11 @@ def _tg_handle_webhook(body):
         txt = (parts[0].lower().split("@")[0]) if parts else ""
         if from_id not in allowed and str(chat_id) not in allowed:
             return
+        is_owner = (from_id == str(admin_chat) or str(chat_id) == str(admin_chat))
         if txt in ("/pnl", "جرد", "ارباح", "أرباح"):
+            if not is_owner:
+                _tg_api("sendMessage", {"chat_id": chat_id, "text": "⛔ هذا التقرير مخصص للمالك فقط."})
+                return
             from datetime import datetime, timedelta, timezone
             try:
                 if len(parts) == 2:
@@ -757,7 +763,7 @@ def _tg_handle_webhook(body):
                 "chat_id": chat_id,
                 "text": "🎛️ <b>لوحة إدارة وتقارير Boostix Store</b>\nاختر الكشف المطلوب من الأزرار أدناه:",
                 "parse_mode": "HTML",
-                "reply_markup": _tg_menu_markup()
+                "reply_markup": _tg_menu_markup(is_owner=is_owner)
             })
         return
 
@@ -782,6 +788,11 @@ def _tg_handle_webhook(body):
 
     if data.startswith("rep:"):
         rep_type = data.split(":", 1)[1]
+        is_owner = (from_id == str(admin_chat) or str(chat_id) == str(admin_chat))
+        owner_only_reps = {"summary", "audit", "suppliers", "pnl_menu", "pnl_day", "pnl_week", "pnl_month", "pnl_year"}
+        if rep_type in owner_only_reps and not is_owner:
+            _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "⛔ هذا التقرير مخصص للمالك فقط", "show_alert": True})
+            return
         if rep_type == "pnl_menu":
             _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id")})
             _tg_api("sendMessage", {
@@ -797,7 +808,7 @@ def _tg_handle_webhook(body):
                 "chat_id": chat_id,
                 "text": "🎛️ <b>لوحة إدارة وتقارير Boostix Store</b>\nاختر الكشف المطلوب من الأزرار أدناه:",
                 "parse_mode": "HTML",
-                "reply_markup": _tg_menu_markup()
+                "reply_markup": _tg_menu_markup(is_owner=is_owner)
             })
             return
         _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "جاري جلب الكشف..."})
@@ -806,7 +817,7 @@ def _tg_handle_webhook(body):
             "chat_id": chat_id,
             "text": rep_text,
             "parse_mode": "HTML",
-            "reply_markup": _tg_menu_markup()
+            "reply_markup": _tg_menu_markup(is_owner=is_owner)
         })
         return
 
