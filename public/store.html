@@ -701,8 +701,8 @@
     <button class="tb-hit tb-hit-menu" onclick="toggleDrawer(true)" aria-label="القائمة" title="القائمة"></button>
     <button class="tb-hit tb-hit-brand" onclick="goHome()" aria-label="الرئيسية" title="الرئيسية"></button>
     <button class="tb-hit tb-hit-bell" onclick="openNotifications()" aria-label="الإشعارات" title="الإشعارات"></button>
-    <button class="tb-hit tb-hit-wallet" onclick="DATA.user ? showTab('recharge') : signInWithGoogleOfficial()" aria-label="إضافة رصيد" title="إضافة رصيد"></button>
-    <button class="tb-hit tb-hit-profile" onclick="DATA.user ? toggleDrawer(true) : signInWithGoogleOfficial()" aria-label="حسابي" title="حسابي"></button>
+    <button class="tb-hit tb-hit-wallet" onclick="DATA.user ? showTab('recharge') : openAuthModal()" aria-label="إضافة رصيد" title="إضافة رصيد"></button>
+    <button class="tb-hit tb-hit-profile" onclick="DATA.user ? toggleDrawer(true) : openAuthModal()" aria-label="حسابي" title="حسابي"></button>
   </div>
   <!-- عناصر مخفية للتوافق مع دوال تسجيل الدخول القديمة -->
   <div id="logged-in-bar" style="display:none;"></div>
@@ -742,8 +742,9 @@
   <button class="dr-item" onclick="alert('🛡️ حسابك محمي بتسجيل الدخول الآمن عبر Google وتشفير كامل للبيانات.'); toggleDrawer(false);"><span>🛡️ الحماية</span><span>‹</span></button>
   <button class="dr-item" onclick="alert('✅ حالة توثيق الهوية: موثق تلقائياً عبر حساب Google.'); toggleDrawer(false);"><span>🪪 تحقق الهوية</span><span>‹</span></button>
   <button class="dr-item" onclick="toggleTheme()"><span>🌗 تبديل الوضع الليلي / النهاري</span><span>‹</span></button>
+  <button class="dr-item" id="dr-settings-btn" style="display:none;" onclick="openAccountSettings(false); toggleDrawer(false);"><span>⚙️ إعدادات الحساب</span><span>‹</span></button>
   <button class="dr-item" id="dr-logout-btn" style="display:none; color:#fb7185;" onclick="logoutGoogle(); toggleDrawer(false);"><span>🚪 تسجيل الخروج</span><span>‹</span></button>
-  <button class="dr-item" id="dr-login-btn" onclick="signInWithGoogleOfficial(); toggleDrawer(false);"><span>🔐 تسجيل الدخول بـ Google</span><span>‹</span></button>
+  <button class="dr-item" id="dr-login-btn" onclick="openAuthModal(); toggleDrawer(false);"><span>🔐 تسجيل الدخول / إنشاء حساب</span><span>‹</span></button>
 
   <div style="margin-top:auto; padding-top:16px; text-align:center; font-size:11px; color:var(--muted);">
     🛡️ Boostix Store - شحن سريع وآمن 24/7
@@ -1556,12 +1557,22 @@
       document.getElementById("dr-username").textContent = DATA.user.name || DATA.user.email;
       document.getElementById("dr-logout-btn").style.display = "flex";
       document.getElementById("dr-login-btn").style.display = "none";
+      const setBtnIn = document.getElementById("dr-settings-btn");
+      if (setBtnIn) setBtnIn.style.display = "flex";
+      if (typeof renderDrawerAvatar === "function") renderDrawerAvatar(DATA.user.avatar_url || "");
+      if (!DATA.user.phone && !window._bxPhonePrompted) {
+        window._bxPhonePrompted = true;
+        setTimeout(() => { if (typeof openAccountSettings === "function") openAccountSettings(true); }, 700);
+      }
     } else {
       document.getElementById("logged-in-bar").style.display = "none";
       document.getElementById("logged-out-bar").style.display = "flex";
       document.getElementById("dr-balance").textContent = "$0.00";
       document.getElementById("dr-username").textContent = "زائر Boostix";
       document.getElementById("dr-logout-btn").style.display = "none";
+      const setBtnOut = document.getElementById("dr-settings-btn");
+      if (setBtnOut) setBtnOut.style.display = "none";
+      if (typeof renderDrawerAvatar === "function") renderDrawerAvatar("");
       document.getElementById("dr-login-btn").style.display = "flex";
     }
     document.getElementById("dr-currency-btn").textContent = showSYPPrimary ? "🔄 العملة الحالية: ليرة سورية (SYP)" : "🔄 العملة الحالية: دولار (USD)";
@@ -2035,5 +2046,230 @@
 
   initAuthAndLoad();
 </script>
+
+<!-- Boostix Auth & Account Settings Modals -->
+<style>
+  .bx-modal-bg { position:fixed; inset:0; background:rgba(2,6,23,.78); backdrop-filter:blur(6px); z-index:9999; display:none; align-items:center; justify-content:center; padding:16px; }
+  .bx-modal-card { width:100%; max-width:390px; background:#0f172a; border:1px solid rgba(56,189,248,.35); border-radius:20px; padding:20px; color:#f8fafc; box-shadow:0 20px 50px rgba(0,0,0,.6); direction:rtl; }
+  .bx-m-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .bx-m-title { font-weight:900; font-size:16px; color:#38bdf8; }
+  .bx-m-close { background:rgba(255,255,255,.08); border:0; color:#fff; width:30px; height:30px; border-radius:10px; cursor:pointer; font-size:16px; }
+  .bx-inp { width:100%; box-sizing:border-box; padding:11px 12px; border-radius:12px; border:1px solid rgba(148,163,184,.25); background:#1e293b; color:#fff; font-size:14px; margin-bottom:10px; outline:none; }
+  .bx-inp:focus { border-color:#38bdf8; }
+  .bx-btn-pri { width:100%; padding:11px; border-radius:12px; border:0; background:linear-gradient(135deg,#0ea5e9,#8b5cf6); color:#fff; font-weight:800; font-size:14px; cursor:pointer; }
+  .bx-btn-google { width:100%; padding:10px; border-radius:12px; border:1px solid rgba(255,255,255,.2); background:#fff; color:#0f172a; font-weight:800; font-size:14px; cursor:pointer; margin-bottom:12px; }
+  .bx-tabs { display:flex; gap:8px; margin-bottom:12px; }
+  .bx-tab { flex:1; padding:8px; border-radius:10px; border:1px solid rgba(148,163,184,.25); background:transparent; color:#94a3b8; font-weight:700; cursor:pointer; }
+  .bx-tab.active { background:rgba(56,189,248,.18); border-color:#38bdf8; color:#fff; }
+  .bx-av-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; margin-bottom:14px; }
+  .bx-av-prev { width:82px; height:82px; border-radius:50%; object-fit:cover; border:2px solid #38bdf8; background:#1e293b; }
+</style>
+
+<div class="bx-modal-bg" id="bx-auth-modal">
+  <div class="bx-modal-card">
+    <div class="bx-m-head">
+      <div class="bx-m-title">🔐 تسجيل الدخول / إنشاء حساب</div>
+      <button class="bx-m-close" onclick="closeAuthModal()">✕</button>
+    </div>
+    <button class="bx-btn-google" onclick="closeAuthModal(); signInWithGoogleOfficial();">🌐 المتابعة عبر Google</button>
+    <div style="text-align:center; font-size:12px; color:#94a3b8; margin-bottom:10px;">— أو عبر البريد الإلكتروني —</div>
+    <div class="bx-tabs">
+      <button class="bx-tab active" id="bx-tab-login" onclick="switchAuthMode('login')">تسجيل الدخول</button>
+      <button class="bx-tab" id="bx-tab-signup" onclick="switchAuthMode('signup')">إنشاء حساب جديد</button>
+    </div>
+    <input class="bx-inp" id="bx-auth-name" type="text" placeholder="الاسم الكامل" style="display:none;">
+    <input class="bx-inp" id="bx-auth-phone" type="tel" placeholder="رقم الاتصال / واتساب (مثال: +9639...)" style="display:none;">
+    <input class="bx-inp" id="bx-auth-email" type="email" placeholder="البريد الإلكتروني">
+    <input class="bx-inp" id="bx-auth-pass" type="password" placeholder="كلمة المرور (6 أحرف على الأقل)">
+    <div id="bx-auth-msg" style="font-size:12px; color:#fb7185; margin-bottom:8px; min-height:16px;"></div>
+    <button class="bx-btn-pri" id="bx-auth-submit" onclick="submitEmailAuth()">دخول</button>
+  </div>
+</div>
+
+<div class="bx-modal-bg" id="bx-settings-modal">
+  <div class="bx-modal-card">
+    <div class="bx-m-head">
+      <div class="bx-m-title" id="bx-set-title">⚙️ إعدادات الحساب</div>
+      <button class="bx-m-close" id="bx-set-close" onclick="closeAccountSettings()">✕</button>
+    </div>
+    <div id="bx-set-note" style="display:none; font-size:12px; background:rgba(245,158,11,.15); border:1px solid rgba(245,158,11,.4); color:#fde68a; padding:8px 10px; border-radius:10px; margin-bottom:12px;">
+      📱 يرجى إدخال رقم الاتصال الخاص بك لإكمال بيانات حسابك وتسهيل التواصل عند الطلبات.
+    </div>
+    <div class="bx-av-wrap">
+      <img id="bx-av-preview" class="bx-av-prev" src="" alt="" style="display:none;">
+      <div id="bx-av-fallback" class="bx-av-prev" style="display:flex; align-items:center; justify-content:center; font-size:28px;">👤</div>
+      <label style="font-size:12px; color:#38bdf8; cursor:pointer; font-weight:700;">
+        📷 اختيار / تغيير الصورة الشخصية
+        <input type="file" id="bx-av-file" accept="image/*" style="display:none;" onchange="handleAvatarPick(this)">
+      </label>
+    </div>
+    <label style="font-size:12px; color:#94a3b8; display:block; margin-bottom:4px;">الاسم الظاهر</label>
+    <input class="bx-inp" id="bx-set-name" type="text" placeholder="اسمك الكامل">
+    <label style="font-size:12px; color:#94a3b8; display:block; margin-bottom:4px;">رقم الاتصال / واتساب (مطلوب)</label>
+    <input class="bx-inp" id="bx-set-phone" type="tel" placeholder="+9639xxxxxxxx">
+    <div id="bx-set-msg" style="font-size:12px; color:#fb7185; margin-bottom:8px; min-height:16px;"></div>
+    <button class="bx-btn-pri" id="bx-set-save" onclick="saveAccountSettings()">💾 حفظ التغييرات</button>
+  </div>
+</div>
+
+<script>
+let _bxAuthMode = "login";
+let _bxPickedAvatar = null;
+let _bxForcePhone = false;
+
+function openAuthModal() {
+  document.getElementById("bx-auth-msg").textContent = "";
+  document.getElementById("bx-auth-modal").style.display = "flex";
+}
+function closeAuthModal() {
+  document.getElementById("bx-auth-modal").style.display = "none";
+}
+function switchAuthMode(m) {
+  _bxAuthMode = m;
+  document.getElementById("bx-tab-login").classList.toggle("active", m === "login");
+  document.getElementById("bx-tab-signup").classList.toggle("active", m === "signup");
+  document.getElementById("bx-auth-name").style.display = m === "signup" ? "block" : "none";
+  document.getElementById("bx-auth-phone").style.display = m === "signup" ? "block" : "none";
+  document.getElementById("bx-auth-submit").textContent = m === "signup" ? "إنشاء الحساب" : "دخول";
+  document.getElementById("bx-auth-msg").textContent = "";
+}
+async function submitEmailAuth() {
+  if (!sbClient || !sbClient.auth) return alert("يرجى الانتظار لحظة حتى تكتمل تهيئة النظام.");
+  const email = (document.getElementById("bx-auth-email").value || "").trim();
+  const password = (document.getElementById("bx-auth-pass").value || "").trim();
+  const msgEl = document.getElementById("bx-auth-msg");
+  const btn = document.getElementById("bx-auth-submit");
+  msgEl.style.color = "#fb7185";
+  if (!email || !password) { msgEl.textContent = "يرجى إدخال البريد الإلكتروني وكلمة المرور."; return; }
+  btn.disabled = true;
+  try {
+    if (_bxAuthMode === "signup") {
+      const fullName = (document.getElementById("bx-auth-name").value || "").trim();
+      const phone = (document.getElementById("bx-auth-phone").value || "").trim();
+      if (fullName.length < 2) { msgEl.textContent = "يرجى إدخال الاسم الكامل."; btn.disabled = false; return; }
+      if (phone.length < 7) { msgEl.textContent = "يرجى إدخال رقم اتصال صحيح."; btn.disabled = false; return; }
+      const { data, error } = await sbClient.auth.signUp({ email, password, options: { data: { full_name: fullName, phone } } });
+      if (error) { msgEl.textContent = error.message; btn.disabled = false; return; }
+      if (data && data.session && data.session.access_token) {
+        ACCESS_TOKEN = data.session.access_token;
+        localStorage.setItem("saker_oauth_token", ACCESS_TOKEN);
+        await fetch("/api/customer/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ACCESS_TOKEN },
+          body: JSON.stringify({ name: fullName, phone })
+        });
+        closeAuthModal();
+        location.reload();
+      } else {
+        msgEl.style.color = "#34d399";
+        msgEl.textContent = "✅ تم إنشاء الحساب! تحقق من بريدك الإلكتروني لتأكيد الحساب ثم سجّل الدخول.";
+      }
+    } else {
+      const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
+      if (error) { msgEl.textContent = "البريد أو كلمة المرور غير صحيحة."; btn.disabled = false; return; }
+      if (data && data.session && data.session.access_token) {
+        ACCESS_TOKEN = data.session.access_token;
+        localStorage.setItem("saker_oauth_token", ACCESS_TOKEN);
+        closeAuthModal();
+        location.reload();
+      }
+    }
+  } catch (e) {
+    msgEl.textContent = "حدث خطأ غير متوقع، حاول مجدداً.";
+  }
+  btn.disabled = false;
+}
+
+function renderDrawerAvatar(url) {
+  const ring = document.querySelector("#side-drawer .dr-logo .ring");
+  if (!ring) return;
+  if (url) {
+    ring.style.overflow = "hidden";
+    ring.style.padding = "0";
+    ring.innerHTML = `<img src="${url}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+  } else {
+    ring.innerHTML = `<span style="color:#38bdf8;">BOOSTIX</span><span style="font-size:9px; color:#d946ef;">STORE</span>`;
+  }
+}
+
+function openAccountSettings(forcePhone) {
+  if (!DATA.user) { openAuthModal(); return; }
+  _bxForcePhone = !!forcePhone;
+  _bxPickedAvatar = null;
+  document.getElementById("bx-set-title").textContent = forcePhone ? "📱 إكمال رقم الاتصال" : "⚙️ إعدادات الحساب";
+  document.getElementById("bx-set-note").style.display = forcePhone ? "block" : "none";
+  document.getElementById("bx-set-close").style.display = forcePhone ? "none" : "inline-block";
+  document.getElementById("bx-set-name").value = DATA.user.name || "";
+  document.getElementById("bx-set-phone").value = DATA.user.phone || "";
+  document.getElementById("bx-set-msg").textContent = "";
+  const prev = document.getElementById("bx-av-preview");
+  const fb = document.getElementById("bx-av-fallback");
+  if (DATA.user.avatar_url) {
+    prev.src = DATA.user.avatar_url; prev.style.display = "block"; fb.style.display = "none";
+  } else {
+    prev.style.display = "none"; fb.style.display = "flex";
+  }
+  document.getElementById("bx-settings-modal").style.display = "flex";
+}
+function closeAccountSettings() {
+  if (_bxForcePhone) return;
+  document.getElementById("bx-settings-modal").style.display = "none";
+}
+function handleAvatarPick(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const img = new Image();
+    img.onload = function() {
+      const c = document.createElement("canvas");
+      const sz = 180;
+      c.width = sz; c.height = sz;
+      const ctx = c.getContext("2d");
+      const minSide = Math.min(img.width, img.height);
+      const sx = (img.width - minSide) / 2, sy = (img.height - minSide) / 2;
+      ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, sz, sz);
+      _bxPickedAvatar = c.toDataURL("image/jpeg", 0.78);
+      const prev = document.getElementById("bx-av-preview");
+      const fb = document.getElementById("bx-av-fallback");
+      prev.src = _bxPickedAvatar; prev.style.display = "block"; fb.style.display = "none";
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+async function saveAccountSettings() {
+  const name = (document.getElementById("bx-set-name").value || "").trim();
+  const phone = (document.getElementById("bx-set-phone").value || "").trim();
+  const msgEl = document.getElementById("bx-set-msg");
+  const btn = document.getElementById("bx-set-save");
+  msgEl.style.color = "#fb7185";
+  if (name.length < 2) { msgEl.textContent = "يرجى إدخال اسم صحيح."; return; }
+  if (phone.length < 7) { msgEl.textContent = "يرجى إدخال رقم اتصال صحيح."; return; }
+  const payload = { name, phone };
+  if (_bxPickedAvatar !== null) payload.avatar_url = _bxPickedAvatar;
+  btn.disabled = true;
+  try {
+    const r = await fetch("/api/customer/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ACCESS_TOKEN },
+      body: JSON.stringify(payload)
+    });
+    const j = await r.json();
+    if (!j.ok) { msgEl.textContent = j.msg || "تعذر الحفظ"; btn.disabled = false; return; }
+    DATA.user.name = name;
+    DATA.user.phone = phone;
+    if (_bxPickedAvatar !== null) DATA.user.avatar_url = _bxPickedAvatar;
+    document.getElementById("dr-username").textContent = name;
+    renderDrawerAvatar(DATA.user.avatar_url || "");
+    _bxForcePhone = false;
+    closeAccountSettings();
+  } catch (e) {
+    msgEl.textContent = "خطأ في الاتصال بالسيرفر.";
+  }
+  btn.disabled = false;
+}
+</script>
+
 </body>
 </html>
