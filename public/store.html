@@ -863,6 +863,10 @@
 }
 </style>
 
+<style>
+/* === BOOSTIX_HIDE_CARD_PRICE === */
+.bx-slot-meta { display: none !important; }
+</style>
 </head>
 <body>
 <div id="bxSplash">
@@ -1609,9 +1613,22 @@
   }
 
   function getBrandGroup(subName) {
-    const parts = (subName || "").split(" - ").map(s => s.trim()).filter(Boolean);
+    const raw = (subName || "").trim();
+    const low = raw.toLowerCase();
+    if (low.startsWith("fc mobile") || low.includes("fc mobile")) return "FC Mobile";
+    if (low.includes("بلود سترايك") || low.includes("blood strike")) return "بلود سترايك - Blood strike";
+    if (low.includes("شرف الملوك") || low.includes("honor of king")) return "شرف الملوك - Honor of Kings";
+    if (low.includes("ببجي عالمي") || low.includes("bubg global") || low.includes("pubg world")) return "ببجي عالمي - PUBG Mobile";
+    if (low.includes("فري فاير") || low.includes("free fire")) return "فري فاير - Free Fire";
+    if (low.includes("جواكر") || low.includes("jawaker")) return "جواكر - Jawaker";
+    if (low.includes("روبلوكس") || low.includes("roblox")) return "روبلوكس - Roblox";
+    if (low.includes("موبايل ليجند") || low.includes("mobile legend")) return "موبايل ليجند - Mobile Legend";
+    if (low.includes("يلا لودو") || low.includes("yalla ludo")) return "يلا لودو - Yalla Ludo";
+    if (low.includes("دلتا فورس") || low.includes("delta force")) return "دلتا فورس - Delta Force";
+    if (low.includes("بلياردو") || low.includes("8ball")) return "بلياردو - 8Ball Pool";
+    const parts = raw.split(" - ").map(s => s.trim()).filter(Boolean);
     if (parts.length >= 3) return parts[0] + " - " + parts[1];
-    return (subName || "").trim();
+    return raw;
   }
 
   function resolveSubIcon(subName, fallbackIcon) {
