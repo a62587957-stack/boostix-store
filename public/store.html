@@ -736,6 +736,133 @@
 .s8-desc { max-height:170px; overflow-y:auto; background:#f8fafc; border-right:3px solid #3b49df; border-radius:10px; padding:10px 12px; font-size:12.5px; line-height:1.7; color:#334155; text-align:right; }
 </style>
 
+
+<style>
+/* === BOOSTIX_EXACT_SLOTS_V3 === */
+.p-card {
+  aspect-ratio: 1 / 1 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  position: relative !important;
+  display: block !important;
+  background: url("/assets/card_template.webp") center/100% 100% no-repeat !important;
+  border: none !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+}
+.bx-slot-icon {
+  position: absolute;
+  top: 15.5%;
+  left: 26.5%;
+  width: 47%;
+  height: 47%;
+  border-radius: 18%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 15, 35, 0.65);
+}
+.bx-slot-icon img, .bx-slot-icon > * {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 18% !important;
+}
+.bx-slot-title {
+  position: absolute;
+  top: 70%;
+  left: 7%;
+  right: 7%;
+  height: 12.5%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #ffffff;
+  font-weight: 900;
+  font-size: clamp(10.5px, 2.8vw, 13px);
+  line-height: 1.15;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 0 4px;
+}
+.bx-slot-meta {
+  position: absolute;
+  bottom: 5.5%;
+  left: 6%;
+  width: 43%;
+  height: 11%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #38bdf8;
+  font-size: clamp(9.5px, 2.4vw, 11.5px);
+  font-weight: 800;
+  direction: ltr;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bx-slot-cta {
+  position: absolute;
+  bottom: 5.5%;
+  right: 12%;
+  width: 34%;
+  height: 10.5%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: clamp(10.5px, 2.6vw, 12.5px);
+  font-weight: 900;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.85);
+  pointer-events: none;
+}
+/* زر التحقق من الاسم داخل نافذة الشراء */
+.s8-verify-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin: -4px auto 14px auto;
+  width: fit-content;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+.s8-verify-btn {
+  background: #f1f5f9;
+  color: #334155;
+  border: none;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.s8-verify-ico {
+  background: #ffffff;
+  color: #0f172a;
+  border: none;
+  border-right: 1px solid #cbd5e1;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.s8-verify-res {
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 800;
+  margin: -8px 0 12px 0;
+  min-height: 18px;
+}
+</style>
+
 </head>
 <body>
 <div id="bxSplash">
@@ -1283,6 +1410,7 @@
       <div id="bm-summary"></div>
       <div id="bm-qty-wrap"></div>
       <input type="text" id="bm-player-id" class="s8-id-inp" placeholder="USER ID" dir="ltr">
+      <div id="bm-verify-wrap" style="display:none;"><div class="s8-verify-wrap"><button type="button" class="s8-verify-btn" onclick="verifyPlayerId()">التحقق من الاسم</button><button type="button" class="s8-verify-ico" onclick="verifyPlayerId()">↻</button></div><div id="bm-verify-res" class="s8-verify-res"></div></div>
       <div class="s8-btns">
         <button class="s8-btn-buy" onclick="confirmBuy()">شراء</button>
         <button class="s8-btn-cancel" onclick="document.getElementById('buy-modal').classList.remove('open')">الغاء</button>
@@ -1468,6 +1596,18 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+    function shortCardTitle(str) {
+    if (!str) return "";
+    let s = String(str).trim();
+    const parts = s.split(" - ").map(x => x.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      const ar = parts.find(x => /[\u0600-\u06FF]/.test(x));
+      if (ar && ar.length >= 3) s = ar;
+      else s = parts[0];
+    }
+    return s.length > 26 ? s.slice(0, 25) + "…" : s;
+  }
+
   function getBrandGroup(subName) {
     const parts = (subName || "").split(" - ").map(s => s.trim()).filter(Boolean);
     if (parts.length >= 3) return parts[0] + " - " + parts[1];
@@ -1625,7 +1765,35 @@
       ? `<div class="s8-desc">${rawDesc.replace(/\n/g, "<br>")}</div>`
       : "";
 
+    const vw = document.getElementById("bm-verify-wrap"); const vr = document.getElementById("bm-verify-res"); if (vr) vr.textContent = ""; if (vw) { const gtxt = (p.game + " " + p.pack).toLowerCase(); const canCheck = /pubg|ببجي|bubg|free fire|فري فاير|jawaker|جواكر|mobile legend|موبايل ليجند|yalla|يلا/.test(gtxt); vw.style.display = canCheck ? "block" : "none"; }
     document.getElementById("buy-modal").classList.add("open");
+  }
+
+  
+  async function verifyPlayerId() {
+    const pid = (document.getElementById("bm-player-id").value || "").trim();
+    const resEl = document.getElementById("bm-verify-res");
+    if (!pid) { resEl.style.color = "#dc2626"; resEl.textContent = "أدخل رقم الأيدي أولاً"; return; }
+    resEl.style.color = "#3b49df";
+    resEl.textContent = "⏳ جاري التحقق من الاسم...";
+    try {
+      const r = await fetch("/api/customer/check-player", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_id: buyProdId, player_id: pid })
+      });
+      const d = await r.json();
+      if (d.ok && d.player_name) {
+        resEl.style.color = "#16a34a";
+        resEl.textContent = "✅ اسم اللاعب: " + d.player_name;
+      } else {
+        resEl.style.color = "#dc2626";
+        resEl.textContent = "⚠️ " + (d.msg || "تعذر جلب الاسم، تأكد من الأيدي");
+      }
+    } catch (e) {
+      resEl.style.color = "#dc2626";
+      resEl.textContent = "⚠️ تعذر الاتصال بالسيرفر";
+    }
   }
 
   async function confirmBuy() {
@@ -1882,18 +2050,11 @@
         grid.innerHTML = filtered.map(p => {
           const info = splitGameField(p.game);
           return `
-            <div class="p-card">
-              <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                ${renderIconHTML(resolveSubIcon(info.sub, p.icon), 50)}
-                <div><div class="p-game">${info.sub}</div><div class="p-name">${p.pack}</div></div>
-              </div>
-              <div>
-                <div class="p-price">
-                  <span style="font-size:17px; font-weight:900; color:var(--gold); direction:ltr;">${fmtPriceMain(p.price_usd)}</span>
-                  <span style="font-size:11px; color:var(--cyan); direction:ltr;">${fmtPriceSub(p.price_usd)}</span>
-                </div>
-                <button class="btn btn-cyan" style="width:100%;" onclick="openBuy(${p.id})">⚡ شراء فوري</button>
-              </div>
+            <div class="p-card" onclick="openBuy(${p.id})">
+              <div class="bx-slot-icon">${renderIconHTML(resolveSubIcon(info.sub, p.icon), 96)}</div>
+              <div class="bx-slot-title">${shortCardTitle(p.pack)}</div>
+              <div class="bx-slot-meta">${fmtPriceMain(p.price_usd)}</div>
+              <div class="bx-slot-cta">شراء</div>
             </div>`;
         }).join("") || `<div class="panel" style="grid-column:1/-1; text-align:center;">لا توجد باقات مطابقة.</div>`;
       } else if (brandGroupFilter) {
@@ -1912,11 +2073,11 @@
         const subs = Array.from(subMap.values());
         bread.textContent = `📂 ${brandGroupFilter} (${subs.length} قسم)`;
         grid.innerHTML = subs.map(s => `
-          <div class="p-card" style="cursor:pointer; text-align:center; align-items:center;" onclick='selectSubCat(${JSON.stringify(s.name)})'>
-            <div style="margin-bottom:8px;">${renderIconHTML(s.icon, 72)}</div>
-            <div class="p-name" style="font-size:14px;">${s.name.replace(brandGroupFilter + " - ", "")}</div>
-            <div style="font-size:11px; color:var(--cyan); font-weight:800; margin-bottom:10px;">📦 ${s.count} باقة | من ${fmtPriceMain(s.minPrice)}</div>
-            <button class="btn btn-cyan" style="width:100%;">عرض الباقات ⬅️</button>
+          <div class="p-card" onclick='selectSubCat(${JSON.stringify(s.name)})'>
+            <div class="bx-slot-icon">${renderIconHTML(s.icon, 96)}</div>
+            <div class="bx-slot-title">${shortCardTitle(s.name.replace(brandGroupFilter + " - ", ""))}</div>
+            <div class="bx-slot-meta">${fmtPriceMain(s.minPrice)}</div>
+            <div class="bx-slot-cta">عرض</div>
           </div>`).join("");
       } else {
         const inMain = products.filter(p => splitGameField(p.game).main === mainCatFilter);
@@ -1947,11 +2108,11 @@
           const onClickAttr = singleSub ? `selectSubCat(${JSON.stringify(singleSub)})` : `selectBrandGroup(${JSON.stringify(g.name)})`;
           const btnText = singleSub ? "عرض الباقات ⬅️" : `عرض الأقسام (${g.subs.size}) ⬅️`;
           return `
-          <div class="p-card" style="cursor:pointer; text-align:center; align-items:center;" onclick='${onClickAttr}'>
-            <div style="margin-bottom:8px;">${renderIconHTML(g.icon, 74)}</div>
-            <div class="p-name" style="font-size:14px;">${g.name}</div>
-            <div style="font-size:11px; color:var(--cyan); font-weight:800; margin-bottom:10px;">📦 ${g.count} باقة | من ${fmtPriceMain(g.minPrice)}</div>
-            <button class="btn btn-cyan" style="width:100%;">${btnText}</button>
+          <div class="p-card" onclick='${onClickAttr}'>
+            <div class="bx-slot-icon">${renderIconHTML(g.icon, 96)}</div>
+            <div class="bx-slot-title">${shortCardTitle(g.name)}</div>
+            <div class="bx-slot-meta">${fmtPriceMain(g.minPrice)}</div>
+            <div class="bx-slot-cta">عرض</div>
           </div>`;
         }).join("");
       }

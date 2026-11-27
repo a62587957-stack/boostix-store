@@ -1421,6 +1421,35 @@ class CloudHandler(BaseHTTPRequestHandler):
             self._json({"ok": True, "tx_id": tx, "amount": amt, "currency": currency, "method": method, "auto_approved": ok_app, "info": info})
             return
 
+        if p == "/api/customer/check-player":
+            pid = str(body.get("player_id") or "").strip()
+            prod_id = body.get("product_id")
+            if not pid or not prod_id:
+                self._json({"ok": False, "msg": "البيانات ناقصة"}); return
+            prods = fetch_all_products(active_only=True)
+            prod = next((x for x in prods if str(x.get("id")) == str(prod_id)), None)
+            if not prod:
+                self._json({"ok": False, "msg": "المنتج غير موجود"}); return
+            sku = str(prod.get("sku") or "")
+            svc_id = sku.split(":")[2] if sku.startswith("SMM:Sonic8store:") and len(sku.split(":")) >= 3 else ""
+            settings = get_store_settings()
+            sup = next((s for s in (settings.get("suppliers") or []) if _is_sonic8(s.get("api_url"))), None)
+            if sup and svc_id:
+                for ep in (
+                    f"/client/api/checkPlayer/{svc_id}/{quote(pid)}",
+                    f"/client/api/check/{svc_id}?player_id={quote(pid)}",
+                    f"/client/api/playerName/{svc_id}?playerId={quote(pid)}",
+                ):
+                    try:
+                        r = _sonic8_get(sup["api_url"], sup["api_key"], ep, timeout=10)
+                        if isinstance(r, dict):
+                            nm = r.get("username") or r.get("name") or r.get("player_name") or (r.get("data") or {}).get("username") or (r.get("data") or {}).get("name")
+                            if nm:
+                                self._json({"ok": True, "player_name": str(nm)}); return
+                    except Exception:
+                        pass
+            self._json({"ok": False, "msg": "التحقق غير متاح لهذه الخدمة حالياً"}); return
+
         if p == "/api/customer/purchase":
             if not check_rate_limit(ip, "purchase", 15, 60):
                 self._json({"ok": False, "msg": "طلبات شراء كثيرة، انتظر لحظة"}, 429); return
