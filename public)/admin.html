@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بوابة الإدارة المحمية | Boostix Store</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070b14; --card: #111827; --card2: #0f172a; --border: #1e293b;
+    --gold: #f59e0b; --cyan: #06b6d4; --green: #10b981; --rose: #f43f5e;
+    --text: #f8fafc; --muted: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Cairo', sans-serif; padding-bottom: 60px; }
+  .adm-header { background: #1e1b4b; border-bottom: 3px solid var(--gold); padding: 14px 20px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; }
+  .container { max-width: 1320px; margin: 18px auto; padding: 0 14px; }
+  .tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .t-btn { background: var(--card); border: 2px solid var(--border); color: #fff; padding: 12px 10px; border-radius: 12px; font-family: inherit; font-weight: 800; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .t-btn.active { border-color: var(--gold); background: linear-gradient(135deg, #1e1b4b, #064e3b); }
+  .badge { background: var(--rose); color: #fff; font-size: 11px; padding: 1px 7px; border-radius: 99px; font-weight: 900; }
+  .panel { background: var(--card); border: 1.5px solid var(--border); border-radius: 15px; padding: 18px; margin-bottom: 18px; }
+  .sub-panel { background: var(--card2); border: 1px solid #334155; border-radius: 12px; padding: 14px; margin-bottom: 16px; }
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .kpi { background: var(--card); border-right: 4px solid var(--gold); padding: 14px; border-radius: 12px; }
+  .kpi div { font-size: 13px; color: var(--muted); }
+  .kpi h2 { margin-top: 4px; font-size: 24px; }
+  table { width: 100%; border-collapse: collapse; min-width: 780px; }
+  th { background: #1e1b4b; color: #fde68a; padding: 10px 8px; font-size: 12.5px; border: 1px solid #312e81; }
+  td { padding: 8px 6px; border: 1px solid var(--border); text-align: center; font-size: 12.5px; font-weight: 700; }
+  .btn { font-family: inherit; font-weight: 800; border: none; padding: 7px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-rose { background: var(--rose); color: #fff; }
+  .btn-gold { background: var(--gold); color: #000; }
+  .btn-cyan { background: var(--cyan); color: #000; }
+  .btn-muted { background: #334155; color: #fff; }
+  .inp-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 10px; }
+  input, select { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #334155; background: #070b14; color: #fff; font-family: inherit; font-weight: 700; font-size: 13px; }
+  .mini-inp { width: 78px; padding: 5px 6px; text-align: center; font-size: 12px; direction: ltr; }
+  .pager { display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+  label.fld { display: block; font-size: 12px; color: #fde68a; margin-bottom: 5px; font-weight: 700; }
+  .toast { position: fixed; bottom: 20px; left: 20px; background: #065f46; border: 1px solid var(--green); color: #fff; padding: 10px 18px; border-radius: 10px; font-weight: 800; display: none; z-index: 2000; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+</style>
+</head>
+<body>
+
+<div id="toast" class="toast"></div>
+
+<!-- شاشة قفل المدير المحمية بـ Password + 2FA -->
+<div id="admin-lock" style="position:fixed; inset:0; background:#070b14; z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px;">
+  <div style="background:#111827; border:2px solid var(--gold); padding:28px; border-radius:16px; width:100%; max-width:420px; text-align:center;">
+    <h2 style="color:#fde68a; margin-bottom:6px;">🛡️ بوابة Boostix المحصّنة</h2>
+    <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">جلسات مشفّرة HttpOnly • حماية ضد التخمين • مصادقة ثنائية 2FA</p>
+    <input type="password" id="adm-pass" placeholder="كلمة مرور الإدارة السرية..." autocomplete="current-password" style="margin-bottom:10px; text-align:center;" dir="ltr" onkeydown="if(event.key==='Enter') loginAdmin()">
+    <input type="text" id="adm-totp" inputmode="numeric" maxlength="10" placeholder="رمز التحقق 2FA (6 أرقام من Authenticator)" autocomplete="one-time-code" style="margin-bottom:14px; text-align:center; letter-spacing:4px;" dir="ltr" onkeydown="if(event.key==='Enter') loginAdmin()">
+    <button type="button" class="btn btn-gold" id="unlock-btn" style="width:100%; padding:11px; font-size:14px;" onclick="loginAdmin()">🔓 التحقق والدخول الآمن</button>
+    <div id="login-status" style="display:none; margin-top:12px; padding:10px; border-radius:8px; font-size:12.5px; font-weight:800; line-height:1.5;"></div>
+    <p id="sec-note" style="font-size:11px; color:#34d399; margin-top:10px;">يُحظر الـ IP تلقائياً لمدة 30 دقيقة بعد 5 محاولات خاطئة</p>
+  </div>
+</div>
+
+<header class="adm-header">
+  <div>
+    <h2 style="color:#fde68a; font-size:19px;">👑 لوحة تحكم Boostix Store</h2>
+    <small id="sec-badge" style="color:#34d399;">🛡️ جلسة مشفّرة HttpOnly • متصلة مباشرة بـ Supabase</small>
+  </div>
+  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    <button class="btn btn-cyan" onclick="refreshAdmin()">🔄 تحديث البيانات</button>
+    <a href="/" target="_blank" class="btn btn-gold" style="text-decoration:none;">🛒 فتح المتجر</a>
+    <button class="btn btn-rose" onclick="logoutAdmin()">🚪 خروج آمن</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="tabs">
+    <button class="t-btn active" id="abtn-deps" onclick="setAdmTab('deps')">💳 الإيداعات <span id="bdg-deps" class="badge" style="display:none;">0</span></button>
+    <button class="t-btn" id="abtn-ords" onclick="setAdmTab('ords')">📦 الطلبات <span id="bdg-ords" class="badge" style="display:none;">0</span></button>
+    <button class="t-btn" id="abtn-prods" onclick="setAdmTab('prods')">🎮 المنتجات والتسعير</button>
+    <button class="t-btn" id="abtn-settings" onclick="setAdmTab('settings')">⚙️ الدفع وسعر الصرف</button>
+    <button class="t-btn" id="abtn-stats" onclick="setAdmTab('stats')">📊 الإحصائيات والمستخدمين</button>
+  </div>
+
+  <!-- 1. الإيداعات -->
+  <div id="asec-deps" class="panel">
+    <h3 style="color:#fde68a; margin-bottom:12px;">💳 طلبات شحن المحافظ (Deposits)</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>#</th><th>التاريخ</th><th>المستخدم</th><th>الوسيلة</th><th>رقم العملية (TxID)</th><th>المبلغ ($)</th><th>الحالة</th><th>إجراء الإدارة</th></tr></thead>
+        <tbody id="adm-deps-tb"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 2. الطلبات -->
+  <div id="asec-ords" class="panel" style="display:none;">
+    <h3 style="color:var(--cyan); margin-bottom:12px;">📦 سجل الطلبات وتقسيم التكلفة والربح (Orders)</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>#</th><th>التاريخ</th><th>المشتري</th><th>الباقة (SKU)</th><th>Player ID</th><th>السعر</th><th>التكلفة</th><th>صافي الربح</th><th>الحالة</th><th>قرار التنفيذ</th></tr></thead>
+        <tbody id="adm-ords-tb"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 3. المنتجات والتسعير -->
+  <div id="asec-prods" class="panel" style="display:none;">
+    <div class="sub-panel" style="border-color: var(--gold);">
+      <h3 style="color:#fde68a; margin-bottom:10px;">⚡ أداة التسعير الجماعي (هامش الربح التلقائي على تكلفة المورد)</h3>
+      <div class="inp-row">
+        <div>
+          <label class="fld">نطاق التطبيق (القسم)</label>
+          <select id="bm-cat"><option value="ALL">جميع الباقات المفعّلة (الكل)</option></select>
+        </div>
+        <div>
+          <label class="fld">نسبة هامش الربح (%)</label>
+          <input type="number" step="0.5" min="0" max="500" id="bm-pct" value="15" dir="ltr">
+        </div>
+        <div>
+          <label class="fld">طريقة التقريب</label>
+          <select id="bm-round">
+            <option value="exact">دقيق (خانتين عشريتين)</option>
+            <option value="0.05">تقريب لأقرب 0.05$</option>
+            <option value="0.99">تسعير تجاري (.99$)</option>
+          </select>
+        </div>
+        <div style="display:flex; align-items:flex-end;">
+          <button class="btn btn-gold" id="bm-btn" style="width:100%; padding:10px;" onclick="applyBulkMargin()">⚡ تطبيق هامش الربح الآن</button>
+        </div>
+      </div>
+      <small style="color:var(--muted);">المعادلة: <code>سعر البيع = تكلفة المورد × (1 + النسبة ÷ 100)</code> — يتم التحديث الفوري في Supabase لكل الباقات المحددة.</small>
+    </div>
+
+    <div class="sub-panel">
+      <h3 style="color:var(--cyan); margin-bottom:10px;">➕ إضافة باقة جديدة</h3>
+      <div class="inp-row">
+        <input type="text" id="np-game" placeholder="القسم / اللعبة (مثلاً: الألعاب | ببجي موبايل)">
+        <input type="text" id="np-pack" placeholder="اسم الباقة (مثلاً: 660 شدة)">
+        <input type="text" id="np-sku" placeholder="رمز SKU (مثلاً: BX-NEW-1)" dir="ltr">
+      </div>
+      <div class="inp-row">
+        <input type="number" step="0.01" id="np-cost" placeholder="تكلفة المورد ($)" dir="ltr" oninput="autoCalcAddPrice()">
+        <input type="number" step="0.01" id="np-price" placeholder="سعر البيع للزبون ($)" dir="ltr">
+        <button class="btn btn-green" onclick="addProd()">+ حفظ الباقة الجديدة</button>
+      </div>
+    </div>
+
+    <div class="inp-row" style="margin-bottom:12px;">
+      <input type="text" id="prod-search" placeholder="🔍 ابحث باسم اللعبة أو الباقة أو SKU..." oninput="prodPage=1; renderProductsTable()">
+      <select id="prod-cat-filter" onchange="prodPage=1; renderProductsTable()">
+        <option value="ALL">كل الأقسام</option>
+      </select>
+      <select id="prod-status-filter" onchange="prodPage=1; renderProductsTable()">
+        <option value="ACTIVE">المفعّلة فقط (المعروضة بالمتجر)</option>
+        <option value="ALL">الكل (مفعّل ومعطّل)</option>
+        <option value="INACTIVE">المعطّلة فقط</option>
+      </select>
+    </div>
+    <div id="prod-count-info" style="font-size:12px; color:#34d399; margin-bottom:8px; font-weight:800;"></div>
+
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>ID</th><th>القسم / اللعبة</th><th>الباقة</th><th>SKU</th><th>التكلفة ($)</th><th>سعر البيع ($)</th><th>الربح</th><th>الحالة</th><th>حفظ / حذف</th></tr></thead>
+        <tbody id="adm-prods-tb"></tbody>
+      </table>
+    </div>
+    <div id="prod-pager" class="pager"></div>
+  </div>
+
+  <!-- 4. إعدادات الدفع وسعر الصرف -->
+  <div id="asec-settings" class="panel" style="display:none;">
+    <h3 style="color:#fde68a; margin-bottom:14px;">⚙️ إعدادات سعر الصرف وحسابات الاستلام (تُحفظ دائماً في Supabase)</h3>
+    <div class="inp-row">
+      <div>
+        <label class="fld">سعر صرف الدولار مقابل الليرة السورية (ل.س)</label>
+        <input type="number" id="set-rate" dir="ltr" oninput="updateRatePreview()">
+        <small id="rate-prev" style="color:#34d399; display:block; margin-top:4px;"></small>
+      </div>
+      <div>
+        <label class="fld">هامش الربح الافتراضي عند إضافة باقة (%)</label>
+        <input type="number" step="0.5" id="set-margin" dir="ltr">
+      </div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <label class="fld">بيانات حساب شام كاش (تظهر للزبون في شاشة الإيداع)</label>
+      <input type="text" id="set-sham">
+    </div>
+    <div style="margin-bottom:10px;">
+      <label class="fld">بيانات حساب سيريتل كاش</label>
+      <input type="text" id="set-syriatel">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label class="fld">عنوان USDT TRC20 / Binance ID</label>
+      <input type="text" id="set-usdt" dir="ltr">
+    </div>
+    <button class="btn btn-green" style="padding:11px 24px; font-size:14px;" onclick="saveSettings()">💾 حفظ الإعدادات وتطبيقها فوراً على المتجر</button>
+  </div>
+
+  <!-- 5. الإحصائيات والمستخدمين -->
+  <div id="asec-stats" style="display:none;">
+    <div class="kpi-row">
+      <div class="kpi"><div>📦 مجموع الطلبات</div><h2 id="st-ords">0</h2></div>
+      <div class="kpi"><div>🏆 صافي الربح المكتمل</div><h2 id="st-prof" style="color:#34d399;">$0.00</h2></div>
+      <div class="kpi"><div>💳 مجموع الإيداعات المقبولة</div><h2 id="st-deps">$0.00</h2></div>
+      <div class="kpi"><div>👥 عدد المستخدمين</div><h2 id="st-usrs">0</h2></div>
+      <div class="kpi"><div>🎮 الباقات المفعّلة</div><h2 id="st-prods" style="color:var(--cyan);">0</h2></div>
+    </div>
+    <div class="panel">
+      <h3 style="color:var(--cyan); margin-bottom:12px;">👥 جدول المستخدمين وإدارة الأرصدة</h3>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>الاسم</th><th>البريد الإلكتروني</th><th>الرصيد الحالي ($)</th><th>تاريخ التسجيل</th><th>تعديل رصيد يدوي</th></tr></thead>
+          <tbody id="adm-usrs-tb"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let ADM_DATA = { users: [], products: [], deposits: [], orders: [], payInfo: {}, catalogTree: { main_categories: [] } };
+  let prodPage = 1;
+  const PROD_PER_PAGE = 40;
+  const BASE_ADMIN_PATH = window.location.pathname.replace(/\/+$/, "");
+
+  function esc(v) {
+    return String(v ?? "").replace(/[&<>"']/g, ch => ({
+      "&": "&", "<": "<", ">": ">", '"': """, "'": "'"
+    }[ch]));
+  }
+
+  function showToast(msg, isErr = false) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.style.background = isErr ? "#881337" : "#065f46";
+    t.style.borderColor = isErr ? "#f43f5e" : "#10b981";
+    t.style.display = "block";
+    clearTimeout(window._tt);
+    window._tt = setTimeout(() => t.style.display = "none", 3600);
+  }
+
+  async function apiFetch(url, opts = {}) {
+    const res = await fetch(url, { credentials: "same-origin", ...opts });
+    if (res.status === 401 || res.status === 403) {
+      const data = await res.json().catch(() => ({ ok: false }));
+      if (!url.endsWith("/login")) {
+        document.getElementById("admin-lock").style.display = "flex";
+      }
+      return { status: res.status, data };
+    }
+    const data = await res.json().catch(() => ({ ok: false }));
+    return { status: res.status, data };
+  }
+
+  function setLoginStatus(msg, kind = "info") {
+    const box = document.getElementById("login-status");
+    if (!box) return;
+    box.style.display = "block";
+    box.textContent = msg;
+    if (kind === "err") {
+      box.style.background = "#4c0519"; box.style.border = "1px solid #f43f5e"; box.style.color = "#fecdd3";
+    } else if (kind === "ok") {
+      box.style.background = "#064e3b"; box.style.border = "1px solid #10b981"; box.style.color = "#a7f3d0";
+    } else {
+      box.style.background = "#1e293b"; box.style.border = "1px solid #f59e0b"; box.style.color = "#fde68a";
+    }
+  }
+
+  window.addEventListener("error", function(ev) {
+    setLoginStatus("⚠️ خطأ بالمتصفح: " + (ev.message || "غير معروف"), "err");
+  });
+
+  async function loginAdmin() {
+    const password = (document.getElementById("adm-pass").value || "").trim();
+    const totp = (document.getElementById("adm-totp").value || "").replace(/\D/g, "");
+    if (!password) {
+      setLoginStatus("⚠️ أدخل كلمة المرور السرية أولاً", "err");
+      return;
+    }
+    const btn = document.getElementById("unlock-btn");
+    btn.disabled = true; btn.textContent = "⏳ جاري التحقق...";
+    setLoginStatus("⏳ جاري التحقق من السيرفر (قد يستغرق Render المجاني حتى 50 ثانية إذا كان نائماً)...", "info");
+    try {
+      const { status, data } = await apiFetch(BASE_ADMIN_PATH + "/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, totp })
+      });
+      if (!data.ok) {
+        const errMsg = data.msg || ("❌ فشل تسجيل الدخول (رمز HTTP " + status + ")");
+        setLoginStatus(errMsg, "err");
+        showToast(errMsg, true);
+        return;
+      }
+      setLoginStatus("✅ تم التحقق بنجاح! جاري تحميل لوحة الإدارة...", "ok");
+      document.getElementById("adm-pass").value = "";
+      document.getElementById("adm-totp").value = "";
+      const loaded = await loadOverview(false);
+      if (!loaded) {
+        setLoginStatus("⚠️ نجح الدخول لكن المتصفح لم يحفظ الكوكيز أو فشل تحميل البيانات. جرّب تعطيل حظر الكوكيز.", "err");
+      }
+    } catch (e) {
+      setLoginStatus("⚠️ تعذر الاتصال بالسيرفر: " + (e && e.message ? e.message : "تحقق من الإنترنت"), "err");
+    } finally {
+      btn.disabled = false; btn.textContent = "🔓 التحقق والدخول الآمن";
+    }
+  }
+
+  async function logoutAdmin() {
+    await apiFetch("/api/admin/logout", { method: "POST" });
+    ADM_DATA = { users: [], products: [], deposits: [], orders: [], payInfo: {}, catalogTree: { main_categories: [] } };
+    document.getElementById("admin-lock").style.display = "flex";
+    showToast("🚪 تم تسجيل الخروج وإبطال الجلسة بنجاح");
+  }
+
+  async function loadOverview(silent = true) {
+    try {
+      const { data } = await apiFetch("/api/admin/overview");
+      if (!data.ok) {
+        document.getElementById("admin-lock").style.display = "flex";
+        if (data.requires_totp === false) {
+          document.getElementById("adm-totp").placeholder = "رمز 2FA (اختياري حالياً)";
+        }
+        return false;
+      }
+      document.getElementById("admin-lock").style.display = "none";
+      ADM_DATA = data;
+      document.getElementById("sec-badge").textContent = data.totp_enabled
+        ? "🛡️ محمي بـ 2FA + جلسة HttpOnly مشفّرة • متصل بـ Supabase"
+        : "🛡️ جلسة HttpOnly مشفّرة • يُنصح بتفعيل 2FA في Render";
+      populateCategorySelects();
+      renderAdmin();
+      return true;
+    } catch (e) {
+      if (!silent) showToast("⚠️ تعذر الاتصال بالسيرفر", true);
+      return false;
+    }
+  }
+
+  async function refreshAdmin() {
+    const ok = await loadOverview(false);
+    if (ok) showToast("✅ تم تحديث البيانات من Supabase");
+  }
+
+  function setAdmTab(t) {
+    ["deps", "ords", "prods", "settings", "stats"].forEach(k => {
+      document.getElementById("abtn-" + k).classList.toggle("active", k === t);
+      document.getElementById("asec-" + k).style.display = k === t ? "block" : "none";
+    });
+  }
+
+  function populateCategorySelects() {
+    const cats = (ADM_DATA.catalogTree && ADM_DATA.catalogTree.main_categories) || [];
+    const names = cats.map(c => c.name);
+    const bm = document.getElementById("bm-cat");
+    const pf = document.getElementById("prod-cat-filter");
+    const curBm = bm.value || "ALL";
+    const curPf = pf.value || "ALL";
+    bm.innerHTML = `<option value="ALL">جميع الباقات المفعّلة (الكل)</option>` + names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
+    pf.innerHTML = `<option value="ALL">كل الأقسام</option>` + names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
+    bm.value = curBm;
+    pf.value = curPf;
+  }
+
+  async function decideDep(dep_id, decision) {
+    await apiFetch("/api/admin/deposit-decide", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dep_id, decision })
+    });
+    showToast(decision === "مقبول" ? "✅ تم قبول الإيداع وشحن المحفظة" : "❌ تم رفض الإيداع");
+    loadOverview(true);
+  }
+
+  async function setOrdStatus(order_id, status) {
+    await apiFetch("/api/admin/order-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order_id, status })
+    });
+    showToast("✅ تم تحديث حالة الطلب");
+    loadOverview(true);
+  }
+
+  function autoCalcAddPrice() {
+    const cost = parseFloat(document.getElementById("np-cost").value) || 0;
+    const margin = Number((ADM_DATA.payInfo && ADM_DATA.payInfo.default_margin_pct) || 15);
+    if (cost > 0) document.getElementById("np-price").value = (cost * (1 + margin / 100)).toFixed(2);
+  }
+
+  async function addProd() {
+    const game = document.getElementById("np-game").value.trim();
+    const pack = document.getElementById("np-pack").value.trim();
+    const sku = document.getElementById("np-sku").value.trim();
+    const supplier_cost_usd = parseFloat(document.getElementById("np-cost").value) || 0;
+    const price_usd = parseFloat(document.getElementById("np-price").value) || 0;
+    if (!game || !pack || price_usd <= 0) return showToast("⚠️ أكمل اسم اللعبة والباقة والسعر", true);
+    await apiFetch("/api/admin/product-add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ game, pack, sku, supplier_cost_usd, price_usd })
+    });
+    document.getElementById("np-pack").value = "";
+    document.getElementById("np-cost").value = "";
+    document.getElementById("np-price").value = "";
+    showToast("✅ تمت إضافة الباقة بنجاح");
+    loadOverview(true);
+  }
+
+  async function saveProdRow(id) {
+    const cost = parseFloat(document.getElementById("pcost-" + id).value) || 0;
+    const price = parseFloat(document.getElementById("pprice-" + id).value) || 0;
+    const active = document.getElementById("pact-" + id).checked;
+    if (price <= 0) return showToast("⚠️ السعر يجب أن يكون أكبر من 0", true);
+    const { data } = await apiFetch("/api/admin/product-update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, supplier_cost_usd: cost, price_usd: price, active })
+    });
+    if (data.ok) {
+      const p = ADM_DATA.products.find(x => x.id === id);
+      if (p) { p.supplier_cost_usd = cost; p.price_usd = price; p.active = active; }
+      renderProductsTable();
+      showToast("✅ تم حفظ تعديل الباقة #" + id);
+    }
+  }
+
+  async function delProd(id) {
+    if (!confirm("هل أنت متأكد من حذف الباقة #" + id + " نهائياً؟")) return;
+    await apiFetch("/api/admin/product-del", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id })
+    });
+    showToast("🗑️ تم حذف الباقة #" + id);
+    loadOverview(true);
+  }
+
+  async function applyBulkMargin() {
+    const category = document.getElementById("bm-cat").value;
+    const margin_pct = parseFloat(document.getElementById("bm-pct").value);
+    const round_mode = document.getElementById("bm-round").value;
+    if (isNaN(margin_pct) || margin_pct < 0) return showToast("⚠️ أدخل نسبة ربح صحيحة", true);
+    const scopeTxt = category === "ALL" ? "جميع الباقات المفعّلة" : "قسم (" + category + ")";
+    if (!confirm(`سيتم إعادة تسعير ${scopeTxt} بهامش ربح ${margin_pct}% فوق تكلفة المورد. هل تتابع؟`)) return;
+    const btn = document.getElementById("bm-btn");
+    btn.disabled = true; btn.textContent = "جاري التحديث...";
+    try {
+      const { data } = await apiFetch("/api/admin/bulk-margin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category, margin_pct, round_mode })
+      });
+      if (data.ok) {
+        showToast(`✅ تم تحديث أسعار ${data.updated} باقة بنجاح!`);
+        await loadOverview(true);
+      } else {
+        showToast("❌ " + (data.msg || "فشل التحديث"), true);
+      }
+    } finally {
+      btn.disabled = false; btn.textContent = "⚡ تطبيق هامش الربح الآن";
+    }
+  }
+
+  function updateRatePreview() {
+    const r = Number(document.getElementById("set-rate").value) || 0;
+    document.getElementById("rate-prev").textContent = r > 0 ? `معاينة: $1.00 = ${r.toLocaleString("en-US")} ل.س | $10.00 = ${(r*10).toLocaleString("en-US")} ل.س` : "";
+  }
+
+  async function saveSettings() {
+    const payload = {
+      rate_syp: Number(document.getElementById("set-rate").value) || 15000,
+      default_margin_pct: Number(document.getElementById("set-margin").value) || 15,
+      sham_account: document.getElementById("set-sham").value.trim(),
+      syriatel_account: document.getElementById("set-syriatel").value.trim(),
+      usdt_account: document.getElementById("set-usdt").value.trim()
+    };
+    const { data } = await apiFetch("/api/admin/settings-save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (data.ok) {
+      ADM_DATA.payInfo = data.payInfo;
+      showToast("✅ تم حفظ الإعدادات وتفعيلها على المتجر!");
+    }
+  }
+
+  async function adjustUserBalance(uid, name) {
+    const val = prompt(`تعديل رصيد المستخدم (${name}):\nأدخل مبلغاً موجباً للإضافة (مثلاً: 10) أو سالباً للخصم (مثلاً: -5):`);
+    if (val === null) return;
+    const delta = parseFloat(val);
+    if (isNaN(delta) || delta === 0) return showToast("⚠️ قيمة غير صالحة", true);
+    const { data } = await apiFetch("/api/admin/user-balance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: uid, delta_usd: delta })
+    });
+    if (data.ok) {
+      showToast(`✅ الرصيد الجديد لـ ${name}: $${Number(data.balance).toFixed(2)}`);
+      loadOverview(true);
+    }
+  }
+
+  function renderProductsTable() {
+    const q = (document.getElementById("prod-search").value || "").trim().toLowerCase();
+    const cat = document.getElementById("prod-cat-filter").value;
+    const st = document.getElementById("prod-status-filter").value;
+
+    const filtered = ADM_DATA.products.filter(p => {
+      if (st === "ACTIVE" && !p.active) return false;
+      if (st === "INACTIVE" && p.active) return false;
+      if (cat !== "ALL" && !String(p.game || "").startsWith(cat)) return false;
+      if (q && !(String(p.game || "").toLowerCase().includes(q) || String(p.pack || "").toLowerCase().includes(q) || String(p.sku || "").toLowerCase().includes(q))) return false;
+      return true;
+    });
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PROD_PER_PAGE));
+    if (prodPage > totalPages) prodPage = totalPages;
+    const start = (prodPage - 1) * PROD_PER_PAGE;
+    const slice = filtered.slice(start, start + PROD_PER_PAGE);
+
+    document.getElementById("prod-count-info").textContent = `عرض ${slice.length} من أصل ${filtered.length} باقة مطابقة (إجمالي قاعدة البيانات: ${ADM_DATA.products.length})`;
+
+    document.getElementById("adm-prods-tb").innerHTML = slice.map(p => {
+      const pid = Number(p.id);
+      const cost = Number(p.supplier_cost_usd) || 0;
+      const price = Number(p.price_usd) || 0;
+      const prof = price - cost;
+      const pct = cost > 0 ? ((prof / cost) * 100).toFixed(0) : "—";
+      return `
+        <tr style="${p.active ? '' : 'opacity:0.55;'}">
+          <td>${pid}</td>
+          <td style="text-align:right; max-width:220px;">${esc(p.game)}</td>
+          <td style="text-align:right;">${esc(p.pack)}</td>
+          <td><code>${esc(p.sku)}</code></td>
+          <td><input type="number" step="0.01" class="mini-inp" id="pcost-${pid}" value="${cost.toFixed(2)}"></td>
+          <td><input type="number" step="0.01" class="mini-inp" style="border-color:var(--gold); color:#fde68a;" id="pprice-${pid}" value="${price.toFixed(2)}"></td>
+          <td style="color:${prof >= 0 ? '#34d399' : '#f43f5e'}; direction:ltr;">${prof >= 0 ? '+' : ''}$${prof.toFixed(2)} <small>(${pct}%)</small></td>
+          <td><input type="checkbox" id="pact-${pid}" ${p.active ? 'checked' : ''} style="width:18px; height:18px; cursor:pointer;"></td>
+          <td style="white-space:nowrap;">
+            <button class="btn btn-green" onclick="saveProdRow(${pid})">💾</button>
+            <button class="btn btn-rose" onclick="delProd(${pid})">🗑️</button>
+          </td>
+        </tr>`;
+    }).join("");
+
+    document.getElementById("prod-pager").innerHTML = totalPages > 1 ? `
+      <button class="btn btn-muted" ${prodPage <= 1 ? 'disabled' : ''} onclick="prodPage=1; renderProductsTable()">الأولى</button>
+      <button class="btn btn-muted" ${prodPage <= 1 ? 'disabled' : ''} onclick="prodPage--; renderProductsTable()">السابق</button>
+      <span style="font-weight:800; color:#fde68a;">صفحة ${prodPage} من ${totalPages}</span>
+      <button class="btn btn-muted" ${prodPage >= totalPages ? 'disabled' : ''} onclick="prodPage++; renderProductsTable()">التالي</button>
+      <button class="btn btn-muted" ${prodPage >= totalPages ? 'disabled' : ''} onclick="prodPage=${totalPages}; renderProductsTable()">الأخيرة</button>
+    ` : "";
+  }
+
+  function renderAdmin() {
+    const pendDeps = ADM_DATA.deposits.filter(d => d.status === "معلق").length;
+    const pendOrds = ADM_DATA.orders.filter(o => o.status === "قيد التنفيذ").length;
+    const bd = document.getElementById("bdg-deps");
+    const bo = document.getElementById("bdg-ords");
+    bd.style.display = pendDeps > 0 ? "inline-block" : "none"; bd.textContent = pendDeps;
+    bo.style.display = pendOrds > 0 ? "inline-block" : "none"; bo.textContent = pendOrds;
+
+    document.getElementById("adm-deps-tb").innerHTML = ADM_DATA.deposits.length ? ADM_DATA.deposits.map(d => `
+      <tr>
+        <td><b>${Number(d.id)}</b></td><td>${esc(d.date)}</td>
+        <td>👤 ${esc(d.user_name)}</td>
+        <td>${esc(d.method)}</td><td><code style="color:var(--cyan);">${esc(d.tx_id)}</code></td>
+        <td style="color:#34d399; direction:ltr;">$${Number(d.amount_usd).toFixed(2)}</td>
+        <td>${esc(d.status)}</td>
+        <td>${d.status === 'معلق' ? `
+          <button class="btn btn-green" onclick="decideDep(${Number(d.id)},'مقبول')">✅ قبول وشحن</button>
+          <button class="btn btn-rose" onclick="decideDep(${Number(d.id)},'مرفوض')">❌ رفض</button>
+        ` : 'تمت المعالجة'}</td>
+      </tr>
+    `).join("") : `<tr><td colspan="8" style="color:var(--muted);">لا توجد طلبات إيداع حالياً</td></tr>`;
+
+    document.getElementById("adm-ords-tb").innerHTML = ADM_DATA.orders.length ? ADM_DATA.orders.map(o => `
+      <tr>
+        <td><b>${Number(o.id)}</b></td><td>${esc(o.date)}</td><td>👤 ${esc(o.user_name)}</td>
+        <td>${esc(o.game)} - ${esc(o.pack_name)} (<code>${esc(o.sku)}</code>)</td>
+        <td><code style="color:var(--cyan);">${esc(o.player_id)}</code></td>
+        <td style="direction:ltr;">$${Number(o.price_usd).toFixed(2)}</td>
+        <td style="direction:ltr;">$${Number(o.supplier_cost_usd).toFixed(2)}</td>
+        <td style="color:#34d399; direction:ltr;">+$${Number(o.admin_profit_usd).toFixed(2)}</td>
+        <td>${esc(o.status)}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-green" onclick="setOrdStatus(${Number(o.id)},'مكتمل')">✅ مكتمل</button>
+          <button class="btn btn-rose" onclick="setOrdStatus(${Number(o.id)},'مرفوض من المورد')">❌ رفض واسترداد</button>
+        </td>
+      </tr>
+    `).join("") : `<tr><td colspan="10" style="color:var(--muted);">لا توجد طلبات شراء حالياً</td></tr>`;
+
+    renderProductsTable();
+
+    const pi = ADM_DATA.payInfo || {};
+    document.getElementById("set-rate").value = pi.rate_syp || 15000;
+    document.getElementById("set-margin").value = pi.default_margin_pct ?? 15;
+    document.getElementById("set-sham").value = pi.sham_account || "";
+    document.getElementById("set-syriatel").value = pi.syriatel_account || "";
+    document.getElementById("set-usdt").value = pi.usdt_account || "";
+    updateRatePreview();
+
+    const done = ADM_DATA.orders.filter(o => o.status === "مكتمل");
+    const prof = done.reduce((s, o) => s + Number(o.admin_profit_usd), 0);
+    const deps = ADM_DATA.deposits.filter(d => d.status === "مقبول").reduce((s, d) => s + Number(d.amount_usd), 0);
+    const activeProds = ADM_DATA.products.filter(p => p.active).length;
+    document.getElementById("st-ords").textContent = ADM_DATA.orders.length;
+    document.getElementById("st-prof").textContent = "$" + prof.toFixed(2);
+    document.getElementById("st-deps").textContent = "$" + deps.toFixed(2);
+    document.getElementById("st-usrs").textContent = ADM_DATA.users.length;
+    document.getElementById("st-prods").textContent = activeProds;
+
+    document.getElementById("adm-usrs-tb").innerHTML = ADM_DATA.users.length ? ADM_DATA.users.map(u => `
+      <tr>
+        <td>👤 ${esc(u.name)}</td><td dir="ltr">${esc(u.email)}</td>
+        <td style="color:#34d399; direction:ltr;">$${Number(u.balance).toFixed(2)}</td>
+        <td>${esc(u.created_at)}</td>
+        <td><button class="btn btn-gold" data-uid="${esc(u.id)}" data-uname="${esc(u.name)}" onclick="adjustUserBalance(this.dataset.uid, this.dataset.uname)">💰 تعديل الرصيد</button></td>
+      </tr>
+    `).join("") : `<tr><td colspan="5" style="color:var(--muted);">لا يوجد مستخدمون مسجلون بعد</td></tr>`;
+  }
+
+  loadOverview(true);
+</script>
+</body>
+</html>

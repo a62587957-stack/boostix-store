@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Boostix Store | بوستكس ستور - شحن سريع وآمن</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #050816;
+      --bg-grad: radial-gradient(circle at top center, #111b40 0%, #050816 62%);
+      --surface: rgba(13, 21, 46, 0.88);
+      --surface-2: #0c142c;
+      --card: rgba(14, 23, 52, 0.92);
+      --border: rgba(56, 189, 248, 0.28);
+      --border-strong: rgba(139, 92, 246, 0.55);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --cyan: #38bdf8;
+      --purple: #8b5cf6;
+      --pink: #d946ef;
+      --gold: #f59e0b;
+      --green: #10b981;
+      --rose: #f43f5e;
+      --glow: 0 0 22px rgba(139, 92, 246, 0.45);
+      --nav-bg: rgba(9, 14, 34, 0.96);
+      --input-bg: #070d20;
+    }
+    [data-theme="light"] {
+      --bg: #eef4ff;
+      --bg-grad: linear-gradient(180deg, #e0ecff 0%, #f5f8ff 45%, #eef4ff 100%);
+      --surface: rgba(255, 255, 255, 0.92);
+      --surface-2: #ffffff;
+      --card: rgba(255, 255, 255, 0.96);
+      --border: rgba(59, 130, 246, 0.28);
+      --border-strong: rgba(124, 58, 237, 0.45);
+      --text: #0f172a;
+      --muted: #475569;
+      --cyan: #0284c7;
+      --purple: #7c3aed;
+      --pink: #c026d3;
+      --gold: #d97706;
+      --green: #059669;
+      --rose: #e11d48;
+      --glow: 0 6px 22px rgba(124, 58, 237, 0.28);
+      --nav-bg: rgba(255, 255, 255, 0.96);
+      --input-bg: #f8fafc;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Cairo', system-ui, sans-serif;
+      background: var(--bg);
+      background-image: var(--bg-grad);
+      background-attachment: fixed;
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 92px;
+      overflow-x: hidden;
+    }
+
+    /* Top Header */
+    .topbar {
+      position: sticky; top: 0; z-index: 60;
+      background: var(--nav-bg);
+      backdrop-filter: blur(14px);
+      border-bottom: 1.5px solid var(--border);
+      padding: 10px 14px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.22);
+    }
+    .topbar-in {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .tb-left, .tb-right { display: flex; align-items: center; gap: 8px; }
+    .icon-btn {
+      width: 40px; height: 40px; border-radius: 12px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 18px; transition: .2s;
+    }
+    .icon-btn:active { transform: scale(.94); }
+    .brand-title {
+      display: flex; flex-direction: column; line-height: 1.05; cursor: pointer;
+    }
+    .brand-title .b-main {
+      font-size: 19px; font-weight: 900; letter-spacing: .5px;
+      background: linear-gradient(90deg, #38bdf8, #8b5cf6, #ec4899);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .brand-title .b-sub { font-size: 10px; font-weight: 800; color: var(--muted); letter-spacing: 2px; }
+
+    .wallet-pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: var(--surface);
+      border: 1.5px solid var(--border-strong);
+      border-radius: 999px;
+      padding: 4px 6px 4px 10px;
+      cursor: pointer; box-shadow: var(--glow);
+    }
+    .wallet-pill .w-val { font-weight: 900; font-size: 13px; direction: ltr; color: var(--text); }
+    .wallet-pill .w-plus {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: linear-gradient(135deg, #38bdf8, #8b5cf6);
+      color: #fff; font-weight: 900; font-size: 16px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .btn-login-mini {
+      padding: 7px 12px; border-radius: 999px; border: none;
+      background: linear-gradient(135deg, #2563eb, #8b5cf6);
+      color: #fff; font-family: inherit; font-weight: 800; font-size: 12px;
+      cursor: pointer; box-shadow: var(--glow);
+    }
+
+    /* Container */
+    .container { max-width: 1100px; margin: 0 auto; padding: 12px 12px 24px; }
+
+    /* Hero Banner */
+    .hero-wrap {
+      position: relative; border-radius: 20px; overflow: hidden;
+      border: 1.5px solid var(--border-strong);
+      box-shadow: var(--glow);
+      margin-bottom: 14px;
+      background: var(--surface-2);
+    }
+    .hero-wrap img { width: 100%; display: block; object-fit: cover; max-height: 300px; }
+    .hero-img-light { display: none !important; }
+    [data-theme="light"] .hero-img-dark { display: none !important; }
+    [data-theme="light"] .hero-img-light { display: block !important; }
+
+    /* Search Bar */
+    .search-box {
+      position: relative; margin-bottom: 16px;
+    }
+    .search-box input {
+      width: 100%; padding: 13px 44px 13px 16px;
+      border-radius: 999px;
+      border: 1.5px solid var(--border-strong);
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit; font-size: 14px; font-weight: 700;
+      outline: none; box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+    }
+    .search-box input:focus { border-color: var(--cyan); box-shadow: var(--glow); }
+    .search-box .s-ico {
+      position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+      font-size: 18px; color: var(--cyan); pointer-events: none;
+    }
+
+    /* Section Title */
+    .sec-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin: 14px 2px 12px; gap: 10px;
+    }
+    .sec-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 18px; font-weight: 900;
+    }
+    .sec-line {
+      flex: 1; height: 2px; border-radius: 2px;
+      background: linear-gradient(90deg, transparent, var(--cyan), var(--purple));
+      opacity: .7;
+    }
+
+    /* Main Categories Grid (Image Cards) */
+    .cat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    @media (min-width: 640px) { .cat-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 960px) { .cat-grid { grid-template-columns: repeat(4, 1fr); } }
+
+    .cat-card {
+      position: relative; border-radius: 18px; overflow: hidden;
+      border: 1.5px solid var(--border);
+      background: var(--card);
+      cursor: pointer; transition: transform .2s, box-shadow .2s, border-color .2s;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.22);
+    }
+    .cat-card:hover { transform: translateY(-3px); border-color: var(--cyan); box-shadow: var(--glow); }
+    .cat-card:active { transform: scale(.97); }
+    .cat-card img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; }
+    .cat-badge {
+      position: absolute; top: 8px; left: 8px;
+      background: rgba(5, 8, 22, 0.82); color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.5);
+      padding: 2px 8px; border-radius: 999px;
+      font-size: 11px; font-weight: 800; backdrop-filter: blur(6px);
+    }
+
+    /* Promo Banner */
+    .promo-wrap {
+      border-radius: 18px; overflow: hidden;
+      border: 1.5px solid var(--border-strong);
+      box-shadow: var(--glow);
+      margin: 10px 0 18px; cursor: pointer;
+    }
+    .promo-wrap img { width: 100%; display: block; object-fit: cover; }
+
+    /* Subcategories & Products Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    @media (min-width: 720px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 1000px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+
+    .p-card {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      transition: .2s; box-shadow: 0 6px 18px rgba(0,0,0,0.16);
+    }
+    .p-card:hover { border-color: var(--cyan); transform: translateY(-2px); }
+    .p-game { font-size: 11px; font-weight: 800; color: var(--cyan); }
+    .p-name { font-size: 14px; font-weight: 900; color: var(--text); margin: 4px 0 8px; line-height: 1.35; }
+    .p-price {
+      display: flex; align-items: baseline; justify-content: space-between;
+      margin-bottom: 10px; padding-top: 6px; border-top: 1px dashed var(--border);
+    }
+    .p-ico {
+      border-radius: 12px; background: var(--input-bg);
+      border: 1.5px solid var(--cyan);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 24px; flex-shrink: 0;
+    }
+
+    /* Buttons */
+    .btn {
+      border: none; border-radius: 12px; padding: 9px 14px;
+      font-family: inherit; font-weight: 800; font-size: 13px;
+      cursor: pointer; transition: .2s; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-cyan { background: linear-gradient(135deg, #0284c7, #7c3aed); color: #fff; box-shadow: var(--glow); }
+    .btn-green { background: linear-gradient(135deg, #059669, #10b981); color: #fff; }
+    .btn-rose { background: linear-gradient(135deg, #be123c, #f43f5e); color: #fff; }
+
+    /* Panels & Forms */
+    .panel {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.16);
+    }
+    .inp-g { margin-bottom: 12px; }
+    .inp-g label { display: block; font-size: 13px; font-weight: 800; margin-bottom: 6px; color: var(--text); }
+    .inp-g input, .inp-g select {
+      width: 100%; padding: 11px 14px; border-radius: 12px;
+      border: 1.5px solid var(--border);
+      background: var(--input-bg); color: var(--text);
+      font-family: inherit; font-size: 14px; font-weight: 700; outline: none;
+    }
+    .inp-g input:focus, .inp-g select:focus { border-color: var(--cyan); }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { padding: 10px 8px; text-align: right; border-bottom: 1px solid var(--border); }
+    th { color: var(--cyan); font-weight: 900; white-space: nowrap; }
+
+    /* Side Drawer */
+    .drawer-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.62);
+      z-index: 90; display: none; backdrop-filter: blur(4px);
+    }
+    .drawer-backdrop.open { display: block; }
+    .drawer {
+      position: fixed; top: 0; right: -310px; width: 295px; max-width: 86vw; height: 100vh;
+      background: linear-gradient(180deg, #090f28 0%, #050816 100%);
+      border-left: 1.5px solid var(--border-strong);
+      z-index: 95; transition: right .28s ease;
+      display: flex; flex-direction: column; padding: 18px 14px; overflow-y: auto;
+      color: #f8fafc;
+    }
+    [data-theme="light"] .drawer {
+      background: linear-gradient(180deg, #ffffff 0%, #eef4ff 100%);
+      color: #0f172a;
+    }
+    .drawer.open { right: 0; }
+    .dr-logo {
+      text-align: center; padding: 12px 0 14px;
+      border-bottom: 1px solid var(--border); margin-bottom: 12px;
+    }
+    .dr-logo .ring {
+      width: 78px; height: 78px; margin: 0 auto 8px; border-radius: 50%;
+      border: 2.5px solid var(--purple);
+      box-shadow: var(--glow);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 13px;
+      background: radial-gradient(circle, rgba(56,189,248,.18), transparent);
+    }
+    .dr-vip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 10px; border-radius: 999px;
+      border: 1px solid var(--gold); color: #fbbf24;
+      font-size: 11px; font-weight: 900; margin-top: 4px;
+    }
+    .dr-bal {
+      margin: 10px auto; padding: 8px 16px; border-radius: 999px;
+      border: 1.5px solid var(--cyan); text-align: center;
+      font-size: 18px; font-weight: 900; color: var(--cyan); direction: ltr;
+      box-shadow: inset 0 0 12px rgba(56,189,248,.2);
+    }
+    .dr-syp-btn {
+      width: 100%; padding: 8px; border-radius: 999px; margin-bottom: 14px;
+      border: 1.5px solid var(--gold); background: rgba(245, 158, 11, 0.12);
+      color: #fbbf24; font-family: inherit; font-weight: 800; font-size: 12px; cursor: pointer;
+    }
+    .dr-item {
+      width: 100%; display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 14px; margin-bottom: 8px; border-radius: 12px;
+      border: 1px solid var(--border); background: rgba(56,189,248,0.06);
+      color: inherit; font-family: inherit; font-weight: 800; font-size: 14px;
+      cursor: pointer; transition: .18s;
+    }
+    .dr-item:hover, .dr-item.active {
+      border-color: var(--purple); background: rgba(139,92,246,0.22); box-shadow: var(--glow);
+    }
+
+    /* Bottom Navigation */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 70;
+      background: var(--nav-bg);
+      backdrop-filter: blur(14px);
+      border-top: 1.5px solid var(--border-strong);
+      border-radius: 22px 22px 0 0;
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      align-items: center; padding: 6px 6px 10px;
+      box-shadow: 0 -6px 26px rgba(0,0,0,0.32);
+    }
+    .bn-item {
+      background: none; border: none; color: var(--muted);
+      font-family: inherit; font-size: 11px; font-weight: 800;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      cursor: pointer; padding: 4px 0;
+    }
+    .bn-item .bn-ico { font-size: 20px; }
+    .bn-item.active { color: var(--cyan); }
+    .bn-home {
+      position: relative; top: -18px;
+      width: 60px; height: 60px; margin: 0 auto; border-radius: 50%;
+      background: linear-gradient(135deg, #4f46e5, #a855f7, #ec4899);
+      border: 3px solid var(--bg);
+      color: #fff !important;
+      box-shadow: 0 0 24px rgba(168, 85, 247, 0.75);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 900;
+    }
+    .bn-home .bn-ico { font-size: 22px; line-height: 1; }
+
+    /* Modal */
+    .modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+      z-index: 100; display: none; align-items: center; justify-content: center; padding: 14px;
+      backdrop-filter: blur(5px);
+    }
+    .modal.open { display: flex; }
+    .modal-box {
+      width: 100%; max-width: 440px;
+      background: var(--surface-2); border: 1.5px solid var(--border-strong);
+      border-radius: 20px; overflow: hidden; box-shadow: var(--glow);
+    }
+    .modal-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border-bottom: 1px solid var(--border);
+    }
+    .modal-body { padding: 16px; }
+  </style>
+</head>
+<body>
+
+<!-- Top Header -->
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="tb-left">
+      <button class="icon-btn" onclick="toggleDrawer(true)" title="القائمة">☰</button>
+      <div class="brand-title" onclick="goHome()">
+        <span class="b-main">BOOSTIX</span>
+        <span class="b-sub">STORE</span>
+      </div>
+    </div>
+
+    <div class="tb-right">
+      <button class="icon-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="تبديل الوضع الليلي/النهاري">☀️</button>
+      <div id="logged-in-bar" style="display:none; align-items:center; gap:8px;">
+        <div class="wallet-pill" onclick="showTab('wallet')">
+          <span class="w-plus">+</span>
+          <span class="w-val" id="ui-balance">$0.00</span>
+          <span>💳</span>
+        </div>
+        <button class="icon-btn" onclick="toggleDrawer(true)" title="حسابي">👤</button>
+      </div>
+      <div id="logged-out-bar">
+        <button class="btn-login-mini" onclick="signInWithGoogleOfficial()">دخول Google</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Side Drawer -->
+<div class="drawer-backdrop" id="drawer-backdrop" onclick="toggleDrawer(false)"></div>
+<aside class="drawer" id="side-drawer">
+  <div class="dr-logo">
+    <div class="ring">
+      <span style="color:#38bdf8;">BOOSTIX</span>
+      <span style="font-size:9px; color:#d946ef;">STORE</span>
+    </div>
+    <div id="dr-username" style="font-weight:900; font-size:14px;">زائر Boostix</div>
+    <div class="dr-vip">👑 VIP 1</div>
+    <div class="dr-bal" id="dr-balance">$0.00</div>
+    <button class="dr-syp-btn" id="dr-currency-btn" onclick="toggleCurrency()">🔄 العملة الثانوية: SYP</button>
+  </div>
+
+  <button class="dr-item active" onclick="goHome(); toggleDrawer(false);"><span>🏠 الرئيسية</span><span>‹</span></button>
+  <button class="dr-item" onclick="showTab('wallet'); toggleDrawer(false);"><span>💳 إضافة رصيد (شحن المحفظة)</span><span>‹</span></button>
+  <button class="dr-item" onclick="showTab('orders'); toggleDrawer(false);"><span>📦 طلباتي وسجل الدفعات</span><span>‹</span></button>
+  <button class="dr-item" onclick="toggleTheme()"><span>🌗 تبديل الوضع الليلي / النهاري</span><span>‹</span></button>
+  <button class="dr-item" onclick="openSupport()"><span>🎧 الدعم الفني (تلغرام)</span><span>‹</span></button>
+  <button class="dr-item" id="dr-logout-btn" style="display:none; color:#fb7185;" onclick="logoutGoogle(); toggleDrawer(false);"><span>🚪 تسجيل الخروج</span><span>‹</span></button>
+  <button class="dr-item" id="dr-login-btn" onclick="signInWithGoogleOfficial(); toggleDrawer(false);"><span>🔐 تسجيل الدخول بـ Google</span><span>‹</span></button>
+
+  <div style="margin-top:auto; padding-top:16px; text-align:center; font-size:11px; color:var(--muted);">
+    🛡️ Boostix Store - شحن سريع وآمن 24/7
+  </div>
+</aside>
+
+<!-- Main Container -->
+<main class="container">
+
+  <!-- SHOP SECTION -->
+  <div id="sec-shop">
+    <!-- Hero Banner -->
+    <div class="hero-wrap" id="hero-section">
+      <img src="/assets/hero_dark.webp" alt="Boostix Store" class="hero-img-dark">
+      <img src="/assets/hero_light.webp" alt="Boostix Store" class="hero-img-light">
+    </div>
+
+    <!-- Search Bar -->
+    <div class="search-box">
+      <span class="s-ico">🔍</span>
+      <input type="text" id="store-search" placeholder="ابحث عن لعبة، بطاقة، تطبيق أو خدمة (من +2200 باقة)..." oninput="onSearchInput(this.value)">
+    </div>
+
+    <!-- Home Categories View -->
+    <div id="home-cats-view">
+      <div class="sec-head">
+        <div class="sec-title">🎮 أقسام المتجر</div>
+        <div class="sec-line"></div>
+      </div>
+      <div class="cat-grid" id="main-cats-grid">
+        <div class="panel" style="grid-column:1/-1; text-align:center; color:var(--cyan);">⏳ جاري تحميل أقسام Boostix Store...</div>
+      </div>
+
+      <div class="promo-wrap" onclick="selectMainCat('شاشة VIP')">
+        <img src="/assets/promo_dark.webp" alt="عروض حصرية" class="hero-img-dark">
+        <img src="/assets/promo_light.webp" alt="عروض حصرية" class="hero-img-light">
+      </div>
+    </div>
+
+    <!-- Subcategories / Products View -->
+    <div id="catalog-view" style="display:none;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+        <div id="sub-breadcrumb" style="font-size:14px; font-weight:900; color:var(--gold);"></div>
+        <button class="btn btn-rose" id="btn-back-cats" onclick="goBackStep()">⬅️ رجوع</button>
+      </div>
+      <div class="grid" id="products-grid"></div>
+    </div>
+  </div>
+
+  <!-- WALLET SECTION -->
+  <div id="sec-wallet" style="display:none;">
+    <div class="panel" style="max-width:680px; margin:0 auto;">
+      <h3 style="color:var(--gold); margin-bottom:6px;">💳 شحن رصيد محفظتك في Boostix</h3>
+      <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">حوّل المبلغ لأحد حساباتنا المعتمدة أدناه، ثم اكتب المبلغ ورقم عملية التحويل ليتم تفعيل الرصيد بحسابك:</p>
+
+      <div class="inp-g">
+        <label>1️⃣ اختر وسيلة الدفع:</label>
+        <select id="dep-method" onchange="updatePayBox()">
+          <option value="شام كاش">📱 شام كاش (Sham Cash)</option>
+          <option value="سيريتل كاش">📲 سيريتل كاش (Syriatel Cash)</option>
+          <option value="USDT">💎 عملة رقمية (USDT TRC20 / Binance)</option>
+        </select>
+      </div>
+
+      <div id="pay-account-box" style="background:var(--input-bg); border:1.5px dashed var(--cyan); padding:14px; border-radius:12px; margin-bottom:14px; font-weight:900; color:var(--gold);"></div>
+
+      <div class="inp-g">
+        <label>2️⃣ المبلغ المحول بالدولار ($):</label>
+        <input type="number" step="0.5" id="dep-amount" placeholder="مثال: 10" oninput="updateSYPPreview()">
+        <small id="dep-syp-hint" style="color:var(--cyan); display:block; margin-top:4px; font-weight:800;"></small>
+      </div>
+
+      <div class="inp-g">
+        <label>3️⃣ رقم عملية التحويل (من الإشعار):</label>
+        <input type="text" id="dep-tx" placeholder="أدخل رقم العملية بدقة..." dir="ltr">
+      </div>
+
+      <button class="btn btn-green" style="width:100%; padding:12px; font-size:15px;" onclick="submitDeposit()">📤 إرسال طلب شحن الرصيد</button>
+    </div>
+  </div>
+
+  <!-- ORDERS SECTION -->
+  <div id="sec-orders" style="display:none;">
+    <div class="panel">
+      <h3 style="color:var(--cyan); margin-bottom:12px;">📦 سجل طلباتي وحالة الشحن</h3>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr><th>#</th><th>التاريخ</th><th>الباقة</th><th>المعرف (ID)</th><th>السعر</th><th>الحالة</th><th>التفاصيل</th></tr>
+          </thead>
+          <tbody id="my-orders-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3 style="color:var(--gold); margin-bottom:12px;">📜 سجل إيداعات محفظتي</h3>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr><th>#</th><th>التاريخ</th><th>الطريقة</th><th>المبلغ</th><th>الإشعار</th><th>الحالة</th></tr>
+          </thead>
+          <tbody id="my-deps-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Bottom Navigation Bar -->
+<nav class="bottom-nav">
+  <button class="bn-item" id="bn-wallet" onclick="showTab('wallet')"><span class="bn-ico">💳</span><span>المحفظة</span></button>
+  <button class="bn-item" id="bn-orders" onclick="showTab('orders')"><span class="bn-ico">📄</span><span>طلباتي</span></button>
+  <button class="bn-home" id="bn-shop" onclick="goHome()"><span class="bn-ico">🏠</span><span>الرئيسية</span></button>
+  <button class="bn-item" onclick="openSupport()"><span class="bn-ico">🎧</span><span>الدعم الفني</span></button>
+  <button class="bn-item" onclick="toggleDrawer(true)"><span class="bn-ico">🛡️</span><span>القائمة</span></button>
+</nav>
+
+<!-- Buy Modal -->
+<div class="modal" id="buy-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>⚡ إتمام الشراء الفوري</h3>
+      <button class="btn btn-rose" style="padding:5px 10px;" onclick="document.getElementById('buy-modal').classList.remove('open')">✖</button>
+    </div>
+    <div class="modal-body">
+      <div id="bm-summary" style="background:var(--input-bg); border:1px solid var(--gold); padding:12px; border-radius:12px; margin-bottom:14px;"></div>
+      <div class="inp-g">
+        <label style="font-size:14px; color:var(--gold);">🎮 أدخل رقم الـ ID أو الحساب المطلوب:</label>
+        <input type="text" id="bm-player-id" placeholder="مثال: 5123456789" dir="ltr" style="font-size:16px; text-align:center; border-color:var(--cyan);">
+      </div>
+      <button class="btn btn-green" style="width:100%; padding:12px; font-size:15px;" onclick="confirmBuy()">✅ تأكيد الشراء وخصم المبلغ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://lxeloayuowzatrrlsasn.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_m_-u5ofKmBmIldJz7VX7YA_D1QNNsPl";
+  const sbClient = (window.supabase && window.supabase.createClient)
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "implicit" }
+      })
+    : null;
+
+  let ACCESS_TOKEN = localStorage.getItem("saker_oauth_token") || "";
+  let DATA = { user: null, products: [], myOrders: [], myDeposits: [], payInfo: { rate_syp: 15000 } };
+  let mainCatFilter = "";
+  let subCatFilter = "";
+  let searchQuery = "";
+  let buyProdId = null;
+  let showSYPPrimary = localStorage.getItem("boostix_syp") === "1";
+
+  // ربط الأقسام الـ 11 بصورها المضغوطة
+  const CAT_IMAGE_MAP = {
+    "الألعاب": "/assets/categories/cat_02.webp",
+    "بطاقات شحن": "/assets/categories/cat_04.webp",
+    "قسم الأرقام": "/assets/categories/cat_03.webp",
+    "تطبيقات دردشة": "/assets/categories/cat_05.webp",
+    "تواصل اجتماعي": "/assets/categories/cat_01.webp",
+    "شاشة VIP": "/assets/categories/cat_07.webp",
+    "Vpn مدفوع": "/assets/categories/cat_11.webp",
+    "ذكاء اصطناعي Ai": "/assets/categories/cat_06.webp",
+    "برامج تصميم": "/assets/categories/cat_09.webp",
+    "توثيق حسابات": "/assets/categories/cat_08.webp",
+    "عملات و أرصدة": "/assets/categories/cat_10.webp"
+  };
+
+  function applyTheme(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    localStorage.setItem("boostix_theme", t);
+    const btn = document.getElementById("theme-toggle-btn");
+    if (btn) btn.textContent = t === "dark" ? "☀️" : "🌙";
+  }
+  function toggleTheme() {
+    const cur = document.documentElement.getAttribute("data-theme") || "dark";
+    applyTheme(cur === "dark" ? "light" : "dark");
+  }
+  applyTheme(localStorage.getItem("boostix_theme") || "dark");
+
+  function toggleDrawer(open) {
+    document.getElementById("side-drawer").classList.toggle("open", open);
+    document.getElementById("drawer-backdrop").classList.toggle("open", open);
+  }
+
+  function toggleCurrency() {
+    showSYPPrimary = !showSYPPrimary;
+    localStorage.setItem("boostix_syp", showSYPPrimary ? "1" : "0");
+    renderStore();
+  }
+
+  function openSupport() {
+    alert("🎧 للدعم الفني السريع تواصل معنا عبر تلغرام أو أرسل رقم طلبك من قسم طلباتي.");
+  }
+
+  async function initAuthAndLoad() {
+    try {
+      if (window.location.hash && window.location.hash.includes("access_token=")) {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accTok = hashParams.get("access_token");
+        const refTok = hashParams.get("refresh_token") || "";
+        if (accTok) {
+          ACCESS_TOKEN = accTok;
+          localStorage.setItem("saker_oauth_token", accTok);
+          if (sbClient && sbClient.auth) {
+            try { await sbClient.auth.setSession({ access_token: accTok, refresh_token: refTok }); } catch (e) {}
+          }
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
+      if (sbClient && sbClient.auth) {
+        try {
+          const { data: { session } } = await sbClient.auth.getSession();
+          if (session && session.access_token) {
+            ACCESS_TOKEN = session.access_token;
+            localStorage.setItem("saker_oauth_token", ACCESS_TOKEN);
+          }
+        } catch (e) {}
+        sbClient.auth.onAuthStateChange((event, session) => {
+          if (session && session.access_token) {
+            ACCESS_TOKEN = session.access_token;
+            localStorage.setItem("saker_oauth_token", ACCESS_TOKEN);
+            loadStore();
+          }
+        });
+      }
+    } catch (e) {}
+    await loadStore();
+  }
+
+  async function signInWithGoogleOfficial() {
+    if (!sbClient || !sbClient.auth) return alert("مكتبة تسجيل الدخول قيد التحميل، يرجى المحاولة بعد ثانية.");
+    const { error } = await sbClient.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin + "/" }
+    });
+    if (error) alert("خطأ في الاتصال بـ Google OAuth: " + error.message);
+  }
+
+  async function logoutGoogle() {
+    try { if (sbClient && sbClient.auth) await sbClient.auth.signOut(); } catch (e) {}
+    ACCESS_TOKEN = "";
+    localStorage.removeItem("saker_oauth_token");
+    goHome();
+    await loadStore();
+  }
+
+  async function loadStore() {
+    try {
+      const res = await fetch("/api/customer/bootstrap", {
+        headers: ACCESS_TOKEN ? { "Authorization": "Bearer " + ACCESS_TOKEN } : {}
+      });
+      const d = await res.json();
+      if (d && d.ok) {
+        DATA = d;
+        renderStore();
+      }
+    } catch (e) {
+      document.getElementById("main-cats-grid").innerHTML = `<div class="panel" style="grid-column:1/-1; text-align:center; color:var(--rose);">⚠️ تعذر الاتصال بالسيرفر، أعد تحديث الصفحة.</div>`;
+    }
+  }
+
+  function fmtUSD(v) { return "$" + (Number(v) || 0).toFixed(2); }
+  function fmtSYP(v) { return Math.round((Number(v) || 0) * (Number(DATA.payInfo && DATA.payInfo.rate_syp) || 15000)).toLocaleString("en-US") + " ل.س"; }
+  function fmtPriceMain(v) { return showSYPPrimary ? fmtSYP(v) : fmtUSD(v); }
+  function fmtPriceSub(v) { return showSYPPrimary ? fmtUSD(v) : fmtSYP(v); }
+
+  function showTab(t) {
+    if ((t === "wallet" || t === "orders") && !DATA.user) {
+      signInWithGoogleOfficial();
+      return;
+    }
+    ["shop", "wallet", "orders"].forEach(k => {
+      document.getElementById("sec-" + k).style.display = k === t ? "block" : "none";
+      const bn = document.getElementById("bn-" + k);
+      if (bn) bn.classList.toggle("active", k === t);
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function goHome() {
+    mainCatFilter = ""; subCatFilter = ""; searchQuery = "";
+    const inp = document.getElementById("store-search");
+    if (inp) inp.value = "";
+    showTab("shop");
+    renderStore();
+  }
+
+  function goBackStep() {
+    if (searchQuery) { searchQuery = ""; const inp = document.getElementById("store-search"); if (inp) inp.value = ""; }
+    else if (subCatFilter) { subCatFilter = ""; }
+    else { mainCatFilter = ""; }
+    renderStore();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function renderIconHTML(iconVal, size = 54) {
+    if (iconVal && (iconVal.startsWith("http://") || iconVal.startsWith("https://") || iconVal.startsWith("/"))) {
+      return `<img src="${iconVal}" alt="icon" loading="lazy" style="width:${size}px; height:${size}px; border-radius:12px; object-fit:cover; border:1.5px solid var(--cyan); background:var(--input-bg);" onerror="this.style.display='none'">`;
+    }
+    return `<div class="p-ico" style="width:${size}px; height:${size}px;">${iconVal || '🎮'}</div>`;
+  }
+
+  function onSearchInput(val) { searchQuery = (val || "").trim().toLowerCase(); renderStore(); }
+  function selectMainCat(catName) { mainCatFilter = catName; subCatFilter = ""; searchQuery = ""; renderStore(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function selectSubCat(subName) { subCatFilter = subName; renderStore(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+
+  function splitGameField(g) {
+    const parts = (g || "الألعاب").split("|");
+    return { main: (parts[0] || "الألعاب").trim(), sub: (parts.slice(1).join("|") || parts[0] || "الألعاب").trim() };
+  }
+
+  function openBuy(id) {
+    if (!DATA.user) { signInWithGoogleOfficial(); return; }
+    buyProdId = id;
+    const p = DATA.products.find(x => x.id === id);
+    if (!p) return;
+    const info = splitGameField(p.game);
+    document.getElementById("bm-summary").innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          ${renderIconHTML(p.icon, 48)}
+          <div><div style="font-size:12px; color:var(--cyan);">${info.main} - ${info.sub}</div><div style="font-size:15px; font-weight:900;">${p.pack}</div></div>
+        </div>
+        <div style="font-size:18px; font-weight:900; color:var(--gold); direction:ltr;">${fmtPriceMain(p.price_usd)}</div>
+      </div>`;
+    document.getElementById("bm-player-id").value = "";
+    document.getElementById("buy-modal").classList.add("open");
+  }
+
+  async function confirmBuy() {
+    const player_id = document.getElementById("bm-player-id").value.trim();
+    if (!player_id) return alert("يرجى إدخال رقم الـ ID أو الحساب المطلوب");
+    const res = await fetch("/api/customer/purchase", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ACCESS_TOKEN },
+      body: JSON.stringify({ product_id: buyProdId, player_id })
+    });
+    const d = await res.json();
+    if (!d.ok) {
+      alert("⚠️ " + d.msg);
+      if (d.need_deposit) { document.getElementById("buy-modal").classList.remove('open'); showTab("wallet"); }
+      return;
+    }
+    document.getElementById("buy-modal").classList.remove("open");
+    await loadStore();
+    showTab("orders");
+    alert("✅ تم استلام طلبك بنجاح! يمكنك متابعة حالته من قسم طلباتي.");
+  }
+
+  function updatePayBox() {
+    const el = document.getElementById("dep-method");
+    if (!el || !DATA.payInfo) return;
+    const m = el.value;
+    let txt = DATA.payInfo.sham_account || "";
+    if (m.includes("سيريتل")) txt = DATA.payInfo.syriatel_account || "";
+    if (m.includes("USDT")) txt = DATA.payInfo.usdt_account || "";
+    document.getElementById("pay-account-box").textContent = "📌 حوّل إلى: " + txt;
+  }
+
+  function updateSYPPreview() {
+    const v = parseFloat(document.getElementById("dep-amount").value) || 0;
+    document.getElementById("dep-syp-hint").textContent = "المعادل بالليرة السورية: " + fmtSYP(v);
+  }
+
+  async function submitDeposit() {
+    const method = document.getElementById("dep-method").value;
+    const amount_usd = parseFloat(document.getElementById("dep-amount").value) || 0;
+    const tx_id = document.getElementById("dep-tx").value.trim();
+    const res = await fetch("/api/customer/deposit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ACCESS_TOKEN },
+      body: JSON.stringify({ method, amount_usd, tx_id })
+    });
+    const d = await res.json();
+    if (!d.ok) return alert("⚠️ " + d.msg);
+    document.getElementById("dep-amount").value = "";
+    document.getElementById("dep-tx").value = "";
+    await loadStore();
+    showTab("orders");
+    alert("✅ تم إرسال طلب شحن الرصيد، سيتم إضافته لمحفظتك فور مطابقة رقم العملية.");
+  }
+
+  function renderStore() {
+    if (DATA.user) {
+      document.getElementById("logged-in-bar").style.display = "flex";
+      document.getElementById("logged-out-bar").style.display = "none";
+      document.getElementById("ui-balance").textContent = fmtPriceMain(DATA.user.balance);
+      document.getElementById("dr-balance").textContent = fmtPriceMain(DATA.user.balance);
+      document.getElementById("dr-username").textContent = DATA.user.name || DATA.user.email;
+      document.getElementById("dr-logout-btn").style.display = "flex";
+      document.getElementById("dr-login-btn").style.display = "none";
+    } else {
+      document.getElementById("logged-in-bar").style.display = "none";
+      document.getElementById("logged-out-bar").style.display = "flex";
+      document.getElementById("dr-balance").textContent = "$0.00";
+      document.getElementById("dr-username").textContent = "زائر Boostix";
+      document.getElementById("dr-logout-btn").style.display = "none";
+      document.getElementById("dr-login-btn").style.display = "flex";
+    }
+    document.getElementById("dr-currency-btn").textContent = showSYPPrimary ? "🔄 العملة الحالية: ليرة سورية (SYP)" : "🔄 العملة الحالية: دولار (USD)";
+
+    const orderedMains = ["الألعاب", "بطاقات شحن", "تطبيقات دردشة", "تواصل اجتماعي", "قسم الأرقام", "شاشة VIP", "ذكاء اصطناعي Ai", "توثيق حسابات", "برامج تصميم", "عملات و أرصدة", "Vpn مدفوع"];
+    const products = DATA.products || [];
+    const existingMains = [...new Set(products.map(p => splitGameField(p.game).main))];
+    const mainCats = orderedMains.filter(m => existingMains.includes(m));
+    existingMains.forEach(m => { if (!mainCats.includes(m)) mainCats.push(m); });
+
+    const homeView = document.getElementById("home-cats-view");
+    const catView = document.getElementById("catalog-view");
+    const heroSec = document.getElementById("hero-section");
+    const bread = document.getElementById("sub-breadcrumb");
+    const grid = document.getElementById("products-grid");
+
+    if (!searchQuery && !mainCatFilter) {
+      homeView.style.display = "block";
+      heroSec.style.display = "block";
+      catView.style.display = "none";
+      document.getElementById("main-cats-grid").innerHTML = mainCats.map((m, idx) => {
+        const count = products.filter(p => splitGameField(p.game).main === m).length;
+        const imgSrc = CAT_IMAGE_MAP[m] || `/assets/categories/cat_${String((idx % 11) + 1).padStart(2, '0')}.webp`;
+        return `
+          <div class="cat-card" onclick='selectMainCat(${JSON.stringify(m)})'>
+            <img src="${imgSrc}" alt="${m}" loading="lazy">
+            <span class="cat-badge">${count} باقة</span>
+          </div>`;
+      }).join("");
+    } else {
+      homeView.style.display = "none";
+      heroSec.style.display = "none";
+      catView.style.display = "block";
+
+      if (searchQuery || subCatFilter) {
+        const filtered = searchQuery
+          ? products.filter(p => (p.pack && p.pack.toLowerCase().includes(searchQuery)) || (p.game && p.game.toLowerCase().includes(searchQuery))).slice(0, 120)
+          : products.filter(p => { const info = splitGameField(p.game); return info.main === mainCatFilter && info.sub === subCatFilter; });
+
+        bread.textContent = searchQuery
+          ? `🔍 نتائج البحث عن "${searchQuery}" (${filtered.length} باقة)`
+          : `📂 ${mainCatFilter} ⬅️ ${subCatFilter} (${filtered.length} باقة)`;
+
+        grid.innerHTML = filtered.map(p => {
+          const info = splitGameField(p.game);
+          return `
+            <div class="p-card">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                ${renderIconHTML(p.icon, 50)}
+                <div><div class="p-game">${info.sub}</div><div class="p-name">${p.pack}</div></div>
+              </div>
+              <div>
+                <div class="p-price">
+                  <span style="font-size:17px; font-weight:900; color:var(--gold); direction:ltr;">${fmtPriceMain(p.price_usd)}</span>
+                  <span style="font-size:11px; color:var(--cyan); direction:ltr;">${fmtPriceSub(p.price_usd)}</span>
+                </div>
+                <button class="btn btn-cyan" style="width:100%;" onclick="openBuy(${p.id})">⚡ شراء فوري</button>
+              </div>
+            </div>`;
+        }).join("") || `<div class="panel" style="grid-column:1/-1; text-align:center;">لا توجد باقات مطابقة.</div>`;
+      } else {
+        const inMain = products.filter(p => splitGameField(p.game).main === mainCatFilter);
+        const subMap = new Map();
+        inMain.forEach(p => {
+          const sub = splitGameField(p.game).sub;
+          if (!subMap.has(sub)) subMap.set(sub, { name: sub, icon: p.icon, count: 0, minPrice: p.price_usd });
+          const entry = subMap.get(sub);
+          entry.count++;
+          if (p.price_usd < entry.minPrice) entry.minPrice = p.price_usd;
+        });
+        const subs = Array.from(subMap.values());
+        bread.textContent = `📂 ${mainCatFilter} (${subs.length} قسم فرعي)`;
+        grid.innerHTML = subs.map(s => `
+          <div class="p-card" style="cursor:pointer; text-align:center; align-items:center;" onclick='selectSubCat(${JSON.stringify(s.name)})'>
+            <div style="margin-bottom:8px;">${renderIconHTML(s.icon, 72)}</div>
+            <div class="p-name" style="font-size:14px;">${s.name}</div>
+            <div style="font-size:11px; color:var(--cyan); font-weight:800; margin-bottom:10px;">📦 ${s.count} باقة | من ${fmtPriceMain(s.minPrice)}</div>
+            <button class="btn btn-cyan" style="width:100%;">عرض الباقات ⬅️</button>
+          </div>`).join("");
+      }
+    }
+
+    updatePayBox();
+    const myOrders = DATA.myOrders || [];
+    document.getElementById("my-orders-tbody").innerHTML = myOrders.map(o => `
+      <tr><td><b>#${o.id}</b></td><td>${o.date}</td><td style="color:var(--gold);">${o.game} - ${o.pack_name}</td><td><code style="color:var(--cyan);">${o.player_id}</code></td><td style="color:var(--green);">${fmtPriceMain(o.price_usd)}</td><td>${o.status}</td><td style="font-size:11px; color:var(--muted);">${o.supplier_note || ''}</td></tr>
+    `).join("") || `<tr><td colspan="7" style="padding:18px; color:var(--muted); text-align:center;">لا توجد طلبات مسجلة في حسابك بعد.</td></tr>`;
+
+    const myDeposits = DATA.myDeposits || [];
+    document.getElementById("my-deps-tbody").innerHTML = myDeposits.map(d => `
+      <tr><td><b>#${d.id}</b></td><td>${d.date}</td><td>${d.method}</td><td style="color:var(--gold);">+${fmtUSD(d.amount_usd)}</td><td><code>${d.tx_id}</code></td><td>${d.status}</td></tr>
+    `).join("") || `<tr><td colspan="6" style="padding:18px; color:var(--muted); text-align:center;">لا توجد عمليات إيداع سابقة.</td></tr>`;
+  }
+
+  initAuthAndLoad();
+</script>
+</body>
+</html>
