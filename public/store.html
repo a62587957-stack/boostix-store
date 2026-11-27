@@ -672,6 +672,70 @@
 }
 </style>
 
+
+<style>
+/* === BOOSTIX_TEMPLATE_AND_MODAL_V2 === */
+.p-card {
+  background: url("/assets/card_template.webp") center/100% 100% no-repeat, linear-gradient(155deg, #0d1533, #16103a) !important;
+  border: none !important;
+  border-radius: 18px !important;
+  box-shadow: 0 8px 22px rgba(2, 6, 23, 0.55) !important;
+  color: #ffffff !important;
+  padding: 18% 10px 10px 10px !important;
+  min-height: 220px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+.p-card img {
+  border-radius: 16px !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5) !important;
+}
+.p-card .p-name {
+  color: #ffffff !important;
+  font-weight: 900 !important;
+  font-size: 13px !important;
+  line-height: 1.3 !important;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.9) !important;
+  margin-top: 6px !important;
+}
+.p-card .btn-cyan {
+  background: linear-gradient(90deg, #0284c7, #7c3aed) !important;
+  border: 1px solid rgba(56, 189, 248, 0.6) !important;
+  border-radius: 10px !important;
+  font-size: 12px !important;
+  padding: 6px 10px !important;
+}
+/* نافذة الشراء البسيطة (ستايل Sonic8Store) */
+#buy-modal .modal-box {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border-radius: 22px !important;
+  max-width: 420px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.45) !important;
+}
+#buy-modal .modal-head { display: none !important; }
+#buy-modal .modal-body { padding: 20px !important; }
+.s8-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:16px; }
+.s8-title { font-size:15px; font-weight:900; color:#0f172a; text-align:right; }
+.s8-price-pill { background:#3b49df; color:#fff; font-weight:900; font-size:14px; padding:6px 14px; border-radius:999px; direction:ltr; display:inline-block; }
+.s8-syp { font-size:12px; font-weight:800; color:#d97706; margin-top:4px; direction:ltr; text-align:center; }
+.s8-qty-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+.s8-box { background:#f1f5f9; border-radius:14px; padding:10px 14px; text-align:center; }
+.s8-box-lbl { font-size:11px; color:#64748b; font-weight:700; margin-bottom:2px; }
+.s8-box-val { font-size:15px; font-weight:900; color:#0f172a; direction:ltr; }
+.s8-qty-inp { width:100%; border:none; background:transparent; text-align:center; font-size:15px; font-weight:900; color:#0f172a; outline:none; }
+.s8-id-inp { width:100%; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:16px; padding:13px 16px; font-size:14px; font-weight:700; color:#0f172a; text-align:center; outline:none; margin-bottom:14px; }
+.s8-id-inp:focus { border-color:#3b49df; background:#fff; }
+.s8-btns { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+.s8-btn-buy { background:#3b49df; color:#fff; border:none; border-radius:999px; padding:12px; font-size:15px; font-weight:900; cursor:pointer; }
+.s8-btn-cancel { background:#fff; color:#dc2626; border:1.5px solid #fca5a5; border-radius:999px; padding:12px; font-size:15px; font-weight:900; cursor:pointer; }
+.s8-desc { max-height:170px; overflow-y:auto; background:#f8fafc; border-right:3px solid #3b49df; border-radius:10px; padding:10px 12px; font-size:12.5px; line-height:1.7; color:#334155; text-align:right; }
+</style>
+
 </head>
 <body>
 <div id="bxSplash">
@@ -1214,18 +1278,16 @@
 <!-- Buy Modal -->
 <div class="modal" id="buy-modal">
   <div class="modal-box">
-    <div class="modal-head">
-      <h3>⚡ إتمام الشراء الفوري</h3>
-      <button class="btn btn-rose" style="padding:5px 10px;" onclick="document.getElementById('buy-modal').classList.remove('open')">✖</button>
-    </div>
+    <div class="modal-head"><h3>شراء</h3></div>
     <div class="modal-body">
-      <div id="bm-summary" style="background:var(--input-bg); border:1px solid var(--gold); padding:12px; border-radius:12px; margin-bottom:12px;"></div>
-      <div id="bm-details"></div>
-      <div class="inp-g">
-        <label id="bm-input-label" style="font-size:14px; color:var(--gold);">🎮 أدخل رقم الـ ID أو الحساب المطلوب:</label>
-        <input type="text" id="bm-player-id" placeholder="مثال: 5123456789" dir="ltr" style="font-size:15px; text-align:center; border-color:var(--cyan);">
+      <div id="bm-summary"></div>
+      <div id="bm-qty-wrap"></div>
+      <input type="text" id="bm-player-id" class="s8-id-inp" placeholder="USER ID" dir="ltr">
+      <div class="s8-btns">
+        <button class="s8-btn-buy" onclick="confirmBuy()">شراء</button>
+        <button class="s8-btn-cancel" onclick="document.getElementById('buy-modal').classList.remove('open')">الغاء</button>
       </div>
-      <button class="btn btn-green" style="width:100%; padding:12px; font-size:15px;" onclick="confirmBuy()">✅ تأكيد الشراء وخصم المبلغ</button>
+      <div id="bm-details"></div>
     </div>
   </div>
 </div>
@@ -1413,6 +1475,17 @@
   }
 
   function resolveSubIcon(subName, fallbackIcon) {
+    if (subName) {
+      if (SUB_ICONS[subName]) return SUB_ICONS[subName];
+      const nk = subName.replace(/\s+/g, " ").trim().toLowerCase();
+      if (SUB_ICONS_NORM[nk]) return SUB_ICONS_NORM[nk];
+      for (const [k, v] of Object.entries(SUB_ICONS_NORM)) {
+        if (k.startsWith(nk + " - ") || nk.startsWith(k + " - ")) return v;
+      }
+    }
+    if (fallbackIcon && (fallbackIcon.startsWith("/api/media/") || (fallbackIcon.startsWith("http") && !fallbackIcon.includes("sonic8store")))) {
+      return fallbackIcon;
+    }
     if (BOOSTIX_ICONS_MAP && subName) {
       if (BOOSTIX_ICONS_MAP[subName]) return BOOSTIX_ICONS_MAP[subName];
       const _sn = subName.replace(/\s+/g, " ").trim().toLowerCase();
@@ -1420,14 +1493,6 @@
         const _kn = k.replace(/\s+/g, " ").trim().toLowerCase();
         if (_kn === _sn || _kn.startsWith(_sn + " - ") || _sn.startsWith(_kn + " - ")) return v;
       }
-    }
-    if (fallbackIcon && (fallbackIcon.startsWith("/api/media/") || fallbackIcon.startsWith("/assets/") || (fallbackIcon.startsWith("http") && !fallbackIcon.includes("sonic8store")))) {
-      return fallbackIcon;
-    }
-    if (subName) {
-      if (SUB_ICONS[subName]) return SUB_ICONS[subName];
-      const nk = subName.replace(/\s+/g, " ").trim().toLowerCase();
-      if (SUB_ICONS_NORM[nk]) return SUB_ICONS_NORM[nk];
     }
     return fallbackIcon || "🎮";
   }
@@ -1512,49 +1577,54 @@
   }
 
   function openBuy(id) {
-    if (!DATA.user) { signInWithGoogleOfficial(); return; }
     buyProdId = id;
-    const p = DATA.products.find(x => x.id === id);
+    const p = (DATA.products || []).find(x => x.id === id);
     if (!p) return;
     const info = splitGameField(p.game);
-    const meta = getServiceMeta(p, info);
     const pm = (PACK_DESCRIPTIONS && p && p.sku) ? PACK_DESCRIPTIONS[p.sku] : null;
-    if (pm && pm.desc) { meta.desc = pm.desc.replace(/\n/g, "<br>"); }
-    if (pm && pm.param) { meta.label = "🎯 " + pm.param; }
+    const rawDesc = (pm && pm.desc && pm.desc.trim() !== ".") ? pm.desc.trim() : "";
+    const paramLabel = (pm && pm.param) ? pm.param : "USER ID";
     window._bmUnitPrice = p.price_usd;
-    window._bmQtyCfg = (pm && pm.type === "amount") ? { min: pm.min || 1, max: pm.max || 100000 } : null;
+    window._bmQtyCfg = (pm && pm.type === "amount") ? { min: pm.min || 1, max: pm.max || 1000000 } : null;
+
+    const initQty = window._bmQtyCfg ? window._bmQtyCfg.min : 1;
+    const initTotal = window._bmUnitPrice * initQty;
 
     document.getElementById("bm-summary").innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
-        <div style="display:flex; align-items:center; gap:10px;">
-          ${renderIconHTML(p.icon, 48)}
-          <div><div style="font-size:12px; color:var(--cyan);">${info.main} - ${info.sub}</div><div style="font-size:15px; font-weight:900;">${p.pack}</div></div>
+      <div class="s8-top">
+        <div class="s8-title">${p.pack}<div style="font-size:11px; color:#64748b; font-weight:700; margin-top:2px;">${info.sub}</div></div>
+        <div style="text-align:center;">
+          <div id="bm-total-price" class="s8-price-pill">${fmtPriceMain(initTotal)}</div>
+          <div id="bm-total-sub" class="s8-syp">${fmtPriceSub(initTotal)}</div>
         </div>
-        <div id="bm-total-price" style="font-size:18px; font-weight:900; color:var(--gold); direction:ltr;">${fmtPriceMain(p.price_usd)}</div>
       </div>`;
 
-    document.getElementById("bm-details").innerHTML = `
-      <div class="bx-meta-card">
-        <div class="bx-meta-badges">
-          <span class="bx-badge">${meta.time}</span>
-          <span class="bx-badge gold">${meta.method}</span>
-        </div>
-        <div class="bx-meta-row"><b>📋 الوصف:</b> ${meta.desc}</div>
-        <div class="bx-meta-row"><b>💡 طريقة الاستخدام:</b> ${meta.usage}</div>
-        <div class="bx-meta-warn">⚠️ ${meta.warn}</div>
-        ${window._bmQtyCfg ? `<div style="margin-top:10px; padding:10px; background:rgba(56,189,248,0.1); border:1px solid var(--cyan); border-radius:12px;">
-          <label style="display:block; font-size:12px; font-weight:800; margin-bottom:6px; color:var(--cyan);">🔢 الكمية المطلوبة (من ${window._bmQtyCfg.min} إلى ${window._bmQtyCfg.max}):</label>
-          <input id="bm-qty-input" type="number" min="${window._bmQtyCfg.min}" max="${window._bmQtyCfg.max}" value="${window._bmQtyCfg.min}" oninput="const q=Math.max(1,parseInt(this.value)||1); const el=document.getElementById('bm-total-price'); if(el) el.textContent=fmtPriceMain(window._bmUnitPrice*q);" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--input-bg); color:var(--text); font-weight:900; text-align:center;">
-        </div>` : ""}
-      </div>`;
-
-    const lbl = document.getElementById("bm-input-label");
-    if (lbl) lbl.textContent = meta.label;
-    const inp = document.getElementById("bm-player-id");
-    if (inp) {
-      inp.value = "";
-      inp.placeholder = meta.placeholder;
+    const qtyWrap = document.getElementById("bm-qty-wrap");
+    if (window._bmQtyCfg) {
+      qtyWrap.innerHTML = `
+        <div class="s8-qty-row">
+          <div class="s8-box">
+            <div class="s8-box-lbl">العدد (${window._bmQtyCfg.min} - ${window._bmQtyCfg.max})</div>
+            <input id="bm-qty-input" class="s8-qty-inp" type="number" min="${window._bmQtyCfg.min}" max="${window._bmQtyCfg.max}" value="${initQty}"
+              oninput="const q=Math.max(1,parseInt(this.value)||1); const tot=window._bmUnitPrice*q; document.getElementById('bm-total-price').textContent=fmtPriceMain(tot); document.getElementById('bm-total-sub').textContent=fmtPriceSub(tot); const b=document.getElementById('bm-box-total'); if(b) b.textContent=fmtPriceMain(tot);">
+          </div>
+          <div class="s8-box">
+            <div class="s8-box-lbl">الاجمالي</div>
+            <div id="bm-box-total" class="s8-box-val">${fmtPriceMain(initTotal)}</div>
+          </div>
+        </div>`;
+    } else {
+      qtyWrap.innerHTML = "";
     }
+
+    const inp = document.getElementById("bm-player-id");
+    inp.value = "";
+    inp.placeholder = paramLabel;
+
+    document.getElementById("bm-details").innerHTML = rawDesc
+      ? `<div class="s8-desc">${rawDesc.replace(/\n/g, "<br>")}</div>`
+      : "";
+
     document.getElementById("buy-modal").classList.add("open");
   }
 
