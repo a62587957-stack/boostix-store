@@ -359,7 +359,7 @@ def fetch_all_products(active_only=True, full_fields=False):
             if c["data"] is not None and (now - c["ts"]) < CACHE_TTL_SEC:
                 return c["data"]
     all_p = []
-    select = "id,game,pack,price_usd,supplier_cost_usd,sku,icon,active" if (not active_only or full_fields) else "id,game,pack,price_usd,icon"
+    select = "id,game,pack,price_usd,supplier_cost_usd,sku,icon,active" if (not active_only or full_fields) else "id,game,pack,price_usd,sku,icon"
     filt = "active=eq.true&" if active_only else ""
     offset = 0
     while True:

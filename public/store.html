@@ -1368,7 +1368,14 @@
   }
 
   function resolveSubIcon(subName, fallbackIcon) {
-    if (BOOSTIX_ICONS_MAP && BOOSTIX_ICONS_MAP[subName]) return BOOSTIX_ICONS_MAP[subName];
+    if (BOOSTIX_ICONS_MAP && subName) {
+      if (BOOSTIX_ICONS_MAP[subName]) return BOOSTIX_ICONS_MAP[subName];
+      const _sn = subName.replace(/\s+/g, " ").trim().toLowerCase();
+      for (const [k, v] of Object.entries(BOOSTIX_ICONS_MAP)) {
+        const _kn = k.replace(/\s+/g, " ").trim().toLowerCase();
+        if (_kn === _sn || _kn.startsWith(_sn + " - ") || _sn.startsWith(_kn + " - ")) return v;
+      }
+    }
     if (fallbackIcon && (fallbackIcon.startsWith("/api/media/") || fallbackIcon.startsWith("/assets/") || (fallbackIcon.startsWith("http") && !fallbackIcon.includes("sonic8store")))) {
       return fallbackIcon;
     }
