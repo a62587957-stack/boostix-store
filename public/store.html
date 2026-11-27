@@ -1205,7 +1205,7 @@
   let BOOSTIX_ICONS_MAP = {};
   let PACK_DESCRIPTIONS = {};
   fetch("/assets/boostix_icons_map.json").then(r => r.ok ? r.json() : {}).then(d => { BOOSTIX_ICONS_MAP = d || {}; if (typeof renderStore === "function") renderStore(); }).catch(() => {});
-  fetch("/assets/pack_descriptions.json").then(r => r.ok ? r.json() : {}).then(d => { PACK_DESCRIPTIONS = d || {}; }).catch(() => {});
+  fetch("/assets/pack_meta.json").then(r => r.ok ? r.json() : {}).then(d => { PACK_DESCRIPTIONS = d || {}; }).catch(() => {});
   let buyProdId = null;
   let showSYPPrimary = localStorage.getItem("boostix_syp") === "1";
 
@@ -1466,7 +1466,11 @@
     if (!p) return;
     const info = splitGameField(p.game);
     const meta = getServiceMeta(p, info);
-    if (PACK_DESCRIPTIONS && p && p.sku && PACK_DESCRIPTIONS[p.sku]) { meta.desc = PACK_DESCRIPTIONS[p.sku]; }
+    const pm = (PACK_DESCRIPTIONS && p && p.sku) ? PACK_DESCRIPTIONS[p.sku] : null;
+    if (pm && pm.desc) { meta.desc = pm.desc.replace(/\n/g, "<br>"); }
+    if (pm && pm.param) { meta.label = "🎯 " + pm.param; }
+    window._bmUnitPrice = p.price_usd;
+    window._bmQtyCfg = (pm && pm.type === "amount") ? { min: pm.min || 1, max: pm.max || 100000 } : null;
 
     document.getElementById("bm-summary").innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
@@ -1474,7 +1478,7 @@
           ${renderIconHTML(p.icon, 48)}
           <div><div style="font-size:12px; color:var(--cyan);">${info.main} - ${info.sub}</div><div style="font-size:15px; font-weight:900;">${p.pack}</div></div>
         </div>
-        <div style="font-size:18px; font-weight:900; color:var(--gold); direction:ltr;">${fmtPriceMain(p.price_usd)}</div>
+        <div id="bm-total-price" style="font-size:18px; font-weight:900; color:var(--gold); direction:ltr;">${fmtPriceMain(p.price_usd)}</div>
       </div>`;
 
     document.getElementById("bm-details").innerHTML = `
@@ -1486,6 +1490,10 @@
         <div class="bx-meta-row"><b>📋 الوصف:</b> ${meta.desc}</div>
         <div class="bx-meta-row"><b>💡 طريقة الاستخدام:</b> ${meta.usage}</div>
         <div class="bx-meta-warn">⚠️ ${meta.warn}</div>
+        ${window._bmQtyCfg ? `<div style="margin-top:10px; padding:10px; background:rgba(56,189,248,0.1); border:1px solid var(--cyan); border-radius:12px;">
+          <label style="display:block; font-size:12px; font-weight:800; margin-bottom:6px; color:var(--cyan);">🔢 الكمية المطلوبة (من ${window._bmQtyCfg.min} إلى ${window._bmQtyCfg.max}):</label>
+          <input id="bm-qty-input" type="number" min="${window._bmQtyCfg.min}" max="${window._bmQtyCfg.max}" value="${window._bmQtyCfg.min}" oninput="const q=Math.max(1,parseInt(this.value)||1); const el=document.getElementById('bm-total-price'); if(el) el.textContent=fmtPriceMain(window._bmUnitPrice*q);" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--input-bg); color:var(--text); font-weight:900; text-align:center;">
+        </div>` : ""}
       </div>`;
 
     const lbl = document.getElementById("bm-input-label");
@@ -1504,7 +1512,7 @@
     const res = await fetch("/api/customer/purchase", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ACCESS_TOKEN },
-      body: JSON.stringify({ product_id: buyProdId, player_id })
+      body: JSON.stringify({ product_id: buyProdId, player_id, quantity: document.getElementById("bm-qty-input") ? Math.max(1, parseInt(document.getElementById("bm-qty-input").value) || 1) : 1 })
     });
     const d = await res.json();
     if (!d.ok) {

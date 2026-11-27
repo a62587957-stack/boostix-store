@@ -101,6 +101,28 @@ def invalidate_cache(kind="all"):
         if kind in ("all", "settings"):
             _CACHE["settings"] = {"ts": 0, "data": None}
 
+
+def _is_sonic8(api_url):
+    return "sonic8store.com" in str(api_url or "").lower()
+
+def _sonic8_get(api_url, api_key, endpoint_path, timeout=15):
+    import urllib.parse
+    p = urllib.parse.urlparse(str(api_url).strip())
+    base = f"{p.scheme or 'https'}://{p.netloc or 'api.sonic8store.com'}"
+    full_url = base.rstrip("/") + endpoint_path
+    req = urllib.request.Request(
+        full_url,
+        headers={
+            "api-token": str(api_key).strip(),
+            "Accept": "application/json",
+            "User-Agent": "BoostixStore/2.0",
+        },
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        raw = r.read().decode("utf-8", errors="ignore")
+    return json.loads(raw)
+
 def _supplier_http_post(url, form_data, timeout=15):
     data = urlencode(form_data).encode("utf-8")
     req = urllib.request.Request(url, data=data, method="POST")
@@ -484,6 +506,402 @@ def _auto_approve_deposit_by_tx(tx_id, paid_amt, currency):
             return True, f"approved_deposit_{d['id']}_new_balance_{nb}"
     return False, "race_or_update_failed"
 
+
+# ==================== Telegram Bot Notifications & Webhook ====================
+def _tg_cfg():
+    token = str(os.environ.get("TG_BOT_TOKEN", "")).strip()
+    chat_id = str(os.environ.get("TG_CHAT_ID", "")).strip()
+    return token, chat_id
+
+def _tg_api(method, payload):
+    token, _ = _tg_cfg()
+    if not token:
+        return None
+    try:
+        import urllib.request
+        url = f"https://api.telegram.org/bot{token}/{method}"
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return json.loads(resp.read().decode("utf-8", errors="ignore"))
+    except Exception:
+        return None
+
+TG_AUDIT_LOG = []
+
+def _short_uid(uid):
+    import hashlib
+    s = str(uid or "").strip()
+    if not s:
+        return "#00000"
+    h = int(hashlib.sha256(s.encode("utf-8")).hexdigest()[:8], 16)
+    return f"#{10000 + (h % 89999)}"
+
+def _tg_staff_ids():
+    raw = str(os.environ.get("TG_STAFF_CHAT_ID") or "").strip()
+    return [x.strip() for x in raw.split(",") if x.strip()]
+
+def _tg_allowed_ids():
+    _, admin_chat = _tg_cfg()
+    ids = []
+    if admin_chat:
+        ids.append(str(admin_chat).strip())
+    for s in _tg_staff_ids():
+        if s not in ids:
+            ids.append(s)
+    return ids
+
+def _tg_menu_markup(is_owner=True):
+    rows = [
+        [
+            {"text": "✅ الإيداعات المقبولة", "callback_data": "rep:deps_ok"},
+            {"text": "❌ الإيداعات المرفوضة", "callback_data": "rep:deps_no"}
+        ],
+        [
+            {"text": "⏳ الإيداعات المعلقة", "callback_data": "rep:deps_wait"},
+            {"text": "🛒 آخر المشتريات", "callback_data": "rep:orders"}
+        ]
+    ]
+    if is_owner:
+        rows.extend([
+            [
+                {"text": "📊 الملخص المالي", "callback_data": "rep:summary"},
+                {"text": "🛡️ سجل الرقابة", "callback_data": "rep:audit"}
+            ],
+            [
+                {"text": "🏦 أرصدة المزودين", "callback_data": "rep:suppliers"},
+                {"text": "📈 الأرباح والمزودين", "callback_data": "rep:pnl_menu"}
+            ]
+        ])
+    return {"inline_keyboard": rows}
+
+def _tg_notify(text, reply_markup=None, owner_only=False):
+    token, admin_chat = _tg_cfg()
+    if not token or not admin_chat:
+        return
+    targets = [admin_chat] if owner_only else _tg_allowed_ids()
+    import threading
+    for cid in targets:
+        payload = {"chat_id": cid, "text": text, "parse_mode": "HTML"}
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
+        threading.Thread(target=_tg_api, args=("sendMessage", payload), daemon=True).start()
+
+def _tg_register_webhook():
+    token, _ = _tg_cfg()
+    if not token:
+        return
+    base = str(os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("PUBLIC_URL") or "https://boostix-store.onrender.com").rstrip("/")
+    _tg_api("setWebhook", {"url": f"{base}/api/telegram/webhook", "allowed_updates": ["callback_query", "message"]})
+
+def _tg_pnl_markup():
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "📅 اليوم", "callback_data": "rep:pnl_day"},
+                {"text": "🗓️ آخر 7 أيام", "callback_data": "rep:pnl_week"}
+            ],
+            [
+                {"text": "📆 هذا الشهر", "callback_data": "rep:pnl_month"},
+                {"text": "📊 هذه السنة", "callback_data": "rep:pnl_year"}
+            ],
+            [
+                {"text": "🔙 القائمة الرئيسية", "callback_data": "rep:main_menu"}
+            ]
+        ]
+    }
+
+def _tg_build_pnl(start_dt, end_dt, title):
+    from urllib.parse import quote as _q
+    s_iso = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    e_iso = end_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    ords = sb_request("GET", f"/rest/v1/orders?created_at=gte.{_q(s_iso)}&created_at=lt.{_q(e_iso)}&select=price_usd,supplier_cost_usd,status") or []
+    deps = sb_request("GET", f"/rest/v1/deposits?created_at=gte.{_q(s_iso)}&created_at=lt.{_q(e_iso)}&select=amount_usd,status") or []
+    valid_ords = [o for o in ords if o.get("status") != "مرفوض من المورد"]
+    sales = sum(float(o.get("price_usd") or 0) for o in valid_ords)
+    sup_paid = sum(float(o.get("supplier_cost_usd") or 0) for o in valid_ords)
+    profit = sales - sup_paid
+    margin = (profit / sales * 100.0) if sales > 0 else 0.0
+    ok_deps = [float(d.get("amount_usd") or 0) for d in deps if d.get("status") == "مقبول"]
+    return (
+        f"📈 <b>{title}</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        f"🛒 الطلبات المنفّذة: <b>{len(valid_ords)}</b>\n"
+        f"💵 إجمالي المبيعات: <b>${sales:.2f}</b>\n"
+        f"🏦 المدفوع للمزودين: <b>${sup_paid:.2f}</b>\n"
+        f"💰 صافي الربح: <b>${profit:.2f}</b> ({margin:.1f}%)\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        f"✅ الإيداعات المقبولة: <b>{len(ok_deps)}</b> (${sum(ok_deps):.2f})\n"
+        "💡 لتاريخ محدد أرسل:\n"
+        "<code>/pnl 2026-11-26</code> أو <code>/pnl 2026-11-01 2026-11-26</code>"
+    )
+
+def _tg_build_report(rep_type):
+    if rep_type in ("pnl_day", "pnl_week", "pnl_month", "pnl_year"):
+        from datetime import datetime, timedelta, timezone
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        tomorrow_start = today_start + timedelta(days=1)
+        if rep_type == "pnl_day":
+            return _tg_build_pnl(today_start, tomorrow_start, f"جرد اليوم ({today_start.strftime('%Y-%m-%d')})")
+        if rep_type == "pnl_week":
+            return _tg_build_pnl(today_start - timedelta(days=6), tomorrow_start, "جرد آخر 7 أيام")
+        if rep_type == "pnl_month":
+            m_start = today_start.replace(day=1)
+            return _tg_build_pnl(m_start, tomorrow_start, f"جرد هذا الشهر ({m_start.strftime('%Y-%m')})")
+        y_start = today_start.replace(month=1, day=1)
+        return _tg_build_pnl(y_start, tomorrow_start, f"جرد هذه السنة ({y_start.strftime('%Y')})")
+
+    if rep_type == "suppliers":
+        st = get_store_settings(use_cache=False) or {}
+        sups = st.get("suppliers") or []
+        if not sups:
+            return "🏦 <b>أرصدة المزودين</b>\nلا يوجد مزودون مضافون في إعدادات المتجر حالياً."
+        lines = ["🏦 <b>كشف أرصدة حساباتك عند المزودين:</b>\n━━━━━━━━━━━━━━━━━━━━"]
+        low_count = 0
+        for s in sups:
+            name = str(s.get("name") or "مزود").strip()
+            if not s.get("active", True):
+                lines.append(f"⏸️ <b>{name}</b>: متوقف (غير مفعّل)")
+                continue
+            api_url = str(s.get("api_url") or "").strip()
+            api_key = str(s.get("api_key") or "").strip()
+            if not api_url or not api_key:
+                lines.append(f"⚙️ <b>{name}</b>: بيانات API غير مكتملة")
+                continue
+            try:
+                res = _sonic8_get(api_url, api_key, "/client/api/profile", timeout=8) if _is_sonic8(api_url) else _supplier_http_post(api_url, {"key": api_key, "action": "balance"}, timeout=8)
+                if isinstance(res, dict) and "balance" in res:
+                    bal_val = float(str(res.get("balance")).replace(",", "").strip())
+                    cur = str(res.get("currency") or "USD").strip()
+                    if bal_val <= 0:
+                        icon, note = "🔴", " (نفد الرصيد!)"
+                        low_count += 1
+                    elif bal_val < 10:
+                        icon, note = "⚠️", " (رصيد منخفض)"
+                        low_count += 1
+                    else:
+                        icon, note = "🟢", ""
+                    lines.append(f"{icon} <b>{name}</b>: <code>{bal_val:.2f} {cur}</code>{note}")
+                else:
+                    err = res.get("error") if isinstance(res, dict) else str(res)[:80]
+                    lines.append(f"❌ <b>{name}</b>: رد غير متوقع ({err})")
+            except Exception as ex:
+                lines.append(f"❌ <b>{name}</b>: تعذر الاتصال ({str(ex)[:60]})")
+        lines.append("━━━━━━━━━━━━━━━━━━━━")
+        if low_count > 0:
+            lines.append(f"⚠️ تنبيه: يوجد <b>{low_count}</b> مزود بحاجة لتعبئة رصيد.")
+        else:
+            lines.append("✅ جميع المزودين المفعّلين بأرصدة جيدة.")
+        return "\n".join(lines)
+
+    if rep_type == "audit":
+        if not TG_AUDIT_LOG:
+            return "🛡️ <b>سجل رقابة العمليات</b>\nلا توجد عمليات مسجّلة منذ آخر تشغيل للسيرفر."
+        lines = ["🛡️ <b>سجل رقابة الإيداعات (آخر 15 عملية):</b>\n"]
+        for item in TG_AUDIT_LOG[:15]:
+            lines.append(f"• [{item['time']}] {item['action']} #{item['dep_id']} (${item['amount']:.2f})\n   👤 العميل: {item['user_id']} | 👮 المنفّذ: {item['actor']}")
+        return "\n".join(lines)
+
+    if rep_type == "summary":
+        deps = sb_request("GET", "/rest/v1/deposits?select=amount_usd,status") or []
+        ords = sb_request("GET", "/rest/v1/orders?select=price_usd,status") or []
+        ok_deps = [float(d.get("amount_usd") or 0) for d in deps if d.get("status") == "مقبول"]
+        no_deps = [float(d.get("amount_usd") or 0) for d in deps if d.get("status") == "مرفوض"]
+        wt_deps = [float(d.get("amount_usd") or 0) for d in deps if d.get("status") == "معلق"]
+        tot_ords = [float(o.get("price_usd") or 0) for o in ords if o.get("status") != "مرفوض من المورد"]
+        return (
+            "📊 <b>الملخص المالي العام لمتجر Boostix</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"✅ إيداعات مقبولة: <b>{len(ok_deps)}</b> (${sum(ok_deps):.2f})\n"
+            f"⏳ إيداعات معلقة: <b>{len(wt_deps)}</b> (${sum(wt_deps):.2f})\n"
+            f"❌ إيداعات مرفوضة: <b>{len(no_deps)}</b> (${sum(no_deps):.2f})\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"🛒 إجمالي المشتريات: <b>{len(tot_ords)}</b> (${sum(tot_ords):.2f})"
+        )
+
+    if rep_type == "orders":
+        ords = sb_request("GET", "/rest/v1/orders?select=id,user_id,game,pack_name,price_usd,status,created_at&order=id.desc&limit=12") or []
+        if not ords:
+            return "🛒 لا توجد عمليات شراء مسجلة حالياً."
+        lines = ["🛒 <b>آخر 12 عملية شراء:</b>\n"]
+        for o in ords:
+            suid = _short_uid(o.get("user_id"))
+            lines.append(f"• #{o.get('id')} | <code>{suid}</code> | <b>${float(o.get('price_usd') or 0):.2f}</b>\n   🎮 {o.get('pack_name') or o.get('game')} ({o.get('status')})")
+        return "\n".join(lines)
+
+    status_map = {"deps_ok": ("مقبول", "✅ الإيداعات المقبولة"), "deps_no": ("مرفوض", "❌ الإيداعات المرفوضة"), "deps_wait": ("معلق", "⏳ الإيداعات المعلقة")}
+    if rep_type in status_map:
+        st, title = status_map[rep_type]
+        deps = sb_request("GET", f"/rest/v1/deposits?status=eq.{quote(st)}&select=id,user_id,method,amount_usd,tx_id,created_at&order=id.desc&limit=12") or []
+        if not deps:
+            return f"{title}\nلا توجد عمليات بهذه الحالة حالياً."
+        lines = [f"<b>{title} (آخر 12 عملية):</b>\n"]
+        for d in deps:
+            suid = _short_uid(d.get("user_id"))
+            lines.append(f"• #{d.get('id')} | <code>{suid}</code> | <b>${float(d.get('amount_usd') or 0):.2f}</b>\n   🏦 {d.get('method')} | TX: <code>{d.get('tx_id')}</code>")
+        return "\n".join(lines)
+
+    return "اختر تقريراً من القائمة."
+
+def _tg_handle_webhook(body):
+    token, admin_chat = _tg_cfg()
+    if not token or not admin_chat:
+        return
+    allowed = _tg_allowed_ids()
+
+    # 1. معالجة الأوامر النصية (/start, /menu, /report)
+    msg_in = body.get("message")
+    if isinstance(msg_in, dict):
+        from_id = str((msg_in.get("from") or {}).get("id", ""))
+        chat_id = (msg_in.get("chat") or {}).get("id")
+        raw_txt = str(msg_in.get("text") or "").strip()
+        parts = raw_txt.split()
+        txt = (parts[0].lower().split("@")[0]) if parts else ""
+        if from_id not in allowed and str(chat_id) not in allowed:
+            return
+        is_owner = (from_id == str(admin_chat) or str(chat_id) == str(admin_chat))
+        if txt in ("/pnl", "جرد", "ارباح", "أرباح"):
+            if not is_owner:
+                _tg_api("sendMessage", {"chat_id": chat_id, "text": "⛔ هذا التقرير مخصص للمالك فقط."})
+                return
+            from datetime import datetime, timedelta, timezone
+            try:
+                if len(parts) == 2:
+                    d1 = datetime.strptime(parts[1], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    rep_txt = _tg_build_pnl(d1, d1 + timedelta(days=1), f"جرد يوم {parts[1]}")
+                elif len(parts) >= 3:
+                    d1 = datetime.strptime(parts[1], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    d2 = datetime.strptime(parts[2], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    rep_txt = _tg_build_pnl(d1, d2 + timedelta(days=1), f"جرد من {parts[1]} إلى {parts[2]}")
+                else:
+                    rep_txt = "📅 <b>كشف الأرباح والمزودين</b>\nاختر الفترة من الأزرار أو أرسل:\n<code>/pnl 2026-11-26</code>\n<code>/pnl 2026-11-01 2026-11-26</code>"
+            except Exception:
+                rep_txt = "⚠️ صيغة التاريخ غير صحيحة. استخدم:\n<code>/pnl 2026-11-26</code> أو <code>/pnl 2026-11-01 2026-11-26</code>"
+            _tg_api("sendMessage", {"chat_id": chat_id, "text": rep_txt, "parse_mode": "HTML", "reply_markup": _tg_pnl_markup()})
+            return
+        if txt in ("/start", "/menu", "/report", "تقرير", "القائمة", "كشف"):
+            _tg_api("sendMessage", {
+                "chat_id": chat_id,
+                "text": "🎛️ <b>لوحة إدارة وتقارير Boostix Store</b>\nاختر الكشف المطلوب من الأزرار أدناه:",
+                "parse_mode": "HTML",
+                "reply_markup": _tg_menu_markup(is_owner=is_owner)
+            })
+        return
+
+    # 2. معالجة أزرار الإنلاين (القبول/الرفض + التقارير)
+    cq = body.get("callback_query")
+    if not isinstance(cq, dict):
+        return
+    from_user = cq.get("from") or {}
+    from_id = str(from_user.get("id", ""))
+    actor_name = (from_user.get("first_name") or "") + (" @" + from_user["username"] if from_user.get("username") else "")
+    actor_name = actor_name.strip() or from_id
+
+    if from_id not in allowed:
+        _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "غير مصرح لك", "show_alert": True})
+        return
+
+    data = str(cq.get("data") or "")
+    msg = cq.get("message") or {}
+    chat_id = (msg.get("chat") or {}).get("id")
+    msg_id = msg.get("message_id")
+    orig_text = msg.get("text") or ""
+
+    if data.startswith("rep:"):
+        rep_type = data.split(":", 1)[1]
+        is_owner = (from_id == str(admin_chat) or str(chat_id) == str(admin_chat))
+        owner_only_reps = {"summary", "audit", "suppliers", "pnl_menu", "pnl_day", "pnl_week", "pnl_month", "pnl_year"}
+        if rep_type in owner_only_reps and not is_owner:
+            _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "⛔ هذا التقرير مخصص للمالك فقط", "show_alert": True})
+            return
+        if rep_type == "pnl_menu":
+            _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id")})
+            _tg_api("sendMessage", {
+                "chat_id": chat_id,
+                "text": "📈 <b>كشف الأرباح والمدفوع للمزودين</b>\nاختر الفترة المطلوبة، أو أرسل تاريخاً محدداً مثل:\n<code>/pnl 2026-11-26</code> أو <code>/pnl 2026-11-01 2026-11-26</code>",
+                "parse_mode": "HTML",
+                "reply_markup": _tg_pnl_markup()
+            })
+            return
+        if rep_type == "main_menu":
+            _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id")})
+            _tg_api("sendMessage", {
+                "chat_id": chat_id,
+                "text": "🎛️ <b>لوحة إدارة وتقارير Boostix Store</b>\nاختر الكشف المطلوب من الأزرار أدناه:",
+                "parse_mode": "HTML",
+                "reply_markup": _tg_menu_markup(is_owner=is_owner)
+            })
+            return
+        _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "جاري جلب الكشف..."})
+        rep_text = _tg_build_report(rep_type)
+        _tg_api("sendMessage", {
+            "chat_id": chat_id,
+            "text": rep_text,
+            "parse_mode": "HTML",
+            "reply_markup": _tg_menu_markup(is_owner=is_owner)
+        })
+        return
+
+    if data.startswith("dep_ok:") or data.startswith("dep_no:"):
+        dec = "مقبول" if data.startswith("dep_ok:") else "مرفوض"
+        try:
+            did = int(data.split(":", 1)[1])
+        except Exception:
+            return
+        updated = sb_request(
+            "PATCH",
+            f"/rest/v1/deposits?id=eq.{did}&status=eq.{quote('معلق')}",
+            {"status": dec},
+            prefer_rep=True
+        )
+        if isinstance(updated, list) and len(updated) == 1:
+            d = updated[0]
+            amt = float(d["amount_usd"])
+            suid = _short_uid(d.get("user_id"))
+            now_str = time.strftime("%H:%M:%S")
+            TG_AUDIT_LOG.insert(0, {
+                "time": now_str,
+                "action": "✅ قبول" if dec == "مقبول" else "❌ رفض",
+                "dep_id": did,
+                "amount": amt,
+                "user_id": suid,
+                "actor": f"{actor_name} ({from_id})"
+            })
+            del TG_AUDIT_LOG[50:]
+
+            if dec == "مقبول":
+                uid_q = quote(str(d["user_id"]))
+                usrs = sb_request("GET", f"/rest/v1/users?id=eq.{uid_q}&select=balance")
+                if isinstance(usrs, list) and usrs:
+                    nb = round(float(usrs[0]["balance"]) + amt, 2)
+                    sb_request("PATCH", f"/rest/v1/users?id=eq.{uid_q}", {"balance": nb})
+                status_line = f"\n\n✅ <b>تم القبول وشحن الرصيد (+${amt:.2f})</b>\n👮 بواسطة: {actor_name} | 🕒 {now_str}"
+                alert = "تم قبول الإيداع وشحن الرصيد بنجاح"
+            else:
+                status_line = f"\n\n❌ <b>تم رفض طلب الإيداع</b>\n👮 بواسطة: {actor_name} | 🕒 {now_str}"
+                alert = "تم رفض الإيداع"
+
+            _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": alert})
+            if chat_id and msg_id:
+                _tg_api("editMessageText", {"chat_id": chat_id, "message_id": msg_id, "text": orig_text + status_line, "parse_mode": "HTML"})
+
+            # إشعار رقابة فوري للمالك إذا كان المنفّذ موظفاً
+            if from_id != str(admin_chat).strip():
+                _tg_notify(
+                    f"🛡️ <b>تنبيه رقابة موظف</b>\n"
+                    f"الإجراء: {'✅ قبول إيداع' if dec == 'مقبول' else '❌ رفض إيداع'} #{did}\n"
+                    f"👤 العميل: <code>{suid}</code>\n"
+                    f"💵 المبلغ: <b>${amt:.2f}</b>\n"
+                    f"👮 المنفّذ: {actor_name} (<code>{from_id}</code>)",
+                    owner_only=True
+                )
+        else:
+            _tg_api("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "تمت معالجة هذا الطلب مسبقاً", "show_alert": True})
+            if chat_id and msg_id:
+                _tg_api("editMessageReplyMarkup", {"chat_id": chat_id, "message_id": msg_id, "reply_markup": {"inline_keyboard": []}})
+# ==============================================================================
+
 class CloudHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         return
@@ -605,6 +1023,14 @@ class CloudHandler(BaseHTTPRequestHandler):
         p = urlparse(self.path).path.rstrip("/") or "/"
         ip = self._client_ip()
 
+        if p == "/api/telegram/sync":
+            base = str(os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("PUBLIC_URL") or "https://boostix-store.onrender.com").rstrip("/")
+            r_set = _tg_api("setWebhook", {"url": f"{base}/api/telegram/webhook", "allowed_updates": ["callback_query", "message"]})
+            r_cmd = _tg_api("setMyCommands", {"commands": [{"command": "menu", "description": "لوحة الكشوفات والتقارير"}, {"command": "report", "description": "تقرير سريع"}]})
+            r_info = _tg_api("getWebhookInfo", {})
+            self._json({"ok": True, "base": base, "setWebhook": r_set, "setMyCommands": r_cmd, "webhookInfo": r_info})
+            return
+
         if p == "/ping" or p == "/health":
             self._json({"ok": True, "status": "awake", "ts": int(time.time())})
             return
@@ -652,7 +1078,7 @@ class CloudHandler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "msg": "Not Found"}, 404)
                 return
             ext = os.path.splitext(target)[1].lower()
-            mime = {".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml"}.get(ext, "application/octet-stream")
+            mime = {".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".json": "application/json; charset=utf-8"}.get(ext, "application/octet-stream")
             with open(target, "rb") as f:
                 raw = f.read()
             self.send_response(200)
@@ -728,6 +1154,8 @@ class CloudHandler(BaseHTTPRequestHandler):
                     "id": u["id"],
                     "name": u["name"],
                     "email": u["email"],
+                    "phone": u.get("phone") or "",
+                    "avatar_url": u.get("avatar_url") or "",
                     "balance": float(u["balance"]),
                     "role": u.get("role", "customer")
                 }
@@ -746,7 +1174,7 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "ok": True,
                 "supabaseUrl": SUPABASE_URL,
                 "supabaseAnonKey": SUPABASE_PUB,
-                "user": u_dict,
+                "user": (dict(u_dict, short_id=_short_uid(u_dict.get("id") or u_dict.get("email"))) if isinstance(u_dict, dict) else u_dict),
                 "products": prods,
                 "catalogTree": cat_tree,
                 "myOrders": my_ords,
@@ -759,6 +1187,10 @@ class CloudHandler(BaseHTTPRequestHandler):
             if not self._is_admin():
                 self._json({"ok": False, "requires_totp": bool(ADMIN_TOTP_SECRET)}, 401); return
             users = sb_request("GET", "/rest/v1/users?select=*&order=created_at.desc")
+            if isinstance(users, list):
+                for _u in users:
+                    if isinstance(_u, dict):
+                        _u["short_id"] = _short_uid(_u.get("id"))
             if not isinstance(users, list): users = []
             for u in users: u["created_at"] = fmt_date(u.get("created_at"))
             prods = fetch_all_products(active_only=False)
@@ -849,6 +1281,39 @@ class CloudHandler(BaseHTTPRequestHandler):
             return
 
         # 2. مسارات الزبائن (مع Rate Limit وقفل مالي ضد الشراء المتزامن)
+        if p == "/api/customer/profile":
+            if not check_rate_limit(ip, "profile", 20, 60):
+                self._json({"ok": False, "msg": "طلبات كثيرة، انتظر لحظة"}, 429); return
+            u = self._auth_user()
+            if not u:
+                self._json({"ok": False, "msg": "Unauthorized"}, 401); return
+            patch = {}
+            if "name" in body:
+                nm = str(body.get("name") or "").strip()[:60]
+                if len(nm) < 2:
+                    self._json({"ok": False, "msg": "الاسم قصير جداً"}, 400); return
+                patch["name"] = nm
+            if "phone" in body:
+                ph = str(body.get("phone") or "").strip()[:25]
+                if ph and len(ph) < 7:
+                    self._json({"ok": False, "msg": "يرجى إدخال رقم اتصال صحيح"}, 400); return
+                patch["phone"] = ph
+            if "avatar_url" in body:
+                av = str(body.get("avatar_url") or "").strip()
+                if av and not (av.startswith("data:image/") or av.startswith("https://")):
+                    self._json({"ok": False, "msg": "صيغة الصورة غير مدعومة"}, 400); return
+                if len(av) > 350000:
+                    self._json({"ok": False, "msg": "حجم الصورة كبير جداً"}, 400); return
+                patch["avatar_url"] = av
+            if not patch:
+                self._json({"ok": False, "msg": "لا توجد بيانات للتحديث"}, 400); return
+            uid_q = quote(str(u["id"]))
+            res = sb_request("PATCH", f"/rest/v1/users?id=eq.{uid_q}", patch)
+            if isinstance(res, dict) and res.get("error"):
+                self._json({"ok": False, "msg": "تعذر الحفظ — تأكد من إضافة أعمدة phone و avatar_url في Supabase"}, 500); return
+            self._json({"ok": True, "updated": patch})
+            return
+
         if p == "/api/customer/deposit":
             if not check_rate_limit(ip, "deposit", 10, 300):
                 self._json({"ok": False, "msg": "تم إرسال طلبات كثيرة، انتظر قليلاً"}, 429); return
@@ -868,10 +1333,11 @@ class CloudHandler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "msg": "رقم عملية التحويل هذا مسجل مسبقاً!"}, 400); return
 
             is_local_auto = any(k in method for k in ["شام كاش", "سيريتل", "سيرياتيل"])
-            if is_local_auto:
+            if is_local_auto and not _tg_cfg()[0]:
                 if tx not in INCOMING_TRANSFERS:
                     self._json({"ok": False, "msg": "لا يوجد رقم عملية مطابق حالياً! تأكد من الرقم أو انتظر دقيقة بعد التحويل وأعد المحاولة."}, 400)
                     return
+            if is_local_auto and tx in INCOMING_TRANSFERS:
                 tr = INCOMING_TRANSFERS[tx]
                 syp_rate = float(os.environ.get("SYP_RATE", "15000"))
                 paid_usd = tr["amount"] if tr["currency"] == "USD" else (tr["amount"] / syp_rate)
@@ -879,7 +1345,7 @@ class CloudHandler(BaseHTTPRequestHandler):
                     self._json({"ok": False, "msg": f"المبلغ المستلم (${paid_usd:.2f}) أقل من قيمة الفاتورة (${amt:.2f})!"}, 400)
                     return
 
-            sb_request("POST", "/rest/v1/deposits", {
+            created_dep = sb_request("POST", "/rest/v1/deposits", {
                 "user_id": u["id"],
                 "user_name": str(u["name"])[:100],
                 "amount_usd": amt,
@@ -887,13 +1353,39 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "tx_id": tx,
                 "status": "معلق"
             }, prefer_rep=True)
+            dep_id = created_dep[0]["id"] if isinstance(created_dep, list) and created_dep else None
             auto_ok = False
             if tx in INCOMING_TRANSFERS:
                 tr = INCOMING_TRANSFERS[tx]
                 auto_ok, _ = _auto_approve_deposit_by_tx(tx, tr["amount"], tr["currency"])
                 if auto_ok:
                     INCOMING_TRANSFERS.pop(tx, None)
+            if auto_ok:
+                _tg_notify(f"💰 <b>إيداع تلقائي مقبول</b>\n👤 العميل: {u['name']}\n💵 المبلغ: <b>${amt:.2f}</b>\n🏦 الطريقة: {method}\n🔢 رقم العملية: <code>{tx}</code>")
+            elif dep_id:
+                kb = {"inline_keyboard": [[{"text": "✅ قبول وشحن", "callback_data": f"dep_ok:{dep_id}"}, {"text": "❌ رفض", "callback_data": f"dep_no:{dep_id}"}]]}
+                _tg_notify(f"🔔 <b>طلب إيداع جديد #{dep_id}</b>\n👤 العميل: {u['name']}\n💵 المبلغ: <b>${amt:.2f}</b>\n🏦 الطريقة: {method}\n🔢 رقم العملية: <code>{tx}</code>", reply_markup=kb)
             self._json({"ok": True, "auto_approved": auto_ok})
+            return
+
+        if p == "/api/telegram/webhook":
+            _tg_handle_webhook(body)
+            self._json({"ok": True})
+            return
+
+        if p == "/api/webhook/sonic8":
+            try:
+                d = body.get("data") if isinstance(body.get("data"), dict) else body
+                oid = str(d.get("order_id") or body.get("order_id") or "").strip()
+                st_raw = str(d.get("status") or body.get("status") or "").strip().lower()
+                if oid and st_raw in ("accept", "reject"):
+                    new_st = "مكتمل" if st_raw == "accept" else "مرفوض"
+                    note = f"تحديث تلقائي من Sonic8Store: {st_raw}"
+                    sb_request("PATCH", f"/rest/v1/orders?supplier_order_id=eq.{urllib.parse.quote(oid)}", {"status": new_st, "supplier_note": note})
+                    _tg_notify(f"🔔 <b>تحديث طلب Sonic8Store</b>\n🆔 رقم المورد: <code>{oid}</code>\n📌 الحالة: <b>{new_st}</b>")
+                self._json({"ok": True})
+            except Exception as e:
+                self._json({"ok": False, "error": str(e)[:120]}, 500)
             return
 
         if p == "/api/webhook/local-pay":
@@ -946,13 +1438,17 @@ class CloudHandler(BaseHTTPRequestHandler):
             if not isinstance(prods, list) or not prods:
                 self._json({"ok": False, "msg": "الباقة غير موجودة أو غير متاحة"}, 404); return
             prod = prods[0]
-            price = round(float(prod["price_usd"]), 2)
+            try:
+                req_qty = max(1, min(1000000, int(body.get("quantity", 1) or 1)))
+            except Exception:
+                req_qty = 1
+            price = round(float(prod["price_usd"]) * req_qty, 2)
             bal = round(float(u["balance"]), 2)
             if price <= 0 or bal < price:
                 self._json({"ok": False, "need_deposit": True, "msg": f"رصيد محفظتك (${bal:.2f}) غير كافٍ لشراء الباقة (${price:.2f}). اشحن محفظتك أولاً."}, 400)
                 return
 
-            cost = round(float(prod["supplier_cost_usd"]), 2)
+            cost = round(float(prod["supplier_cost_usd"]) * req_qty, 2)
             profit = round(price - cost, 2)
             new_bal = round(bal - price, 2)
             uid_q = quote(str(u["id"]))
@@ -984,26 +1480,39 @@ class CloudHandler(BaseHTTPRequestHandler):
                             else:
                                 qty = 100
                                 svc_id = ":".join(parts[2:])
-                            payload = {
-                                "key": sup["api_key"],
-                                "action": "add",
-                                "service": svc_id,
-                            }
-                            is_serva = "serva-s.com" in str(sup.get("api_url", "")).lower()
-                            is_social = "تواصل اجتماعي" in str(prod.get("game", "")) or str(player_id).strip().lower().startswith(("http://", "https://"))
-                            if is_serva and not is_social:
-                                payload["player_id"] = player_id
-                                if qty > 1:
+                            if _is_sonic8(sup["api_url"]):
+                                import uuid as _uuid, urllib.parse as _up
+                                s_qty = req_qty if req_qty > 1 else (int(parts[-1]) if (len(parts) >= 4 and parts[-1].isdigit()) else 1)
+                                o_uuid = str(_uuid.uuid4())
+                                q_str = _up.urlencode({"qty": s_qty, "playerId": str(player_id).strip(), "order_uuid": o_uuid})
+                                sr = _sonic8_get(sup["api_url"], sup["api_key"], f"/client/api/newOrder/{svc_id}/params?{q_str}", timeout=20)
+                                if isinstance(sr, dict) and str(sr.get("status", "")).upper() == "OK" and isinstance(sr.get("data"), dict):
+                                    sup_order_id = str(sr["data"].get("order_id") or o_uuid)
+                                    s_st = sr["data"].get("status", "wait")
+                                    sup_note = f"تم الإرسال التلقائي إلى Sonic8Store رقم #{sup_order_id} ({s_st})"
+                                else:
+                                    sup_note = f"رد Sonic8Store: {str(sr)[:140]}"
+                            else:
+                                payload = {
+                                    "key": sup["api_key"],
+                                    "action": "add",
+                                    "service": svc_id,
+                                }
+                                is_serva = "serva-s.com" in str(sup.get("api_url", "")).lower()
+                                is_social = "تواصل اجتماعي" in str(prod.get("game", "")) or str(player_id).strip().lower().startswith(("http://", "https://"))
+                                if is_serva and not is_social:
+                                    payload["player_id"] = player_id
+                                    if qty > 1:
+                                        payload["quantity"] = qty
+                                else:
+                                    payload["link"] = player_id
                                     payload["quantity"] = qty
-                            else:
-                                payload["link"] = player_id
-                                payload["quantity"] = qty
-                            sr = _supplier_http_post(sup["api_url"], payload)
-                            if isinstance(sr, dict) and sr.get("order"):
-                                sup_order_id = str(sr["order"])
-                                sup_note = f"تم الإرسال التلقائي للمزود ({sup['name']}) رقم #{sup_order_id}"
-                            else:
-                                sup_note = f"رد المزود: {str(sr)[:140]}"
+                                sr = _supplier_http_post(sup["api_url"], payload)
+                                if isinstance(sr, dict) and sr.get("order"):
+                                    sup_order_id = str(sr["order"])
+                                    sup_note = f"تم الإرسال التلقائي للمزود ({sup['name']}) رقم #{sup_order_id}"
+                                else:
+                                    sup_note = f"رد المزود: {str(sr)[:140]}"
                         except Exception as ex:
                             sup_note = f"تعذر الإرسال التلقائي للمزود: {str(ex)[:120]}"
 
@@ -1022,6 +1531,14 @@ class CloudHandler(BaseHTTPRequestHandler):
                 "supplier_order_id": sup_order_id,
                 "supplier_note": sup_note
             }, prefer_rep=True)
+            _tg_notify(
+                f"🛒 <b>طلب شراء جديد</b>\n"
+                f"👤 العميل: {u['name']}\n"
+                f"🎮 الباقة: {prod['pack']}\n"
+                f"🆔 المعرف: <code>{player_id}</code>\n"
+                f"💵 السعر: <b>${price:.2f}</b> (ربح: ${profit:.2f})\n"
+                f"📡 الحالة: {sup_note}"
+            )
             self._json({"ok": True})
             return
 
@@ -1108,6 +1625,60 @@ class CloudHandler(BaseHTTPRequestHandler):
             self._json({"ok": True})
             return
 
+        if p == "/api/admin/cat-rename":
+            old_cat = str(body.get("old_cat", "")).strip()[:100]
+            new_cat = str(body.get("new_cat", "")).strip()[:100]
+            if not old_cat or not new_cat or old_cat == new_cat:
+                self._json({"ok": False, "msg": "اسم القسم غير صالح"}, 400); return
+            prods = fetch_all_products(active_only=False)
+            for pr in prods:
+                if str(pr.get("sku", "")) == str(SETTINGS_SKU): continue
+                g = str(pr.get("game", "")).strip()
+                if g == old_cat:
+                    sb_request("PATCH", f"/rest/v1/products?id=eq.{pr['id']}", {"game": new_cat})
+                elif g.startswith(old_cat + " | "):
+                    ng = new_cat + g[len(old_cat):]
+                    sb_request("PATCH", f"/rest/v1/products?id=eq.{pr['id']}", {"game": ng[:150]})
+            invalidate_cache("products")
+            self._json({"ok": True})
+            return
+
+        if p == "/api/admin/cat-delete":
+            target_cat = str(body.get("cat", "")).strip()[:100]
+            if not target_cat:
+                self._json({"ok": False, "msg": "حدد القسم أولاً"}, 400); return
+            prods = fetch_all_products(active_only=False)
+            ids = [
+                str(pr["id"]) for pr in prods
+                if str(pr.get("sku", "")) != str(SETTINGS_SKU)
+                and str(pr.get("game", "")).split("|")[0].strip() == target_cat
+            ]
+            for i in range(0, len(ids), 100):
+                chunk = ",".join(ids[i:i+100])
+                sb_request("PATCH", f"/rest/v1/products?id=in.({chunk})", {"active": False})
+            invalidate_cache("products")
+            self._json({"ok": True, "count": len(ids)})
+            return
+
+        if p == "/api/admin/sub-rename":
+            old_game = str(body.get("old_game", "")).strip()[:150]
+            new_game = str(body.get("new_game", "")).strip()[:150]
+            if not old_game or not new_game or old_game == new_game:
+                self._json({"ok": False, "msg": "الاسم غير صالح"}, 400); return
+            sb_request("PATCH", f"/rest/v1/products?game=eq.{quote(old_game)}", {"game": new_game})
+            invalidate_cache("products")
+            self._json({"ok": True})
+            return
+
+        if p == "/api/admin/sub-delete":
+            target_game = str(body.get("game", "")).strip()[:150]
+            if not target_game:
+                self._json({"ok": False, "msg": "حدد الفئة أولاً"}, 400); return
+            sb_request("PATCH", f"/rest/v1/products?game=eq.{quote(target_game)}", {"active": False})
+            invalidate_cache("products")
+            self._json({"ok": True})
+            return
+
         if p == "/api/admin/sub-icon-update":
             target_game = str(body.get("game", "")).strip()[:150]
             icon_url = str(body.get("icon", "")).strip()[:500]
@@ -1154,7 +1725,10 @@ class CloudHandler(BaseHTTPRequestHandler):
             if not api_url or not api_key:
                 self._json({"ok": False, "msg": "أدخل رابط API ومفتاح المزود أولاً"}, 400); return
             try:
-                if stype == "smm":
+                if _is_sonic8(api_url):
+                    resp = _sonic8_get(api_url, api_key, "/client/api/profile", timeout=15)
+                    self._json({"ok": True, "result": resp})
+                elif stype == "smm":
                     resp = _supplier_http_post(api_url, {"key": api_key, "action": "balance"})
                     self._json({"ok": True, "result": resp})
                 else:
@@ -1172,9 +1746,20 @@ class CloudHandler(BaseHTTPRequestHandler):
             if not api_url or not api_key:
                 self._json({"ok": False, "msg": "أدخل رابط API ومفتاح المزود"}, 400); return
             try:
-                resp = _supplier_http_post(api_url, {"key": api_key, "action": "services"}, timeout=25)
-                services = resp[:250] if isinstance(resp, list) else []
-                self._json({"ok": True, "total": len(resp) if isinstance(resp, list) else 0, "services": services})
+                if _is_sonic8(api_url):
+                    resp = _sonic8_get(api_url, api_key, "/client/api/products", timeout=25)
+                    mapped = []
+                    if isinstance(resp, list):
+                        for it in resp:
+                            if not isinstance(it, dict): continue
+                            qv = it.get("qty_values")
+                            mn, mx = (qv.get("min", 1), qv.get("max", 1)) if isinstance(qv, dict) else ((qv[0], qv[-1]) if isinstance(qv, list) and qv else (1, 1))
+                            mapped.append({"service": it.get("id"), "name": it.get("name", ""), "category": it.get("category_name", "Sonic8Store"), "rate": it.get("price", "0"), "min": mn, "max": mx, "available": it.get("available", True)})
+                    self._json({"ok": True, "total": len(mapped), "services": mapped[:250]})
+                else:
+                    resp = _supplier_http_post(api_url, {"key": api_key, "action": "services"}, timeout=25)
+                    services = resp[:250] if isinstance(resp, list) else []
+                    self._json({"ok": True, "total": len(resp) if isinstance(resp, list) else 0, "services": services})
             except Exception as e:
                 self._json({"ok": False, "msg": f"تعذر جلب الخدمات: {str(e)[:180]}"}, 400)
             return
@@ -1263,5 +1848,7 @@ class CloudHandler(BaseHTTPRequestHandler):
         self._json({"ok": False, "msg": "Not Found"}, 404)
 
 if __name__ == "__main__":
+    import threading
+    threading.Thread(target=_tg_register_webhook, daemon=True).start()
     ThreadingHTTPServer.allow_reuse_address = True
     ThreadingHTTPServer(("0.0.0.0", PORT), CloudHandler).serve_forever()
