@@ -1935,8 +1935,9 @@ class CloudHandler(BaseHTTPRequestHandler):
                                 "max": mx,
                             })
 
-                # تحميل خريطة الأقسام الأصلية من boostix_store_catalog.json
+                # تحميل خريطة الأقسام والأسماء النظيفة من boostix_store_catalog.json
                 CATALOG_GAME_MAP = {}
+                CATALOG_NAME_MAP = {}
                 cat_path = os.path.join(os.path.dirname(__file__), "..", "boostix_store_catalog.json")
                 if os.path.exists(cat_path):
                     try:
@@ -1945,8 +1946,11 @@ class CloudHandler(BaseHTTPRequestHandler):
                             _cid = str(_cp.get("id") or "").strip()
                             _mc = str(_cp.get("main_category") or "").strip()
                             _sc = str(_cp.get("sub_category") or "").strip()
+                            _cn = str(_cp.get("name") or "").strip()
                             if _cid and _mc and _sc:
-                                CATALOG_GAME_MAP[_cid] = f"{_mc} | {_sc}"
+                                CATALOG_GAME_MAP[_cid] = _mc if _mc == _sc else f"{_mc} | {_sc}"
+                            if _cid and _cn:
+                                CATALOG_NAME_MAP[_cid] = _cn
                     except Exception:
                         pass
 
@@ -1984,13 +1988,47 @@ class CloudHandler(BaseHTTPRequestHandler):
                     if meta_entry:
                         pack_meta[sku_val] = meta_entry
                         meta_changed = True
+                    fixed_game = CATALOG_GAME_MAP.get(it["sid"]) or _classify_boostix_category((by_key[k].get("game") if k in by_key else None) or it["cat"], it["name"])
+                    _g_parts = [x.strip() for x in fixed_game.split("|") if x.strip()]
+                    if len(_g_parts) == 2 and _g_parts[0] == _g_parts[1]:
+                        fixed_game = _g_parts[0]
+
+                    clean_pack = CATALOG_NAME_MAP.get(it["sid"]) or it["name"]
+                    _dur_words = ("شهري", "سنوي", "اسبوعي", "أسبوعي", "شهر", "أشهر", "اشهر", "سنة", "عضوية")
+                    if len(clean_pack) <= 18 and any(w in clean_pack for w in _dur_words):
+                        _svc = (_g_parts[-1] if _g_parts else it["cat"]).split(" - ")[0].strip()
+                        if _svc and _svc.lower() not in clean_pack.lower():
+                            clean_pack = f"{_svc} - {clean_pack}"
+
+                    # إصلاح جواكر 10,000 توكن لمنع خطأ الضرب بـ 100$
+                    if it["sid"] == "5186":
+                        clean_pack = "جواكر - 10,000 توكن"
+                        meta_entry.pop("type", None)
+                        meta_entry["min"] = 1
+                        meta_entry["max"] = 1
+                        pack_meta[sku_val] = meta_entry
+                        price_usd = round(max(0.01, it["cost"] * (1.0 + margin_pct / 100.0)), 2)
+
+                    # وسم المكررات بـ (سيرفر 2) عند تعدد الموردين أو تكرار الخدمة بنفس القسم
+                    if "_seen_packs" not in locals():
+                        _seen_packs = {}
+                        for _ex in existing:
+                            _ex_sku = str(_ex.get("sku") or "")
+                            if not _ex_sku.startswith(f"SMM:{sup_id}:"):
+                                _ek = (str(_ex.get("game") or "").strip(), str(_ex.get("pack") or "").strip())
+                                _seen_packs[_ek] = _seen_packs.get(_ek, 0) + 1
+                    _pk = (fixed_game.strip(), clean_pack.strip())
+                    _cnt = _seen_packs.get(_pk, 0) + 1
+                    _seen_packs[_pk] = _cnt
+                    if _cnt > 1 and f"سيرفر {_cnt}" not in clean_pack:
+                        clean_pack = f"{clean_pack} (سيرفر {_cnt})"
+
                     if k in by_key:
                         pr = by_key[k]
-                        fixed_game = CATALOG_GAME_MAP.get(it["sid"]) or _classify_boostix_category(pr.get("game") or it["cat"], it["name"])
                         to_update.append({
                             "id": pr["id"],
                             "game": fixed_game,
-                            "pack": it["name"] or pr["pack"],
+                            "pack": clean_pack or pr["pack"],
                             "sku": pr["sku"],
                             "icon": pr.get("icon") or "🎮",
                             "supplier_cost_usd": round(it["cost"], 6),
@@ -1999,8 +2037,8 @@ class CloudHandler(BaseHTTPRequestHandler):
                         })
                     else:
                         to_insert.append({
-                            "game": CATALOG_GAME_MAP.get(it["sid"]) or _classify_boostix_category(it["cat"], it["name"]),
-                            "pack": it["name"],
+                            "game": fixed_game,
+                            "pack": clean_pack,
                             "sku": sku_val,
                             "icon": "🎮",
                             "supplier_cost_usd": round(it["cost"], 6),
