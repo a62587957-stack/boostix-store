@@ -1013,7 +1013,7 @@ class CloudHandler(BaseHTTPRequestHandler):
     def _html(self, path, no_store=False):
         mtime = os.path.getmtime(path)
         with _CACHE_LOCK:
-            cached = _CACHE["html_files"].get(path)
+            cached = _CACHE.setdefault("html_files", {}).get(path)
         if cached and cached["mtime"] == mtime:
             raw, gz = cached["raw"], cached["gz"]
         else:
@@ -1021,7 +1021,7 @@ class CloudHandler(BaseHTTPRequestHandler):
                 raw = f.read()
             gz = gzip.compress(raw, compresslevel=5)
             with _CACHE_LOCK:
-                _CACHE["html_files"][path] = {"mtime": mtime, "raw": raw, "gz": gz}
+                _CACHE.setdefault("html_files", {})[path] = {"mtime": mtime, "raw": raw, "gz": gz}
         use_gz = self._accepts_gzip()
         payload = gz if use_gz else raw
         self.send_response(200)
@@ -1862,7 +1862,9 @@ class CloudHandler(BaseHTTPRequestHandler):
                 path = f"/rest/v1/products?active=eq.false&price_usd=gt.0&sku=neq.{sku_enc}"
                 res = sb_request("PATCH", path, {"active": True}, extra_headers={"Prefer": "return=representation"})
                 with _CACHE_LOCK:
-                    _CACHE.clear()
+                    for _k in list(_CACHE.keys()):
+                        if _k != "html_files":
+                            _CACHE.pop(_k, None)
                 cnt = len(res) if isinstance(res, list) else 0
                 self._json({"ok": True, "activated": cnt})
             except Exception as e:
