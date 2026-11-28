@@ -2109,7 +2109,17 @@
           entry.count++;
           if (p.price_usd < entry.minPrice) entry.minPrice = p.price_usd;
         });
-        const subs = Array.from(subMap.values());
+        const subs = Array.from(subMap.values()).sort((a, b) => {
+          const prio = (n) => {
+            const l = (n || "").toLowerCase();
+            if (l.includes("عالمي") || l.includes("global")) return 0;
+            if (l.includes("أمريكي") || l.includes("امريكي") || l.includes("usa") || l.includes("us")) return 1;
+            if (l.includes("سعودي") || l.includes("إماراتي") || l.includes("اماراتي")) return 2;
+            return 10;
+          };
+          const d = prio(a.name) - prio(b.name);
+          return d !== 0 ? d : a.name.localeCompare(b.name, "ar");
+        });
         bread.textContent = `📂 ${brandGroupFilter} (${subs.length} قسم)`;
         grid.innerHTML = subs.map(s => `
           <div class="p-card" onclick='selectSubCat(${JSON.stringify(s.name)})'>
@@ -2132,15 +2142,24 @@
           if ((!entry.icon || entry.icon === "🎮") && resolveSubIcon(sub, p.icon) !== "🎮") entry.icon = resolveSubIcon(sub, p.icon);
         });
         const groups = Array.from(groupMap.values());
-        if (mainCatFilter === "الألعاب") {
-          const POP_GAMES = ["ببجي عالمي","pubg","فري فاير","free fire","جواكر","jawaker","يلا لودو","yalla ludo","موبايل ليجند","mobile legend","روبلوكس","roblox","fc mobile","بلياردو","8ball","كلاش أوف كلانس","كلاش رويال","ببجي نيوستيت","جنشن","genshin","دلتا فورس","delta force","بلود سترايك","blood strike","شرف الملوك","honor of king","فالورانت","valorant","لوردس","lords","ماين كرافت","minecraft","براول","brawl"];
-          const getPopRank = (n) => {
-            const low = (n || "").toLowerCase();
-            const idx = POP_GAMES.findIndex(k => low.includes(k));
-            return idx === -1 ? 999 : idx;
-          };
-          groups.sort((a, b) => getPopRank(a.name) - getPopRank(b.name));
-        }
+        const POP_MAP = {
+          "الألعاب": ["ببجي عالمي","pubg","فري فاير","free fire","جواكر","jawaker","يلا لودو","yalla ludo","موبايل ليجند","mobile legend","روبلوكس","roblox","fc mobile","بلياردو","8ball","كلاش أوف كلانس","كلاش رويال","ببجي نيوستيت","جنشن","genshin","دلتا فورس","delta force","بلود سترايك","blood strike","شرف الملوك","honor of king","فالورانت","valorant","لوردس","lords","ماين كرافت","minecraft","براول","brawl"],
+          "بطاقات شحن": ["ايتونز","itunes","apple","غوغل بلاي","google play","بلاي ستيشن","بلايستيشن","playstation","اكس بوكس","xbox","ريزر","razer","أمازون","امازون","amazon","ستيم","steam","نينتندو","nintendo","ديسكورد","discord","نون","noon","أنغامي","انغامي","anghami","شاهد","نتفلكس","netflix"],
+          "تواصل اجتماعي": ["تيك توك","tiktok","انستغرام","انستقرام","instagram","فيسبوك","facebook","يوتيوب","youtube","تلغرام","تليجرام","telegram","سناب","snap","تويتر","twitter","ثريدز","threads"],
+          "تطبيقات دردشة": ["بيجو","bigo","يلا","yalla","أهلا","اهلا","ahlan","تانجو","tango","لايكي","likee","سول","soul","أزرق","ازرق","هاكو","hago","ويبلاي","weplay","أولامي","olamet"]
+        };
+        const popList = POP_MAP[mainCatFilter] || [];
+        const getPopRank = (n) => {
+          const low = (n || "").toLowerCase();
+          const idx = popList.findIndex(k => low.includes(k));
+          return idx === -1 ? 999 : idx;
+        };
+        groups.sort((a, b) => {
+          const r = getPopRank(a.name) - getPopRank(b.name);
+          if (r !== 0) return r;
+          const c = (b.count || 0) - (a.count || 0);
+          return c !== 0 ? c : a.name.localeCompare(b.name, "ar");
+        });
         bread.textContent = `📂 ${mainCatFilter} (${groups.length} لعبة / خدمة)`;
         grid.innerHTML = groups.map(g => {
           const singleSub = g.subs.size === 1 ? Array.from(g.subs)[0] : null;
