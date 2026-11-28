@@ -2068,7 +2068,7 @@ class CloudHandler(BaseHTTPRequestHandler):
             if not sup_id:
                 self._json({"ok": False, "msg": "معرّف المورد مفقود"}, 400); return
             try:
-                sb_request("DELETE", f"/rest/v1/products?sku=like.{quote(f'SMM:{sup_id}:*')}")
+                sb_request("DELETE", f"/rest/v1/products?sku=ilike.{quote(f'SMM:{sup_id}:', safe=':')}*")
                 invalidate_cache("products")
                 self._json({"ok": True, "msg": f"تم حذف جميع خدمات المورد {sup_id}"})
             except Exception as e:
