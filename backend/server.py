@@ -1,7 +1,7 @@
 import re, gzip
 from urllib.parse import urlencode, quote
 import os, json, time, hmac, hashlib, base64, struct, secrets, threading
-import urllib.request, urllib.error
+import urllib.request, urllib.error, urllib.parse
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from http.cookies import SimpleCookie
 from urllib.parse import urlparse, quote, parse_qs
