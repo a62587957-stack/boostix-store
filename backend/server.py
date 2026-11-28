@@ -2046,10 +2046,33 @@ class CloudHandler(BaseHTTPRequestHandler):
                             "active": bool(auto_activate),
                         })
 
+                # إزالة أي تكرار لـ sku داخل نفس الدفعة لتجنب رفض Supabase للدفعة كاملة
+                _dedup_ins = {}
+                for _row in to_insert:
+                    _dedup_ins[_row["sku"]] = _row
+                to_insert = list(_dedup_ins.values())
+
+                upd_ok, ins_ok, batch_errs = 0, 0, []
                 for i in range(0, len(to_update), 200):
-                    sb_request("POST", "/rest/v1/products", to_update[i:i+200], extra_headers={"Prefer": "resolution=merge-duplicates"})
+                    r = sb_request("POST", "/rest/v1/products", to_update[i:i+200], extra_headers={"Prefer": "resolution=merge-duplicates,return=representation"})
+                    if isinstance(r, list):
+                        upd_ok += len(r)
+                    elif isinstance(r, dict) and (r.get("error") or r.get("message")):
+                        batch_errs.append(str(r.get("message") or r.get("error"))[:120])
+
                 for i in range(0, len(to_insert), 200):
-                    sb_request("POST", "/rest/v1/products", to_insert[i:i+200])
+                    chunk = to_insert[i:i+200]
+                    r = sb_request("POST", "/rest/v1/products?on_conflict=sku", chunk, extra_headers={"Prefer": "resolution=merge-duplicates,return=representation"})
+                    if isinstance(r, list):
+                        ins_ok += len(r)
+                    else:
+                        # محاولة احتياطية بدفعات أصغر (25) لتفادي توقف 200 منتج بسبب سجل واحد
+                        for j in range(0, len(chunk), 25):
+                            r2 = sb_request("POST", "/rest/v1/products?on_conflict=sku", chunk[j:j+25], extra_headers={"Prefer": "resolution=merge-duplicates,return=representation"})
+                            if isinstance(r2, list):
+                                ins_ok += len(r2)
+                            elif isinstance(r2, dict) and (r2.get("error") or r2.get("message")):
+                                batch_errs.append(str(r2.get("message") or r2.get("error"))[:120])
 
                 if meta_changed:
                     try:
@@ -2058,7 +2081,9 @@ class CloudHandler(BaseHTTPRequestHandler):
                         pass
 
                 invalidate_cache("products")
-                self._json({"ok": True, "total": len(items), "updated": len(to_update), "added": len(to_insert)})
+                if ins_ok == 0 and upd_ok == 0 and batch_errs:
+                    self._json({"ok": False, "msg": f"رفض Supabase الإدراج: {batch_errs[0]}"}, 400); return
+                self._json({"ok": True, "total": len(items), "updated": upd_ok, "added": ins_ok})
             except Exception as e:
                 self._json({"ok": False, "msg": f"فشلت المزامنة التلقائية: {str(e)[:180]}"}, 400)
             return
