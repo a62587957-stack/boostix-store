@@ -1613,6 +1613,36 @@
     return raw;
   }
 
+  const KEYWORD_ICONS = [
+    [["ببجي", "pubg", "شدة", "شدات", "uc", "bubg"], "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/0c/1a/dc/0c1adcc0-b63f-6bdb-3cba-d74161aad06a/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/200x200bb.jpg"],
+    [["فري فاير", "free fire", "جواهر"], "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/ef/16/6b/ef166bba-1d69-85f5-ed84-6b7c6e73b55c/AppIcon-1788350393-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg"],
+    [["جواكر", "jawaker", "توكن"], "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2f/47/57/2f475724-672b-0135-3b2b-c17229dc1822/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/200x200bb.jpg"],
+    [["يلا لودو", "yalla ludo"], "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/b1/64/b1/b164b19a-dab2-d340-322e-bcec8abc3f86/AppIcon-0-0-1x_U007emarketing-0-8-0-sRGB-85-220.png/200x200bb.jpg"],
+    [["روبلوكس", "roblox", "روبوكس"], "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/05/b8/b8/05b8b8cc-1410-a32b-eb2c-3e24acd99189/AppIcon-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg"],
+    [["موبايل ليجند", "mobile legend"], "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/11/2c/17/112c17b5-3220-e5c5-85a5-437ee5a14b6c/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/200x200bb.jpg"],
+    [["اكس بوكس", "xbox"], "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2c/e3/83/2ce38364-dcd0-2f9b-4796-3b1c94d99370/AppIcon-1x_U007epad-0-1-85-220-0.png/200x200bb.jpg"],
+    [["نينتندو", "نينتيندو", "nintendo"], "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/dc/1a/26/dc1a26ff-3ade-40a8-a161-5c14f6239af1/AppIcon-0-0-1x_U007epad-0-1-0-sRGB-85-220.png/200x200bb.jpg"],
+    [["ايبك", "epic"], "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/5b/63/2b/5b632bca-c114-bf8d-cc8d-27db59550a3b/AppIcon-Companion-0-0-1x_U007emarketing-0-11-0-85-220.png/200x200bb.jpg"],
+    [["بلاي ستيشن", "بلايستيشن", "playstation"], "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/7a/47/a6/7a47a62b-e11d-e11a-62b0-529d38ba42b3/PlayStation-0-0-1x_U007epad-0-1-0-sRGB-85-220.png/200x200bb.jpg"],
+    [["ايتونز", "itunes", "apple"], "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/60/3f/08/603f0813-d8d8-4478-3373-5a63288415e6/AppIcon-0-1x_U007epad-0-0-0-1-0-0-P3-85-220-0.png/200x200bb.jpg"],
+    [["غوغل بلاي", "google play"], "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/72/33/d8/7233d884-35b3-1ed3-4376-b3888064295f/SuperG_ios26-0-0-1x_U007epad-0-0-0-1-0-0-sRGB-0-0-0-85-220.png/200x200bb.jpg"],
+    [["ريزر", "razer"], "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/d5/62/70/d5627022-54a9-0a77-03f0-bcdd4e86c8ac/walletCalistoga-0-0-1x_U007ephone-0-1-0-85-220.png/200x200bb.jpg"],
+    [["أمازون", "امازون", "amazon"], "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/87/2c/05/872c0572-ddd5-ee40-23af-41860e79bf16/AppIcon-0-0-1x_U007epad-0-1-0-0-85-220.png/200x200bb.jpg"],
+    [["تلغرام", "تليجرام", "telegram"], "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/2f/1b/e8/2f1be808-3e4c-9edc-7ab6-3508a48aac84/Telegram-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg"],
+    [["انستغرام", "انستقرام", "instagram"], "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/e3/33/79/e3337974-a4b4-d9c5-8fb6-ca99b98f955c/Prod-0-0-1x_U007epad-0-0-0-1-0-0-sRGB-85-220.png/200x200bb.jpg"],
+    [["تيك توك", "tiktok"], "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/85/ba/e5/85bae56f-d7a9-e3ff-a7b6-c48469df6110/TikTok_AppIcon26-0-0-1x_U007epad-0-1-0-85-220.png/200x200bb.jpg"],
+    [["فيسبوك", "facebook"], "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/91/89/b1/9189b13c-0c43-53f8-19d8-ad683fb6d420/Icon-Production-0-0-1x_U007epad-0-1-0-sRGB-85-220.png/200x200bb.jpg"],
+    [["يوتيوب", "youtube"], "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/14/ce/45/14ce45d8-5ca6-1dfa-c4a5-4660061cf213/logo_youtube_2024_q4_color-0-0-1x_U007emarketing-0-0-0-7-0-0-0-85-220.png/200x200bb.jpg"],
+    [["شات", "لايف", "دردشة", "chat", "live"], "/assets/categories/cat_10.webp"],
+    [["تصميم", "كانفا", "كاب كات", "كاب كت"], "/assets/categories/cat_06.webp"]
+  ];
+  function _matchKeywordIcon(txt) {
+    const low = String(txt || "").toLowerCase();
+    for (const [keys, url] of KEYWORD_ICONS) {
+      if (keys.some(k => low.includes(k))) return url;
+    }
+    return "";
+  }
   function resolveSubIcon(subName, fallbackIcon) {
     if (subName) {
       if (SUB_ICONS[subName]) return SUB_ICONS[subName];
@@ -1633,6 +1663,8 @@
         if (_kn === _sn || _kn.startsWith(_sn + " - ") || _sn.startsWith(_kn + " - ")) return v;
       }
     }
+        const _kwIco = _matchKeywordIcon(subName);
+    if (_kwIco) return _kwIco;
     return fallbackIcon || "🎮";
   }
 

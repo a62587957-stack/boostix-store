@@ -352,6 +352,7 @@ def save_store_settings(new_data):
     return cur
 
 def _classify_boostix_category(raw_cat, raw_name=""):
+    import re
     VALID_MAINS = {
         "الألعاب", "بطاقات شحن", "تطبيقات دردشة", "تواصل اجتماعي",
         "قسم الأرقام", "شاشة VIP", "ذكاء اصطناعي Ai", "توثيق حسابات",
@@ -360,30 +361,53 @@ def _classify_boostix_category(raw_cat, raw_name=""):
     c = str(raw_cat or "").strip()
     if "|" in c:
         m = c.split("|", 1)[0].strip()
-        if m in VALID_MAINS:
-            return c
+        sub_part = c.split("|", 1)[1].strip()
+        if m in VALID_MAINS and sub_part and sub_part != m:
+            c = sub_part
     sub = c or str(raw_name or "خدمات عامة").strip()
-    t = f"{c} {raw_name}".lower()
+    t = f" {c} {raw_name} ".lower()
 
-    if any(k in t for k in ["vpn", "nord", "surfshark", "express", "proton", "hotspot", "pia", "pure vpn"]):
+    def has_word(words):
+        for w in words:
+            if re.search(r'(?:^|[^a-z])' + re.escape(w) + r'(?:$|[^a-z])', t):
+                return True
+        return False
+
+    # 1. الألعاب المستثناة من أي تداخل كلمات
+    if any(k in t for k in ["heartopia", "هارتوبيا", "growtopia", "غروتوبيا", "honkai", "هونكاي", "modern strike", "موديرن سترايك", "legacy of discord", "ليغاسي أوف ديسكورد", "pubg", "ببجي", "free fire", "فري فاير", "jawaker", "جواكر", "yalla ludo", "يلا لودو", "roblox", "روبلوكس"]):
+        if any(k in t for k in ["اكواد", "أكواد", "codes", "بطاقات"]) and not any(k in t for k in ["شدة", "شدات", "روبوت", "عضويات"]):
+            main = "بطاقات شحن"
+        else:
+            main = "الألعاب"
+    # 2. VPN (مطابقة دقيقة لـ pia)
+    elif has_word(["vpn", "nord", "surfshark", "expressvpn", "proton", "hotspot shield", "pia vpn", "pure vpn"]) or "vpn" in t:
         main = "Vpn مدفوع"
-    elif any(k in t for k in ["gpt", "chatgpt", "chat gbt", "claude", "gemini", "grok", "perplexity", "kling", "elevenlabs", "lovable", "gamma", "midjourney", "ai", "ذكاء اصطناعي"]):
+    # 3. تواصل اجتماعي (قبل الأرقام لمنع تداخل تلغرام وواتساب)
+    elif any(k in t for k in ["رشق", "متابعين", "لايكات", "مشاهدات", "تفاعلات", "تلغرام مميز", "telegram premium", "انستغرام", "انستقرام", "تيك توك", "فيسبوك", "سناب شات", "ثريدز", "كواي", "تواصل اجتماعي", "instagram", "tiktok", "facebook", "snapchat"]):
+        main = "تواصل اجتماعي"
+    # 4. قسم الأرقام
+    elif any(k in t for k in ["أرقام", "ارقام", "واتساب", "whatsapp", "number", "sms", "أمريكي - united", "بريطانيا", "ألمانيا", "فرنسا", "كندا", "إسبانيا", "استراليا", "فيتنام", "مصر - egypt", "المغرب", "اندونيسيا", "فلبين", "تشيلي", "هونغ كونغ", "الإمارات", "نيوزيلندا"]):
+        main = "قسم الأرقام"
+    # 5. ذكاء اصطناعي
+    elif any(k in t for k in ["gpt", "chatgpt", "chat gbt", "claude", "gemini", "grok", "perplexity", "kling", "elevenlabs", "lovable", "gamma", "midjourney", "ذكاء اصطناعي"]):
         main = "ذكاء اصطناعي Ai"
-    elif any(k in t for k in ["canva", "capcut", "picsart", "adobe", "photoshop", "in video", "تصميم", "مونتاج"]):
+    # 6. برامج تصميم
+    elif any(k in t for k in ["canva", "كانفا", "capcut", "كاب كات", "كاب كت", "picsart", "بيكسارت", "adobe", "photoshop", "filmora", "figma", "autodesk", "in video", "تصميم", "مونتاج"]):
         main = "برامج تصميم"
+    # 7. توثيق حسابات
     elif any(k in t for k in ["توثيق", "علامة زرقاء", "verified", "meta verified", "blue tick"]):
         main = "توثيق حسابات"
-    elif any(k in t for k in ["أرقام", "ارقام", "واتساب", "whatsapp", "تلغرام", "تليجرام", "number", "sms", "أمريكي - united", "بريطانيا", "ألمانيا", "فرنسا", "كندا", "إسبانيا", "استراليا", "فيتنام", "مصر - egypt", "المغرب", "اندونيسيا", "فلبين", "تشيلي", "هونغ كونغ", "الإمارات", "نيوزيلندا"]):
-        main = "قسم الأرقام"
-    elif any(k in t for k in ["رشق", "متابعين", "لايكات", "مشاهدات", "تفاعلات", "انستغرام", "انستقرام", "تيك توك", "فيسبوك", "يوتيوب", "سناب شات", "ثريدز", "كواي", "تويتش", "تواصل اجتماعي", "instagram", "tiktok", "facebook", "youtube", "snapchat", "telegram premium", "تلغرام مميز"]):
-        main = "تواصل اجتماعي"
+    # 8. تطبيقات دردشة
     elif any(k in t for k in ["شات", "دردشة", "لايف", "بيغو", "bigo", "yalla live", "يلا لايف", "sugo", "سوجو", "livu", "mixu", "lita", "meyo", "woohoo", "hee say", "we sing", "وي سينغ", "تطبيقات دردشة", "chat"]):
         main = "تطبيقات دردشة"
-    elif any(k in t for k in ["نتفلكس", "netflix", "شاهد", "shahid", "osn", "iptv", "ip tv", "4k", "disney", "ديزني", "spotify", "سبوتي", "anghami", "انغامي", "apple tv", "amazon prime", "امازون برايم", "stars play", "ستارز بلاي", "شاشة vip", "vip"]):
+    # 9. شاشة VIP واشتراكات
+    elif any(k in t for k in ["نتفلكس", "netflix", "شاهد", "shahid", "osn", "iptv", "ip tv", "4k", "disney", "ديزني", "spotify", "سبوتي", "anghami", "انغامي", "apple tv", "amazon prime", "امازون برايم", "stars play", "duolingo", "scribd", "udemy", "zoom", "gmail", "hotmail", "bitdefender", "windows", "ويندوز", "مايكروسوفت", "شاشة vip"]):
         main = "شاشة VIP"
+    # 10. عملات وأرصدة
     elif any(k in t for k in ["usdt", "trc20", "bep20", "binance", "بينانس", "ترون", "سيريتيل", "syriatel", "mtn", "رصيد", "عملات", "أرصدة", "visa", "فيزا", "mastercard", "paypal", "payeer"]):
         main = "عملات و أرصدة"
-    elif any(k in t for k in ["بطاقات", "ايتونز", "itunes", "apple", "غوغل بلاي", "google play", "بلاي ستيشن", "بلايستيشن", "playstation", "اكس بوكس", "xbox", "ريزر", "razer", "أمازون", "amazon", "شي إن", "shein", "she in", "بليزارد", "blizzard", "ايبك", "epic", "نينتندو", "nintendo", "ستيم", "steam", "ايباي", "epay", "نون", "noon", "جيم ستوب", "discord", "كود", "اكواد", "أكواد", "codes"]):
+    # 11. بطاقات شحن
+    elif any(k in t for k in ["بطاقات", "بطاقة", "ايتونز", "itunes", "غوغل بلاي", "google play", "بلاي ستيشن", "بلايستيشن", "playstation", "اكس بوكس", "xbox", "ريزر", "razer", "أمازون", "amazon", "شي إن", "shein", "she in", "بليزارد", "blizzard", "ايبك", "epic", "نينتندو", "nintendo", "ستيم", "steam", "ايباي", "epay", "نون", "noon", "جيم ستوب", "game stop", "gift card", "اكواد", "أكواد", "codes"]):
         main = "بطاقات شحن"
     else:
         main = "الألعاب"
