@@ -1594,20 +1594,17 @@
     return s.length > 26 ? s.slice(0, 25) + "…" : s;
   }
 
-  function getBrandGroup(subName) {
+  const SONIC_TREE = {"main":["الألعاب","تطبيقات دردشة","تواصل اجتماعي","بطاقات شحن","قسم الأرقام","توثيق حسابات","عملات و أرصدة","ذكاء اصطناعي Ai","شاشة VIP","برامج تصميم","Vpn مدفوع","سحب رواتب"],"sub":{"الألعاب":["BUBG GLOBAL - ببجي عالمي","فري فاير - Free Fire","جواكر - Jawaker","ببجي نيوستيت اكواد - PUBG Newstate Codes","موبايل ليجند - Mobile Legend","فالورانت أمريكي - VALORANT US 🇺🇲","فالورانت تركي - Valorant TRY🇹🇷","ماين كرافت - Mine Craft","شرف الملوك (اكواد) - Honor of Kings codes","بلود سترايك - Blood strike","لوردس موبايل - Lords mobile","Doomsday : Last Survivors","دلتا فورس - Delta force","لودو كلوب - Ludo club","لودو ورلد - Ludo World","يلا لودو - Yalla Ludo","مدينة البلياردو (8 كرات ) - Pool City - 8 Ball","بلياردو - 8BALL POOL","أنداون - UNDAWN","يلا فزعة اكواد - Merge Kingdoms","روبلوكس - Roblox","الفيلق المظلم - Dark legion","حرب الروبوتات - War Robots","حرب الزومبي - State surviver","فار لايت - Far Light84","Whiteout Survival","مارفل رايفلز - Marvel Reveals","شرف الملوك - Honor of king","جنشن امباكت - Genshen Impact","عصر الإمبراطوريات - Age Of Empires Mobile","الجزيرة المفقودة - Guns of glory","هيرو كلاش - Hero Clash","هونكاي : ستار ريل - Honkai : Star Rail","الهوية الخامسة - identity v","سيتي اوف كرايم - City Of Crime Gang War","زيبيتو (افتار) - Zepeto","ذا ديفيجن ريسيرجنس - division resurgence","رحلة الاسترخاء - afk journey","عصر السحر - age of magic","غوست ستوري لوف ديستيني - ghost story love destiny","غوديس اوف فيكتوري : goddess of victory nikke","ارينا اوف فالور - arena of valor EU","غروتوبيا - growtopia","غولدن سباتيولا - golden spatula","هاتسوني ميكو كالورفول ستيج - hatsune miku colorful stage","أركنايتس: إندفيلد - arknights endfield","هايكيو فلاي هاي - haikyu fly high SEA","باليستك هيرو - ballistic hero vng","هيفن بيرنز  ريد - heaven burns red","استرال غارديانز - astral guardians cyber fantasy","بليد إكس أوديسي أوف هيروز - blade x odyssey of heroes","بي ذا كينغ - be the king","اسفلت 9 ليجندز - asphalt 9 legends","هارتوبيا - heartopia","ايسيكاي فيست تيلز أوف ريسيبز - isekai feast tales of recipes","إنفينيت لاغرانج - infinite lagrange","كابتن تسوباسا إيس - captain tsubasa ace","جيد دايناستي نيو فانتسي - jade dynasty new fantasy","هايبر فرونت - hyper front","ايدول بارتي - idol party","كلاش اوف بلانتس - clash of plants","جيرني رينيود فيت فانتسي - journey renewed fate fantasy","سيفيليزيشن إيراس آند ألايز - civilization eras and allies","كوروكو ستريت رايفلز - kuroko street rivals","كلاود سونغ ساغا أوف سكاي ووكرز - cloud song saga of skywalkers","كينغز تشويس - kings choice SEA","كروس فاير ليجندز - crossfire legend","ليجند أوف ذا فينيكس - legend of the phoenix","ليغاسي أوف ديسكورد فيوريوس وينغز - legacy of discord furiouswings","كروس أوت موبايل - crossout mobile","كريستال فول - crystalfall","ديدلي دودز - deadly dudes","دراغون راجا - dragon raja SEA","دراغون نيست إم - dragon nest m SEA","لايف ميك اوفر - life makeover global","دويت نايت  - duet night abyss","دريم آند ليث ريكورد - dream and lethe record","دراغون هير سايلنت غودز - dragonheir silent gods","لوف نيكي - love nikki","لوف آند ديب سبيس - love and deepspace","ايناستي هيروز ليجند سامكوك - dynasty heroes legend samkok","نداء الحرب - Nida Harb","انهايبن وورلد - enhypen world","ايجي بارتي - eggy party","إيكوكاليبس - echocalypse scarlet covenant","ايف إيكوز - eve echoes","انسامبل ستارز - ensemble stars music","ماجيك تشيس - magic chess gogo global","مارڤل مايستيك - marvel mystic mayhem","مارڤل دول - marvel duel","اكسترا اورديني - extraordinary ones","موديرن سترايك - modern strike online","ميراج بيرفيكت - mirage perfect skyline","فوتبول ماستر - football master 2","ماي سينغينغ - my singing monsters","غارينا سبيد - garena speed drifters","مونجيل ستار -mongil star dive","ستورم شوت - stormshot","اوفرمورتال - overmortal idle global","اونميوجي أرينا - onmyoji arena","Fc Mobile"],"Vpn مدفوع":["PIA VPN","غير أب بوستر - GearUP Booster","نورد - Nord VPN (Global)","اكسبريس - Express vpn","سيرف شارك - SurfShark VPN","بيور - Pure VPN","ويندسكرايب - Windscribe VPN","هوت سبوت شيلد - Hotspot Shield VPN","بروتون - Proton vpn"],"بطاقات شحن":["بطاقات Visa","ايتونز - Apple 🍏","ريزر غولد - Razer gold","بلاي ستيشن - Play Staion","اكس بوكس - XBOX","أمازون - Amazon","غوغل بلاي - Google Play","نينتيندو - Nintendo","بليزارد","جيم ستوب - Game Stop","بليزارد - Blizzard","بطاقات نتفلكس - Netflix","بينانس - BINANCE","اشتراك انغامي بلس عالمي - anghami","بطاقات هدايا ديسكورد - Discord","كاندي كراش - Candy Crush","نون سعودي - noon","اشتراك شاهد VIP للحسابات الانترناشيونال","شي إن - SHE IN","روبلوكس أمريكي -  ROBLOX 🇺🇸","سبوتيفاي أمريكي - Spotify 🇺🇸","ستارز بلاي - STARS PLAY","فورتنايت للحسابات الأمريكية","ايباي - Epay","ايبك - Epic","تويتش - twitch","iTunes USA"],"توثيق حسابات":["تلغرام مميز - Telegram Premium","يوتيوب - YouTube"],"ذكاء اصطناعي Ai":["جيميناي برو - Gemini pro","شات جي بي تي - Chat GBT","ليوناردو - (Leonardo AI (Artisan","غاما - Gamma","كورسور برو - Cursor Pro","بيربلكستي برو - Perplexity Pro","سوبر غروك - Super Grok","Claude","Lovable","Kling AI","ويندوز - Windows","زوم برو - Zoom Pro"],"تواصل اجتماعي":["رشق فيسبوك","رشق انستغرام","رشق تلغرام","رشق تيك توك","رشق وتساب","رشق يوتيوب","رشق كيك","رشق سناب شات","رشق ثريدز","رشق X","رشق تويتش","رشق كواي","رشق سبوتي فاي"],"برامج تصميم":["كاب كات - CAPCUT PRO","بيكسارت - Picsart","كانفا برو - Canva pro","ان فيديو - In video","فلات آيكون - Flaticon","فيغما - Figma","ElevenLabs Creator"],"شاشة VIP":["نتفلكس - NETFLIX","اشتراكات شامنا","شاهد VIP","نتفلكس تركي - NETFLIX Turkey","IP TV","ابل تي ڤي - Apple TV","انغامي بلس - anghami plus","واتش إت - Watch it","امازون برايم - Amazon Prime Video 4K","Blue 4k","OSN Plus","سبوتي فاي - Spotify","Zain 4K","Asmar 4k","ديزني بلس - Disne Plus"],"قسم الأرقام":["أرقام تلغرام","أمريكي - United States","بريطانيا  - United Kingdom","ألمانيا - Germany","كندا  - Canada","استراليا - Australia","فرنسا - France","نيوزيلندا  - Netherlands","هونغ كونغ  - Hong Kong","إسبانيا- Spain","المغرب - Morocco","مصر - Egypt","اندونيسيا - Indonesia","فلبين - Philippines","Vietnam - فيتنام","الإمارات  - United Arab Emirates","تشيلي - Chile"],"عملات و أرصدة":["ترون trc20","رصيد سيريتيل - Syriatel"],"تطبيقات دردشة":["ميكس يو - Mixu","يلا لايف - Yalla live","لايفو شات - Livu Chat","1 ڤي 1 - 1V1","وهوو - WOOHOO","وي سينغ - WE SING","مومو لايف - MOMO LIVE","ليتا شات - Lita chat","هي ساي - Hee say","مانغا تون - Manga toon","فيري فلاي - Fire fly","إيمو - imo","ميو شات - MEYO CHAT","ياهلا - Yahlla","Sugo - سوجو","STAR LITE"]},"l3":{"Fc Mobile":["FC Cambodia","FC Singapore","FC Malaysia"],"بلاي ستيشن - Play Staion":["PlayStation سعودي","PlayStation إمارات","بلاي ستيشن أمريكي 🇺🇸","بلاي ستيشن بريطاني 🇬🇧","بلاي ستيشن كندي 🇨🇦","بلاي ستيشن ياباني 🇯🇵","بلاي ستيشن  بحريني 🇧🇭","بلاي ستيشن  سعودي 🇸🇦","بلاي ستيشن فرنسي 🇫🇷","بلاي ستيشن  إيطالي 🇮🇹","بلاي ستيشن  ألماني 🇩🇪","بلاي ستيشن  قطري 🇶🇦","بلاي ستيشن هولندي 🇳🇱","بلاي ستيشن بلجيكي 🇧🇪","بلاي ستيشن إماراتي 🇦🇪","بلاي ستيشن كويتي 🇰🇼","بلاي ستيشن  عماني 🇴🇲","بلاي ستيشن لبناني 🇱🇧","بلاي ستيشن إيطالي 🇮🇹","بلاي ستيشن نمساوي 🇦🇹","بلايستيشن بريطاني 🇬🇧"],"ريزر غولد - Razer gold":["RAZER عالمي","RAZER اميركي","RAZER تركي","ريزر جولد كندي 🇨🇦","ريزر جولد عالمي","ريزر جولد أمريكي 🇺🇸"],"اكس بوكس - XBOX":["اكس بوكس أمريكي 🇺🇸","اكس بوكس إماراتي 🇦🇪","اكس بوكس سعودي 🇸🇦","اكس بوكس أوروبي 🇪🇺","اكس بوكس كندي 🇨🇦","اكس بوكس بريطاني 🇬🇧"],"ايباي - Epay":["ايباي كندي 🇨🇦","ايباي أمريكي 🇺🇸"],"ايبك - Epic":["ايبك جيمز أمريكي 🇺🇸","ايبك جيمز إماراتي 🇦🇪","ايبك جيمز سعودي 🇸🇦"],"ايتونز - Apple 🍏":["ايتونز تركي 🇹🇷","ايتونز أمريكي 🇺🇸","ايتونز بريطاني 🇬🇧","ايتونز سعودي 🇸🇦","ايتونز إيطالي 🇮🇹","ايتونز فرنسي 🇫🇷","ايتونز كندي 🇨🇦","ايتونز  إماراتي","ايتونز ألماني","ايتونز بريطاني","ايتونز إسباني","ايتونز برتغالي","ايتونز  بلجيكي","ايتونز فرنسي","ايتونز كندي"],"بليزارد - Blizzard":["بليزرد أوروبي 🇪🇺","بليزرد أمريكي 🇺🇸"],"رشق تلغرام":["تفاعلات تلغرام"],"تويتش - twitch":["تويتش كندي 🇨🇦","تويتش أمريكي 🇺🇸"],"روبلوكس - Roblox":["روبلوكس امريكي - Roblox US 🇺🇸","روبلوكس سعودي - Roblox SAU🇸🇦","روبلوكس اماراتي - Roblox UAE 🇦🇪","روبلوكس كندي - Roblox CAN 🇨🇦","روبلوكس اوروبي - Roblox EUR 🇪🇺","روبلوكس كندي","روبلوكس إماراتي","روبلوكس سعودي"],"غوغل بلاي - Google Play":["غوغل بلاي امريكي - 🇺🇸","غوغل بلاي تركي - 🇹🇷","غوغل بلاي سعودي -  🇸🇦","غوغل بلاي اماراتي - 🇦🇪","غوغل بلاي سعودي 🇸🇦","غوغل بلاي أمريكي 🇺🇸","غوغل بلاي إماراتي 🇦🇪","غوغل بلاي بريطاني 🇬🇧","غوغل بلاي كندي 🇨🇦"],"جواكر - Jawaker":["مسرعات جواكر - Jawaker Boosters","باقات جواكر - Jawaker packages"],"موبايل ليجند - Mobile Legend":["موبايل ليجند عالمي - Mobile Legend Global","موبايل ليجند تركي - Mobile Legends Turkish"],"بطاقات نتفلكس - Netflix":["نتفلكس أمريكي 🇺🇸","نتفلكس سعودي 🇸🇦","نتفلكس إماراتي 🇦🇪"],"BUBG GLOBAL - ببجي عالمي":["ببجي روبوت - BUBG robot","عضويات ببجي - PUBG Memberships","ببجي عالمي اكواد - PUBG World Codes"],"دلتا فورس - Delta force":["دلتا فورس عالمي - Delta force Global"],"يلا لودو - Yalla Ludo":["يلا لودو ذهب - Yalla Ludo Gold","Yalla Ludo Diamonds ألماس"],"أمازون - Amazon":["أمازون بريطاني 🇬🇧","أمازون كندي 🇨🇦","أمازون إماراتي 🇦🇪","أمازون أمريكي 🇺🇸","أمازون سعودي 🇸🇦"],"نينتيندو - Nintendo":["بطاقات نينتندو كندي","بطاقات نينتندو أمريكي - Nintendo"],"امازون برايم - Amazon Prime Video 4K":["امازون برايم فيديو أمريكي - Amazon prime"],"فار لايت - Far Light84":["FarLight84"],"فري فاير - Free Fire":["أكواد فري فاير - Free Fire Codes","عضويات فري فاير","فري فاير روبوت - Free Fire Robot"],"بلياردو - 8BALL POOL":["Cash Ball","Coin Ball"],"بلود سترايك - Blood strike":["بلود سترايك عالمي - Blood Strike (GLOBAL)","بلود سترايك العرب - (Blood strike (MENA العرب"]}};
+  function getBrandGroup(subName, mainName) {
     const raw = (subName || "").trim();
-    const low = raw.toLowerCase();
-    if (low.startsWith("fc mobile") || low.includes("fc mobile")) return "FC Mobile";
-    if (low.includes("بلود سترايك") || low.includes("blood strike")) return "بلود سترايك - Blood strike";
-    if (low.includes("شرف الملوك") || low.includes("honor of king")) return "شرف الملوك - Honor of Kings";
-    if (low.includes("ببجي عالمي") || low.includes("bubg global") || low.includes("pubg world")) return "ببجي عالمي - PUBG Mobile";
-    if (low.includes("فري فاير") || low.includes("free fire")) return "فري فاير - Free Fire";
-    if (low.includes("جواكر") || low.includes("jawaker")) return "جواكر - Jawaker";
-    if (low.includes("روبلوكس") || low.includes("roblox")) return "روبلوكس - Roblox";
-    if (low.includes("موبايل ليجند") || low.includes("mobile legend")) return "موبايل ليجند - Mobile Legend";
-    if (low.includes("يلا لودو") || low.includes("yalla ludo")) return "يلا لودو - Yalla Ludo";
-    if (low.includes("دلتا فورس") || low.includes("delta force")) return "دلتا فورس - Delta Force";
-    if (low.includes("بلياردو") || low.includes("8ball")) return "بلياردو - 8Ball Pool";
+    if (!raw) return raw;
+    const subs = (mainName && SONIC_TREE.sub[mainName]) ? SONIC_TREE.sub[mainName] : Object.values(SONIC_TREE.sub).flat();
+    if (subs.includes(raw)) return raw;
+    let best = "";
+    for (const s of subs) {
+      if ((raw === s || raw.startsWith(s + " - ")) && s.length > best.length) best = s;
+    }
+    if (best) return best;
     const parts = raw.split(" - ").map(s => s.trim()).filter(Boolean);
     if (parts.length >= 3) return parts[0] + " - " + parts[1];
     return raw;
@@ -2047,7 +2044,7 @@
     }
     document.getElementById("dr-currency-btn").textContent = showSYPPrimary ? "🔄 العملة الحالية: ليرة سورية (SYP)" : "🔄 العملة الحالية: دولار (USD)";
 
-    const orderedMains = ["الألعاب", "بطاقات شحن", "تطبيقات دردشة", "تواصل اجتماعي", "قسم الأرقام", "شاشة VIP", "ذكاء اصطناعي Ai", "توثيق حسابات", "برامج تصميم", "عملات و أرصدة", "Vpn مدفوع"];
+    const orderedMains = (SONIC_TREE.main && SONIC_TREE.main.length) ? SONIC_TREE.main : ["الألعاب", "تطبيقات دردشة", "تواصل اجتماعي", "بطاقات شحن", "قسم الأرقام", "شاشة VIP", "ذكاء اصطناعي Ai", "توثيق حسابات", "برامج تصميم", "عملات و أرصدة", "Vpn مدفوع"];
     const products = (DATA.products || []).slice().sort((a, b) => (parseFloat(a.price_usd) || 0) - (parseFloat(b.price_usd) || 0));
     const existingMains = [...new Set(products.map(p => splitGameField(p.game).main))];
     const mainCats = orderedMains.filter(m => existingMains.includes(m));
@@ -2099,41 +2096,59 @@
       } else if (brandGroupFilter) {
         const inGroup = products.filter(p => {
           const info = splitGameField(p.game);
-          return info.main === mainCatFilter && getBrandGroup(info.sub) === brandGroupFilter;
+          return info.main === mainCatFilter && getBrandGroup(info.sub, info.main) === brandGroupFilter;
         });
+        const directProducts = [];
         const subMap = new Map();
         inGroup.forEach(p => {
           const sub = splitGameField(p.game).sub;
-          if (!subMap.has(sub)) subMap.set(sub, { name: sub, icon: resolveSubIcon(sub, p.icon), count: 0, minPrice: p.price_usd });
-          const entry = subMap.get(sub);
-          entry.count++;
-          if (p.price_usd < entry.minPrice) entry.minPrice = p.price_usd;
+          if (sub === brandGroupFilter) {
+            directProducts.push(p);
+          } else {
+            if (!subMap.has(sub)) subMap.set(sub, { name: sub, icon: resolveSubIcon(sub, p.icon), count: 0, minPrice: p.price_usd });
+            const entry = subMap.get(sub);
+            entry.count++;
+            if (p.price_usd < entry.minPrice) entry.minPrice = p.price_usd;
+          }
         });
+        const l3List = SONIC_TREE.l3[brandGroupFilter] || [];
+        const l3Rank = (fullSub) => {
+          const clean = fullSub.startsWith(brandGroupFilter + " - ") ? fullSub.slice(brandGroupFilter.length + 3).trim() : fullSub;
+          const idx = l3List.indexOf(clean);
+          return idx === -1 ? 9999 : idx;
+        };
         const subs = Array.from(subMap.values()).sort((a, b) => {
-          const prio = (n) => {
-            const l = (n || "").toLowerCase();
-            if (l.includes("عالمي") || l.includes("global")) return 0;
-            if (l.includes("أمريكي") || l.includes("امريكي") || l.includes("usa") || l.includes("us")) return 1;
-            if (l.includes("سعودي") || l.includes("إماراتي") || l.includes("اماراتي")) return 2;
-            return 10;
-          };
-          const d = prio(a.name) - prio(b.name);
+          const d = l3Rank(a.name) - l3Rank(b.name);
           return d !== 0 ? d : a.name.localeCompare(b.name, "ar");
         });
-        bread.textContent = `📂 ${brandGroupFilter} (${subs.length} قسم)`;
-        grid.innerHTML = subs.map(s => `
+        bread.textContent = `📂 ${brandGroupFilter} (${subs.length ? subs.length + " قسم" : ""}${subs.length && directProducts.length ? " + " : ""}${directProducts.length ? directProducts.length + " باقة" : ""})`;
+        const subsHtml = subs.map(s => {
+          const dispName = s.name.startsWith(brandGroupFilter + " - ") ? s.name.slice(brandGroupFilter.length + 3) : s.name;
+          return `
           <div class="p-card" onclick='selectSubCat(${JSON.stringify(s.name)})'>
             <div class="bx-slot-icon">${renderIconHTML(s.icon, 96)}</div>
-            <div class="bx-slot-title">${shortCardTitle(s.name.replace(brandGroupFilter + " - ", ""))}</div>
+            <div class="bx-slot-title">${shortCardTitle(dispName)}</div>
             <div class="bx-slot-meta">${fmtPriceMain(s.minPrice)}</div>
             <div class="bx-slot-cta">عرض</div>
-          </div>`).join("");
+          </div>`;
+        }).join("");
+        const prodsHtml = directProducts.map(p => {
+          const info = splitGameField(p.game);
+          return `
+          <div class="p-card" onclick="openBuy(${p.id})">
+            <div class="bx-slot-icon">${renderIconHTML(resolveSubIcon(info.sub, p.icon), 96)}</div>
+            <div class="bx-slot-title">${shortCardTitle(p.pack)}</div>
+            <div class="bx-slot-meta">${fmtPriceMain(p.price_usd)}</div>
+            <div class="bx-slot-cta">شراء</div>
+          </div>`;
+        }).join("");
+        grid.innerHTML = subsHtml + prodsHtml || `<div class="panel" style="grid-column:1/-1; text-align:center;">لا توجد باقات مطابقة.</div>`;
       } else {
         const inMain = products.filter(p => splitGameField(p.game).main === mainCatFilter);
         const groupMap = new Map();
         inMain.forEach(p => {
           const sub = splitGameField(p.game).sub;
-          const grp = getBrandGroup(sub);
+          const grp = getBrandGroup(sub, mainCatFilter);
           if (!groupMap.has(grp)) groupMap.set(grp, { name: grp, icon: resolveSubIcon(sub, p.icon), subs: new Set(), count: 0, minPrice: p.price_usd });
           const entry = groupMap.get(grp);
           entry.subs.add(sub);
@@ -2142,23 +2157,15 @@
           if ((!entry.icon || entry.icon === "🎮") && resolveSubIcon(sub, p.icon) !== "🎮") entry.icon = resolveSubIcon(sub, p.icon);
         });
         const groups = Array.from(groupMap.values());
-        const POP_MAP = {
-          "الألعاب": ["ببجي عالمي","pubg","فري فاير","free fire","جواكر","jawaker","يلا لودو","yalla ludo","موبايل ليجند","mobile legend","روبلوكس","roblox","fc mobile","بلياردو","8ball","كلاش أوف كلانس","كلاش رويال","ببجي نيوستيت","جنشن","genshin","دلتا فورس","delta force","بلود سترايك","blood strike","شرف الملوك","honor of king","فالورانت","valorant","لوردس","lords","ماين كرافت","minecraft","براول","brawl"],
-          "بطاقات شحن": ["ايتونز","itunes","apple","غوغل بلاي","google play","بلاي ستيشن","بلايستيشن","playstation","اكس بوكس","xbox","ريزر","razer","أمازون","امازون","amazon","ستيم","steam","نينتندو","nintendo","ديسكورد","discord","نون","noon","أنغامي","انغامي","anghami","شاهد","نتفلكس","netflix"],
-          "تواصل اجتماعي": ["تيك توك","tiktok","انستغرام","انستقرام","instagram","فيسبوك","facebook","يوتيوب","youtube","تلغرام","تليجرام","telegram","سناب","snap","تويتر","twitter","ثريدز","threads"],
-          "تطبيقات دردشة": ["بيجو","bigo","يلا","yalla","أهلا","اهلا","ahlan","تانجو","tango","لايكي","likee","سول","soul","أزرق","ازرق","هاكو","hago","ويبلاي","weplay","أولامي","olamet"]
-        };
-        const popList = POP_MAP[mainCatFilter] || [];
-        const getPopRank = (n) => {
-          const low = (n || "").toLowerCase();
-          const idx = popList.findIndex(k => low.includes(k));
-          return idx === -1 ? 999 : idx;
+        const officialSubs = SONIC_TREE.sub[mainCatFilter] || [];
+        const getSubRank = (n) => {
+          const idx = officialSubs.indexOf(n);
+          return idx === -1 ? 9999 : idx;
         };
         groups.sort((a, b) => {
-          const r = getPopRank(a.name) - getPopRank(b.name);
+          const r = getSubRank(a.name) - getSubRank(b.name);
           if (r !== 0) return r;
-          const c = (b.count || 0) - (a.count || 0);
-          return c !== 0 ? c : a.name.localeCompare(b.name, "ar");
+          return a.name.localeCompare(b.name, "ar");
         });
         bread.textContent = `📂 ${mainCatFilter} (${groups.length} لعبة / خدمة)`;
         grid.innerHTML = groups.map(g => {
