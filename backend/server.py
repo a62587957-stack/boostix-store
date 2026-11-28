@@ -1847,6 +1847,23 @@ class CloudHandler(BaseHTTPRequestHandler):
                     if isinstance(resp, list):
                         for it in resp:
                             if not isinstance(it, dict): continue
+                            # استخراج الخانة المطلوبة (param)
+                            p_label = ""
+                            raw_params = it.get("params")
+                            if isinstance(raw_params, list) and raw_params:
+                                first_p = raw_params[0]
+                                p_label = str(first_p.get("name") or first_p.get("label") or "").strip() if isinstance(first_p, dict) else str(first_p).strip()
+                            elif isinstance(raw_params, str):
+                                p_label = raw_params.strip()
+                            # استخراج حدود الكمية (min / max / type)
+                            qv = it.get("qty_values")
+                            mn, mx = 1, 1
+                            if isinstance(qv, dict):
+                                mn, mx = int(qv.get("min") or 1), int(qv.get("max") or 1)
+                            elif isinstance(qv, list) and qv:
+                                try: mn, mx = int(qv[0]), int(qv[-1])
+                                except Exception: mn, mx = 1, 1
+                            is_amt = (str(it.get("product_type") or "").lower() == "amount") or (mx > 1)
                             items.append({
                                 "sid": str(it.get("id", "")).strip(),
                                 "name": str(it.get("name", "")).strip(),
@@ -1854,12 +1871,18 @@ class CloudHandler(BaseHTTPRequestHandler):
                                 "cost": float(it.get("price") or 0),
                                 "avail": bool(it.get("available", True)),
                                 "desc": str(it.get("description") or "").strip(),
+                                "param": p_label,
+                                "type": "amount" if is_amt else "",
+                                "min": mn,
+                                "max": mx,
                             })
                 else:
                     resp = _supplier_http_post(api_url, {"key": api_key, "action": "services"}, timeout=35)
                     if isinstance(resp, list):
                         for it in resp:
                             if not isinstance(it, dict): continue
+                            mn = int(it.get("min") or 1)
+                            mx = int(it.get("max") or 1)
                             items.append({
                                 "sid": str(it.get("service", "")).strip(),
                                 "name": str(it.get("name", "")).strip(),
@@ -1867,6 +1890,10 @@ class CloudHandler(BaseHTTPRequestHandler):
                                 "cost": float(it.get("rate") or 0),
                                 "avail": True,
                                 "desc": str(it.get("description") or "").strip(),
+                                "param": "الرابط أو اسم المستخدم",
+                                "type": "amount" if mx > 1 else "",
+                                "min": mn,
+                                "max": mx,
                             })
 
                 existing = fetch_all_products(active_only=False, full_fields=True)
@@ -1890,8 +1917,17 @@ class CloudHandler(BaseHTTPRequestHandler):
                     price_usd = round(max(0.01, it["cost"] * (1.0 + margin_pct / 100.0)), 2)
                     k = f"{sup_id}:{it['sid']}"
                     sku_val = f"SMM:{sup_id}:{it['sid']}:1"
-                    if it["desc"]:
-                        pack_meta[sku_val] = {**(pack_meta.get(sku_val) or {}), "desc": it["desc"]}
+                    meta_entry = dict(pack_meta.get(sku_val) or {})
+                    if it.get("desc"):
+                        meta_entry["desc"] = it["desc"]
+                    if it.get("param"):
+                        meta_entry["param"] = it["param"]
+                    if it.get("type") == "amount":
+                        meta_entry["type"] = "amount"
+                        meta_entry["min"] = it.get("min") or 1
+                        meta_entry["max"] = it.get("max") or 1000000
+                    if meta_entry:
+                        pack_meta[sku_val] = meta_entry
                         meta_changed = True
                     if k in by_key:
                         pr = by_key[k]
