@@ -1203,7 +1203,7 @@
   async function delProd(id) {
     if (!confirm("حذف الباقة #" + id + " نهائياً؟")) return;
     await apiFetch("/api/admin/product-del", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-    showToast("🗑️ تم حذف الباقة");
+    showToast(data.msg ? ("ℹ️ " + data.msg) : "🗑️ تم حذف الباقة");
     loadOverview(true);
   }
   async function applyBulkMargin() {

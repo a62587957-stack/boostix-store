@@ -2071,8 +2071,16 @@ class CloudHandler(BaseHTTPRequestHandler):
                 # جلب المنتجات المرتبطة بطلبات سابقة لتجنب خطأ orders_product_id_fkey
                 ord_rows = sb_request("GET", "/rest/v1/orders?select=product_id")
                 used_ids = {int(r["product_id"]) for r in (ord_rows if isinstance(ord_rows, list) else []) if r.get("product_id")}
-                sup_rows = sb_request("GET", f"/rest/v1/products?sku=ilike.{quote(f'SMM:{sup_id}:', safe=':')}*&select=id")
-                sup_ids = [int(r["id"]) for r in (sup_rows if isinstance(sup_rows, list) else []) if r.get("id")]
+                sup_ids = []
+                offset = 0
+                while True:
+                    sup_rows = sb_request("GET", f"/rest/v1/products?sku=ilike.{quote(f'SMM:{sup_id}:', safe=':')}*&select=id&limit=1000&offset={offset}")
+                    if not isinstance(sup_rows, list) or not sup_rows:
+                        break
+                    sup_ids.extend(int(r["id"]) for r in sup_rows if r.get("id"))
+                    if len(sup_rows) < 1000:
+                        break
+                    offset += 1000
                 del_ids = [i for i in sup_ids if i not in used_ids]
                 arc_ids = [i for i in sup_ids if i in used_ids]
 
