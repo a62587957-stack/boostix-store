@@ -2068,13 +2068,33 @@ class CloudHandler(BaseHTTPRequestHandler):
             if not sup_id:
                 self._json({"ok": False, "msg": "معرّف المورد مفقود"}, 400); return
             try:
-                res = sb_request("DELETE", f"/rest/v1/products?sku=ilike.{quote(f'SMM:{sup_id}:', safe=':')}*", prefer_rep=True)
-                if isinstance(res, dict) and (res.get("error") or res.get("message") or res.get("code")):
-                    err = res.get("message") or res.get("error") or str(res)
-                    self._json({"ok": False, "msg": f"رفض Supabase الحذف: {str(err)[:180]}"}, 400); return
-                deleted_cnt = len(res) if isinstance(res, list) else 0
+                # جلب المنتجات المرتبطة بطلبات سابقة لتجنب خطأ orders_product_id_fkey
+                ord_rows = sb_request("GET", "/rest/v1/orders?select=product_id")
+                used_ids = {int(r["product_id"]) for r in (ord_rows if isinstance(ord_rows, list) else []) if r.get("product_id")}
+                sup_rows = sb_request("GET", f"/rest/v1/products?sku=ilike.{quote(f'SMM:{sup_id}:', safe=':')}*&select=id")
+                sup_ids = [int(r["id"]) for r in (sup_rows if isinstance(sup_rows, list) else []) if r.get("id")]
+                del_ids = [i for i in sup_ids if i not in used_ids]
+                arc_ids = [i for i in sup_ids if i in used_ids]
+
+                deleted_cnt = 0
+                for idx in range(0, len(del_ids), 150):
+                    chunk = ",".join(str(x) for x in del_ids[idx:idx+150])
+                    r = sb_request("DELETE", f"/rest/v1/products?id=in.({chunk})", prefer_rep=True)
+                    if isinstance(r, list):
+                        deleted_cnt += len(r)
+
+                archived_cnt = 0
+                for idx in range(0, len(arc_ids), 150):
+                    chunk = ",".join(str(x) for x in arc_ids[idx:idx+150])
+                    r = sb_request("PATCH", f"/rest/v1/products?id=in.({chunk})", {"active": False}, prefer_rep=True)
+                    if isinstance(r, list):
+                        archived_cnt += len(r)
+
                 invalidate_cache("products")
-                self._json({"ok": True, "deleted": deleted_cnt, "msg": f"تم حذف {deleted_cnt} منتجاً للمورد {sup_id}"})
+                msg = f"تم حذف {deleted_cnt} منتجاً للمورد {sup_id}"
+                if archived_cnt:
+                    msg += f" (وإخفاء {archived_cnt} مرتبطة بطلبات سابقة)"
+                self._json({"ok": True, "deleted": deleted_cnt, "archived": archived_cnt, "msg": msg})
             except Exception as e:
                 self._json({"ok": False, "msg": f"تعذر الحذف: {str(e)[:180]}"}, 400)
             return
@@ -2084,10 +2104,15 @@ class CloudHandler(BaseHTTPRequestHandler):
             if pid > 0:
                 res = sb_request("DELETE", f"/rest/v1/products?id=eq.{pid}", prefer_rep=True)
                 if isinstance(res, dict) and (res.get("error") or res.get("message") or res.get("code")):
-                    err = res.get("message") or res.get("error") or str(res)
-                    self._json({"ok": False, "msg": f"رفض Supabase الحذف: {str(err)[:180]}"}, 400); return
+                    err_str = str(res.get("message") or res.get("error") or res)
+                    if "foreign key" in err_str.lower() or "23503" in str(res.get("code") or ""):
+                        sb_request("PATCH", f"/rest/v1/products?id=eq.{pid}", {"active": False})
+                        invalidate_cache("products")
+                        self._json({"ok": True, "archived": True, "msg": "الباقة مرتبطة بطلب سابق، تم إخفاؤها من المتجر"})
+                        return
+                    self._json({"ok": False, "msg": f"رفض Supabase الحذف: {err_str[:180]}"}, 400); return
                 invalidate_cache("products")
-            self._json({"ok": True})
+            self._json({"ok": True, "msg": "تم حذف الباقة بنجاح"})
             return
 
         if p == "/api/admin/bulk-margin":
