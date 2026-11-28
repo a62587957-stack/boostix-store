@@ -1920,6 +1920,21 @@ class CloudHandler(BaseHTTPRequestHandler):
                                 "max": mx,
                             })
 
+                # تحميل خريطة الأقسام الأصلية من boostix_store_catalog.json
+                CATALOG_GAME_MAP = {}
+                cat_path = os.path.join(os.path.dirname(__file__), "..", "boostix_store_catalog.json")
+                if os.path.exists(cat_path):
+                    try:
+                        _cat_data = json.loads(open(cat_path, encoding="utf-8").read())
+                        for _cp in (_cat_data.get("products") or []):
+                            _cid = str(_cp.get("id") or "").strip()
+                            _mc = str(_cp.get("main_category") or "").strip()
+                            _sc = str(_cp.get("sub_category") or "").strip()
+                            if _cid and _mc and _sc:
+                                CATALOG_GAME_MAP[_cid] = f"{_mc} | {_sc}"
+                    except Exception:
+                        pass
+
                 existing = fetch_all_products(active_only=False, full_fields=True)
                 by_key = {}
                 for pr in existing:
@@ -1955,8 +1970,7 @@ class CloudHandler(BaseHTTPRequestHandler):
                         meta_changed = True
                     if k in by_key:
                         pr = by_key[k]
-                        cur_game = pr.get("game") or it["cat"]
-                        fixed_game = _classify_boostix_category(cur_game, it["name"])
+                        fixed_game = CATALOG_GAME_MAP.get(it["sid"]) or _classify_boostix_category(pr.get("game") or it["cat"], it["name"])
                         to_update.append({
                             "id": pr["id"],
                             "game": fixed_game,
@@ -1969,7 +1983,7 @@ class CloudHandler(BaseHTTPRequestHandler):
                         })
                     else:
                         to_insert.append({
-                            "game": _classify_boostix_category(it["cat"], it["name"]),
+                            "game": CATALOG_GAME_MAP.get(it["sid"]) or _classify_boostix_category(it["cat"], it["name"]),
                             "pack": it["name"],
                             "sku": sku_val,
                             "icon": "🎮",
