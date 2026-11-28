@@ -2068,9 +2068,13 @@ class CloudHandler(BaseHTTPRequestHandler):
             if not sup_id:
                 self._json({"ok": False, "msg": "معرّف المورد مفقود"}, 400); return
             try:
-                sb_request("DELETE", f"/rest/v1/products?sku=ilike.{quote(f'SMM:{sup_id}:', safe=':')}*")
+                res = sb_request("DELETE", f"/rest/v1/products?sku=ilike.{quote(f'SMM:{sup_id}:', safe=':')}*", prefer_rep=True)
+                if isinstance(res, dict) and (res.get("error") or res.get("message") or res.get("code")):
+                    err = res.get("message") or res.get("error") or str(res)
+                    self._json({"ok": False, "msg": f"رفض Supabase الحذف: {str(err)[:180]}"}, 400); return
+                deleted_cnt = len(res) if isinstance(res, list) else 0
                 invalidate_cache("products")
-                self._json({"ok": True, "msg": f"تم حذف جميع خدمات المورد {sup_id}"})
+                self._json({"ok": True, "deleted": deleted_cnt, "msg": f"تم حذف {deleted_cnt} منتجاً للمورد {sup_id}"})
             except Exception as e:
                 self._json({"ok": False, "msg": f"تعذر الحذف: {str(e)[:180]}"}, 400)
             return
@@ -2078,7 +2082,10 @@ class CloudHandler(BaseHTTPRequestHandler):
         if p == "/api/admin/product-del":
             pid = int(body.get("id", 0))
             if pid > 0:
-                sb_request("DELETE", f"/rest/v1/products?id=eq.{pid}")
+                res = sb_request("DELETE", f"/rest/v1/products?id=eq.{pid}", prefer_rep=True)
+                if isinstance(res, dict) and (res.get("error") or res.get("message") or res.get("code")):
+                    err = res.get("message") or res.get("error") or str(res)
+                    self._json({"ok": False, "msg": f"رفض Supabase الحذف: {str(err)[:180]}"}, 400); return
                 invalidate_cache("products")
             self._json({"ok": True})
             return
