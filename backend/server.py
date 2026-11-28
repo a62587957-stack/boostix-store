@@ -1856,6 +1856,19 @@ class CloudHandler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "msg": f"تعذر جلب الخدمات: {str(e)[:180]}"}, 400)
             return
 
+        if p == "/api/admin/activate-all-products":
+            try:
+                sku_enc = urllib.parse.quote(str(SETTINGS_SKU), safe="")
+                path = f"/rest/v1/products?active=eq.false&price_usd=gt.0&sku=neq.{sku_enc}"
+                res = sb_request("PATCH", path, {"active": True}, extra_headers={"Prefer": "return=representation"})
+                with _CACHE_LOCK:
+                    _CACHE.clear()
+                cnt = len(res) if isinstance(res, list) else 0
+                self._json({"ok": True, "activated": cnt})
+            except Exception as e:
+                self._json({"ok": False, "msg": str(e)}, 500)
+            return
+
         if p == "/api/admin/supplier-sync":
             sup_id = str(body.get("supplier_id", "Sonic8store")).strip() or "Sonic8store"
             api_url = str(body.get("api_url", "")).strip()

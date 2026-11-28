@@ -1087,6 +1087,16 @@
     showToast(`✅ تم جلب ${data.total} خدمة (معروض أول 250)`);
   }
 
+  
+  async function activateAllProducts() {
+    if (!confirm("هل تريد تفعيل جميع الباقات غير المفعّلة ذات السعر النظامي؟")) return;
+    showToast("⏳ جاري تفعيل جميع الباقات...");
+    const { data } = await apiFetch("/api/admin/activate-all-products", { method: "POST" });
+    if (!data || !data.ok) return showToast("❌ " + ((data && data.msg) || "فشل التفعيل"), true);
+    showToast(`✅ تم تفعيل ${data.activated} باقة بنجاح!`);
+    if (typeof loadAll === "function") loadAll();
+  }
+
   async function syncSupplierAll(i) {
     const s = _editSuppliers[i];
     const defM = Number((ADM_DATA.payInfo && ADM_DATA.payInfo.default_margin_pct) || 15);
@@ -1440,5 +1450,6 @@ function openUserStatement(uid) {
 }
 </script>
 
-</body>
+<div style="position:fixed;bottom:16px;left:16px;z-index:9999;"><button class="btn" style="background:#10b981;color:#fff;border:none;margin-right:6px;" onclick="activateAllProducts()">✅ تفعيل كل الباقات</button>
+</div></body>
 </html>
