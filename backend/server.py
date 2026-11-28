@@ -1793,6 +1793,107 @@ class CloudHandler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "msg": f"تعذر جلب الخدمات: {str(e)[:180]}"}, 400)
             return
 
+        if p == "/api/admin/supplier-sync":
+            sup_id = str(body.get("supplier_id", "Sonic8store")).strip() or "Sonic8store"
+            api_url = str(body.get("api_url", "")).strip()
+            api_key = str(body.get("api_key", "")).strip()
+            margin_pct = float(body.get("margin_pct", 15))
+            auto_activate = bool(body.get("auto_activate", True))
+            if not api_url or not api_key:
+                self._json({"ok": False, "msg": "أدخل رابط API ومفتاح المزود"}, 400); return
+            try:
+                items = []
+                if _is_sonic8(api_url):
+                    resp = _sonic8_get(api_url, api_key, "/client/api/products", timeout=35)
+                    if isinstance(resp, list):
+                        for it in resp:
+                            if not isinstance(it, dict): continue
+                            items.append({
+                                "sid": str(it.get("id", "")).strip(),
+                                "name": str(it.get("name", "")).strip(),
+                                "cat": str(it.get("category_name", "خدمات عامة")).strip() or "خدمات عامة",
+                                "cost": float(it.get("price") or 0),
+                                "avail": bool(it.get("available", True)),
+                                "desc": str(it.get("description") or "").strip(),
+                            })
+                else:
+                    resp = _supplier_http_post(api_url, {"key": api_key, "action": "services"}, timeout=35)
+                    if isinstance(resp, list):
+                        for it in resp:
+                            if not isinstance(it, dict): continue
+                            items.append({
+                                "sid": str(it.get("service", "")).strip(),
+                                "name": str(it.get("name", "")).strip(),
+                                "cat": str(it.get("category", "خدمات عامة")).strip() or "خدمات عامة",
+                                "cost": float(it.get("rate") or 0),
+                                "avail": True,
+                                "desc": str(it.get("description") or "").strip(),
+                            })
+
+                existing = fetch_all_products(active_only=False, full_fields=True)
+                by_key = {}
+                for pr in existing:
+                    sku_parts = str(pr.get("sku") or "").split(":")
+                    if len(sku_parts) >= 3:
+                        by_key[f"{sku_parts[1]}:{sku_parts[2]}"] = pr
+
+                to_update, to_insert = [], []
+                meta_path = os.path.join(os.path.dirname(__file__), "..", "public", "assets", "pack_meta.json")
+                pack_meta = {}
+                if os.path.exists(meta_path):
+                    try: pack_meta = json.loads(open(meta_path, encoding="utf-8").read())
+                    except Exception: pack_meta = {}
+                meta_changed = False
+
+                for it in items:
+                    if not it["sid"] or not it["name"] or it["cost"] <= 0:
+                        continue
+                    price_usd = round(max(0.01, it["cost"] * (1.0 + margin_pct / 100.0)), 2)
+                    k = f"{sup_id}:{it['sid']}"
+                    sku_val = f"SMM:{sup_id}:{it['sid']}:1"
+                    if it["desc"]:
+                        pack_meta[sku_val] = {**(pack_meta.get(sku_val) or {}), "desc": it["desc"]}
+                        meta_changed = True
+                    if k in by_key:
+                        pr = by_key[k]
+                        to_update.append({
+                            "id": pr["id"],
+                            "game": pr["game"],
+                            "pack": pr["pack"],
+                            "sku": pr["sku"],
+                            "icon": pr.get("icon") or "🎮",
+                            "supplier_cost_usd": round(it["cost"], 4),
+                            "price_usd": price_usd,
+                            "active": bool(auto_activate and it["avail"]),
+                        })
+                    else:
+                        to_insert.append({
+                            "game": it["cat"],
+                            "pack": it["name"],
+                            "sku": sku_val,
+                            "icon": "🎮",
+                            "supplier_cost_usd": round(it["cost"], 4),
+                            "price_usd": price_usd,
+                            "active": bool(auto_activate and it["avail"]),
+                        })
+
+                for i in range(0, len(to_update), 200):
+                    sb_request("POST", "/rest/v1/products", to_update[i:i+200], extra_headers={"Prefer": "resolution=merge-duplicates"})
+                for i in range(0, len(to_insert), 200):
+                    sb_request("POST", "/rest/v1/products", to_insert[i:i+200])
+
+                if meta_changed:
+                    try:
+                        open(meta_path, "w", encoding="utf-8").write(json.dumps(pack_meta, ensure_ascii=False))
+                    except Exception:
+                        pass
+
+                invalidate_cache("products")
+                self._json({"ok": True, "total": len(items), "updated": len(to_update), "added": len(to_insert)})
+            except Exception as e:
+                self._json({"ok": False, "msg": f"فشلت المزامنة التلقائية: {str(e)[:180]}"}, 400)
+            return
+
         if p == "/api/admin/product-del":
             pid = int(body.get("id", 0))
             if pid > 0:

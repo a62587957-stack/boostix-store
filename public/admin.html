@@ -1039,7 +1039,7 @@
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
           <button class="btn btn-green btn-sm" onclick="testSupplier(${i})">🧪 فحص الاتصال والرصيد</button>
-          <button class="btn btn-gold btn-sm" onclick="fetchSupplierServices(${i})">📜 جلب الخدمات</button>
+          <button class="btn btn-gold btn-sm" onclick="fetchSupplierServices(${i})">📜 جلب الخدمات</button> <button class="btn btn-green btn-sm" onclick="syncSupplierAll(${i})">🚀 جلب وتفعيل الكل</button>
           <label style="font-size:12px; font-weight:800;"><input type="checkbox" ${s.active!==false?'checked':''} onchange="_editSuppliers[${i}].active=this.checked"> مفعّل</label>
           <button class="btn btn-rose btn-sm" style="margin-right:auto;" onclick="_editSuppliers.splice(${i},1); drawSuppliersList();">🗑️ حذف</button>
         </div>
@@ -1085,6 +1085,23 @@
       </tr>`;
     }).join("");
     showToast(`✅ تم جلب ${data.total} خدمة (معروض أول 250)`);
+  }
+
+  async function syncSupplierAll(i) {
+    const s = _editSuppliers[i];
+    const defM = Number((ADM_DATA.payInfo && ADM_DATA.payInfo.default_margin_pct) || 15);
+    const mStr = prompt(`أدخل نسبة الربح (%) لإضافتها تلقائياً فوق سعر المورد (${s.id}):`, defM);
+    if (mStr === null) return;
+    const margin_pct = parseFloat(mStr);
+    if (isNaN(margin_pct) || margin_pct < 0 || margin_pct > 500) return showToast("⚠️ نسبة ربح غير صالحة", true);
+    showToast("⏳ جاري جلب وتحديث وتفعيل جميع المنتجات تلقائياً...");
+    const { data } = await apiFetch("/api/admin/supplier-sync", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ supplier_id: s.id, api_url: s.api_url, api_key: s.api_key, margin_pct, auto_activate: true })
+    });
+    if (!data.ok) return showToast("❌ " + (data.msg || "فشلت المزامنة"), true);
+    showToast(`✅ تمت المزامنة: أُضيف ${data.added} وحُدّث ${data.updated} منتجاً تلقائياً!`);
+    loadOverview(true);
   }
 
   // === الإيداعات والطلبات والأرصدة والمنتجات ===
