@@ -1953,7 +1953,8 @@ class CloudHandler(BaseHTTPRequestHandler):
                 for it in items:
                     if not it["sid"] or not it["name"] or it["cost"] <= 0:
                         continue
-                    price_usd = round(max(0.01, it["cost"] * (1.0 + margin_pct / 100.0)), 2)
+                    _raw_p = it["cost"] * (1.0 + margin_pct / 100.0)
+                    price_usd = round(_raw_p, 6) if (it.get("type") == "amount" or _raw_p < 0.05) else round(max(0.01, _raw_p), 2)
                     k = f"{sup_id}:{it['sid']}"
                     sku_val = f"SMM:{sup_id}:{it['sid']}:1"
                     meta_entry = dict(pack_meta.get(sku_val) or {})
@@ -1974,12 +1975,12 @@ class CloudHandler(BaseHTTPRequestHandler):
                         to_update.append({
                             "id": pr["id"],
                             "game": fixed_game,
-                            "pack": pr["pack"],
+                            "pack": it["name"] or pr["pack"],
                             "sku": pr["sku"],
                             "icon": pr.get("icon") or "🎮",
-                            "supplier_cost_usd": round(it["cost"], 4),
+                            "supplier_cost_usd": round(it["cost"], 6),
                             "price_usd": price_usd,
-                            "active": bool(auto_activate and it["avail"]),
+                            "active": bool(auto_activate),
                         })
                     else:
                         to_insert.append({
@@ -1987,9 +1988,9 @@ class CloudHandler(BaseHTTPRequestHandler):
                             "pack": it["name"],
                             "sku": sku_val,
                             "icon": "🎮",
-                            "supplier_cost_usd": round(it["cost"], 4),
+                            "supplier_cost_usd": round(it["cost"], 6),
                             "price_usd": price_usd,
-                            "active": bool(auto_activate and it["avail"]),
+                            "active": bool(auto_activate),
                         })
 
                 for i in range(0, len(to_update), 200):

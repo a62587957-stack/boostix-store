@@ -1644,6 +1644,14 @@
     return "";
   }
   function resolveSubIcon(subName, fallbackIcon) {
+    if (BOOSTIX_ICONS_MAP && subName) {
+      if (BOOSTIX_ICONS_MAP[subName]) return BOOSTIX_ICONS_MAP[subName];
+      const _sn0 = subName.replace(/\s+/g, " ").trim().toLowerCase();
+      for (const [k, v] of Object.entries(BOOSTIX_ICONS_MAP)) {
+        const kl = k.replace(/\s+/g, " ").trim().toLowerCase();
+        if (kl === _sn0 || kl.startsWith(_sn0 + " - ") || _sn0.startsWith(kl + " - ")) return v;
+      }
+    }
     if (subName) {
       if (SUB_ICONS[subName]) return SUB_ICONS[subName];
       const nk = subName.replace(/\s+/g, " ").trim().toLowerCase();
