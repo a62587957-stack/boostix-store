@@ -2061,13 +2061,21 @@ class CloudHandler(BaseHTTPRequestHandler):
                     elif isinstance(r, dict) and (r.get("error") or r.get("message")):
                         batch_errs.append(str(r.get("message") or r.get("error"))[:120])
 
-                for i in range(0, len(to_insert), 500):
-                    chunk = to_insert[i:i+500]
+                for i in range(0, len(to_insert), 250):
+                    chunk = to_insert[i:i+250]
                     r = sb_request("POST", "/rest/v1/products", chunk, extra_headers={"Prefer": "return=representation"}, timeout=25)
                     if isinstance(r, list):
                         ins_ok += len(r)
-                    elif isinstance(r, dict) and (r.get("error") or r.get("message")):
-                        batch_errs.append(str(r.get("message") or r.get("error"))[:120])
+                    else:
+                        if isinstance(r, dict) and (r.get("error") or r.get("message")):
+                            batch_errs.append(str(r.get("message") or r.get("error"))[:120])
+                        # تقسيم الدفعة الفاشلة إلى 25 حتى لا يضيع 250 منتجاً بسبب سجل واحد
+                        for j in range(0, len(chunk), 25):
+                            r2 = sb_request("POST", "/rest/v1/products", chunk[j:j+25], extra_headers={"Prefer": "return=representation"}, timeout=20)
+                            if isinstance(r2, list):
+                                ins_ok += len(r2)
+                            elif isinstance(r2, dict) and (r2.get("error") or r2.get("message")):
+                                batch_errs.append(str(r2.get("message") or r2.get("error"))[:120])
 
                 if meta_changed:
                     try:
@@ -2078,7 +2086,10 @@ class CloudHandler(BaseHTTPRequestHandler):
                 invalidate_cache("products")
                 if ins_ok == 0 and upd_ok == 0 and batch_errs:
                     self._json({"ok": False, "msg": f"رفض Supabase الإدراج: {batch_errs[0]}"}, 400); return
-                self._json({"ok": True, "total": len(items), "updated": upd_ok, "added": ins_ok})
+                resp_obj = {"ok": True, "total": len(items), "updated": upd_ok, "added": ins_ok}
+                if batch_errs:
+                    resp_obj["warnings"] = list(dict.fromkeys(batch_errs))[:3]
+                self._json(resp_obj)
             except Exception as e:
                 self._json({"ok": False, "msg": f"فشلت المزامنة التلقائية: {str(e)[:180]}"}, 400)
             return
