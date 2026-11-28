@@ -1039,7 +1039,7 @@
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
           <button class="btn btn-green btn-sm" onclick="testSupplier(${i})">🧪 فحص الاتصال والرصيد</button>
-          <button class="btn btn-gold btn-sm" onclick="fetchSupplierServices(${i})">📜 جلب الخدمات</button> <button class="btn btn-green btn-sm" onclick="syncSupplierAll(${i})">🚀 جلب وتفعيل الكل</button>
+          <button class="btn btn-gold btn-sm" onclick="fetchSupplierServices(${i})">📜 جلب الخدمات</button> <button class="btn btn-green btn-sm" onclick="syncSupplierAll(${i})">🚀 جلب وتفعيل الكل</button> <button class="btn btn-rose btn-sm" onclick="purgeSupplierProducts(${i})">🗑️ حذف خدماته</button>
           <label style="font-size:12px; font-weight:800;"><input type="checkbox" ${s.active!==false?'checked':''} onchange="_editSuppliers[${i}].active=this.checked"> مفعّل</label>
           <button class="btn btn-rose btn-sm" style="margin-right:auto;" onclick="_editSuppliers.splice(${i},1); drawSuppliersList();">🗑️ حذف</button>
         </div>
@@ -1101,6 +1101,19 @@
     });
     if (!data.ok) return showToast("❌ " + (data.msg || "فشلت المزامنة"), true);
     showToast(`✅ تمت المزامنة: أُضيف ${data.added} وحُدّث ${data.updated} منتجاً تلقائياً!`);
+    loadOverview(true);
+  }
+
+  async function purgeSupplierProducts(i) {
+    const s = _editSuppliers[i];
+    if (!confirm(`⚠️ هل أنت متأكد من حذف جميع المنتجات المرتبطة بالمورد (${s.id}) نهائياً؟\nيمكنك إعادة جلبها بعدها بزر "جلب وتفعيل الكل".`)) return;
+    showToast(`⏳ جاري حذف خدمات المورد ${s.id}...`);
+    const { data } = await apiFetch("/api/admin/supplier-purge", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ supplier_id: s.id })
+    });
+    if (!data.ok) return showToast("❌ " + (data.msg || "فشل الحذف"), true);
+    showToast(`✅ ${data.msg}`);
     loadOverview(true);
   }
 
